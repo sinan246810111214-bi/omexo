@@ -236,50 +236,46 @@ export const Admin: React.FC = () => {
   if (!isAuthenticated) {
     // 1. Authenticated Secure Login Screen
     return (
-      <div className="max-w-md mx-auto py-16 animate-in zoom-in duration-300" id="admin-login-screen">
-        <div className="bg-white border border-slate-100 p-6 rounded-3xl shadow-xl space-y-6">
+      <div className="max-w-md mx-auto py-16 animate-in zoom-in duration-150" id="admin-login-screen">
+        <div className="bg-white border border-zinc-200 p-6 rounded space-y-6">
           <div className="text-center space-y-2">
-            <div className="w-12 h-12 bg-teal-50 text-teal-600 rounded-xl flex items-center justify-center mx-auto shadow-sm">
-              <LogIn className="w-6 h-6" />
+            <div className="w-10 h-10 bg-zinc-50 text-zinc-900 rounded border border-zinc-200 flex items-center justify-center mx-auto">
+              <LogIn className="w-5 h-5" />
             </div>
-            <h2 className="text-xl font-black text-slate-800 leading-none">Omexo Owner Panel</h2>
-            <p className="text-xs text-slate-400">Restricted secure authentication. Authenticate to modify products.</p>
+            <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-900 leading-none">Omexo Owner Panel</h2>
+            <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Restricted secure authentication. Authenticate to modify products.</p>
           </div>
 
           <form onSubmit={handleLoginSubmit} className="space-y-4">
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-600 block">Owner Email</label>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-wider block">Owner Email</label>
               <input
                 type="email"
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="omexoofficial@gmail.com"
-                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-teal-500"
+                placeholder="Enter admin email"
+                className="w-full px-3 py-2 text-xs border border-zinc-200 bg-white rounded focus:outline-none focus:border-black font-semibold text-zinc-800"
                 id="admin-login-email"
               />
             </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-600 block">Console Password</label>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-wider block">Console Password</label>
               <input
                 type="password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-teal-500"
+                className="w-full px-3 py-2 text-xs border border-zinc-200 bg-white rounded focus:outline-none focus:border-black font-semibold text-zinc-800"
                 id="admin-login-password"
               />
             </div>
 
-            <div className="p-3 bg-teal-50 text-[11px] text-teal-800 leading-relaxed rounded-xl font-medium">
-              💡 Hint: To authorize, enter email <strong>omexoofficial@gmail.com</strong> and password <strong>omexo246</strong>.
-            </div>
-
             <button
               type="submit"
-              className="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl text-xs transition-colors"
+              className="w-full py-2.5 bg-black hover:bg-zinc-900 text-white font-bold rounded text-xs uppercase tracking-widest transition-colors"
               id="admin-login-submit"
             >
               Verify Credentials
@@ -291,21 +287,21 @@ export const Admin: React.FC = () => {
   }
 
   return (
-    <div className="space-y-8 pb-16 animate-in fade-in duration-300" id="admin-root-dashboard">
+    <div className="space-y-8 pb-16 animate-in fade-in duration-150" id="admin-root-dashboard">
       
       {/* 2. Top Banner / Header section */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200 pb-5">
         <div>
-          <h1 className="text-2xl font-black text-slate-800 tracking-tight leading-none">Console Command HQ</h1>
-          <p className="text-xs text-slate-400 mt-1">Manage global product listings, order pipelines, and bot alerts.</p>
+          <h1 className="text-xl font-bold uppercase tracking-widest text-zinc-900 leading-none">Console Command HQ</h1>
+          <p className="text-xs text-zinc-500 mt-1.5 font-medium">Manage global product listings, order pipelines, and bot alerts.</p>
         </div>
 
         {/* tab selection list */}
-        <div className="flex bg-slate-100 p-1 rounded-xl shrink-0 gap-1 overflow-x-auto scrollbar-none" id="admin-tab-bar">
+        <div className="flex bg-zinc-100 p-1 rounded shrink-0 gap-1 overflow-x-auto scrollbar-none" id="admin-tab-bar">
           <button
             onClick={() => setActiveTab('orders')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-              activeTab === 'orders' ? 'bg-white text-slate-800 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+            className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer rounded ${
+              activeTab === 'orders' ? 'bg-black text-white' : 'text-zinc-500 hover:text-black'
             }`}
             id="tab-btn-orders"
           >
@@ -313,8 +309,8 @@ export const Admin: React.FC = () => {
           </button>
           <button
             onClick={() => setActiveTab('products')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-              activeTab === 'products' ? 'bg-white text-slate-800 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+            className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer rounded ${
+              activeTab === 'products' ? 'bg-black text-white' : 'text-zinc-500 hover:text-black'
             }`}
             id="tab-btn-products"
           >
@@ -322,8 +318,8 @@ export const Admin: React.FC = () => {
           </button>
           <button
             onClick={() => setActiveTab('telegram')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-              activeTab === 'telegram' ? 'bg-white text-slate-800 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+            className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer rounded ${
+              activeTab === 'telegram' ? 'bg-black text-white' : 'text-zinc-500 hover:text-black'
             }`}
             id="tab-btn-telegram"
           >
@@ -332,7 +328,6 @@ export const Admin: React.FC = () => {
           <button
             onClick={() => {
               setActiveTab('banner');
-              // Ensure fields are fresh
               setBannerBadge(offerBanner.badge);
               setBannerTitle(offerBanner.title);
               setBannerDesc(offerBanner.description);
@@ -341,80 +336,80 @@ export const Admin: React.FC = () => {
               setBannerImageUrl(offerBanner.imageUrl || '');
               setBannerBgImageUrl(offerBanner.backgroundImageUrl || '');
             }}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-              activeTab === 'banner' ? 'bg-white text-slate-800 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+            className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer rounded ${
+              activeTab === 'banner' ? 'bg-black text-white' : 'text-zinc-500 hover:text-black'
             }`}
             id="tab-btn-banner"
           >
-            🔥 Promo Banner
+            Promo Banner
           </button>
           <button
             onClick={() => setActiveTab('crm')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-              activeTab === 'crm' ? 'bg-white text-slate-800 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+            className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer rounded ${
+              activeTab === 'crm' ? 'bg-black text-white' : 'text-zinc-500 hover:text-black'
             }`}
             id="tab-btn-crm"
           >
-            👥 CRM
+            CRM
           </button>
           <button
             onClick={() => setActiveTab('categories_brands')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-              activeTab === 'categories_brands' ? 'bg-white text-slate-800 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+            className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer rounded ${
+              activeTab === 'categories_brands' ? 'bg-black text-white' : 'text-zinc-500 hover:text-black'
             }`}
             id="tab-btn-categories-brands"
           >
-            🏷️ Categories & Brands
+            Categories & Brands
           </button>
         </div>
       </div>
 
       {/* 3. Global Analytical Cards Deck */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4" id="admin-analytics-grid">
-        <div className="bg-white border border-slate-100 p-4 rounded-2xl shadow-xs">
-          <div className="text-[10px] text-slate-400 font-bold uppercase mb-1">Total Revenue</div>
-          <div className="text-lg font-black text-slate-800">₹{totalSalesRevenue.toLocaleString('en-IN')}</div>
-          <div className="text-[9px] text-emerald-600 font-semibold mt-1">COD & Prepaid settled</div>
+        <div className="bg-white border border-zinc-200 p-4 rounded shadow-xs">
+          <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider mb-1">Total Revenue</div>
+          <div className="text-sm font-bold text-zinc-900">₹{totalSalesRevenue.toLocaleString('en-IN')}</div>
+          <div className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider mt-1.5">COD & Prepaid settled</div>
         </div>
 
-        <div className="bg-white border border-slate-100 p-4 rounded-2xl shadow-xs">
-          <div className="text-[10px] text-slate-400 font-bold uppercase mb-1">Lifetime Orders</div>
-          <div className="text-lg font-black text-slate-800">{orders.length} units</div>
-          <div className="text-[9px] text-teal-600 font-semibold mt-1">Processed in system</div>
+        <div className="bg-white border border-zinc-200 p-4 rounded shadow-xs">
+          <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider mb-1">Lifetime Orders</div>
+          <div className="text-sm font-bold text-zinc-900">{orders.length} units</div>
+          <div className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider mt-1.5">Processed in system</div>
         </div>
 
-        <div className="bg-white border border-slate-100 p-4 rounded-2xl shadow-xs">
-          <div className="text-[10px] text-slate-400 font-bold uppercase mb-1">Low Inventory Alert</div>
-          <div className="text-lg font-black text-slate-800">{lowStockCount} items</div>
-          <div className="text-[9px] text-amber-600 font-semibold mt-1">Requires restock priority</div>
+        <div className="bg-white border border-zinc-200 p-4 rounded shadow-xs">
+          <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider mb-1">Low Inventory Alert</div>
+          <div className="text-sm font-bold text-zinc-900">{lowStockCount} items</div>
+          <div className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider mt-1.5">Requires restock priority</div>
         </div>
 
-        <div className="bg-white border border-slate-100 p-4 rounded-2xl shadow-xs">
-          <div className="text-[10px] text-slate-400 font-bold uppercase mb-1">Bot Status</div>
-          <div className="text-lg font-black text-slate-800">
+        <div className="bg-white border border-zinc-200 p-4 rounded shadow-xs">
+          <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider mb-1">Bot Status</div>
+          <div className="text-sm font-bold text-zinc-900">
             {telegramConfig.botToken ? 'Connected' : 'Disconnected'}
           </div>
-          <div className="text-[9px] text-slate-400 font-semibold mt-1">Telegram webhook link</div>
+          <div className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider mt-1.5">Telegram webhook link</div>
         </div>
       </div>
 
       {/* Real-Time Low Stock Alert Panel Widget */}
       {products.some((p) => p.stockCount < 5) && (
-        <div className="bg-rose-50 border border-rose-100 p-5 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 animate-in fade-in duration-300" id="admin-low-stock-warning">
+        <div className="bg-zinc-50 border border-zinc-200 p-5 rounded flex flex-col md:flex-row items-start md:items-center justify-between gap-4 animate-in fade-in duration-150" id="admin-low-stock-warning">
           <div className="flex gap-3">
-            <div className="p-2 bg-rose-100 text-rose-600 rounded-xl shrink-0 mt-0.5">
-              <AlertTriangle className="w-5 h-5 animate-bounce" />
+            <div className="p-2 bg-white text-zinc-900 border border-zinc-200 rounded shrink-0 mt-0.5">
+              <AlertTriangle className="w-4 h-4" />
             </div>
             <div>
-              <h4 className="text-xs font-bold text-rose-800 uppercase tracking-wider">⚠️ Critical Inventory Warning</h4>
-              <p className="text-[11px] text-rose-600/90 mt-0.5 leading-relaxed font-medium">
+              <h4 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">⚠️ Critical Inventory Warning</h4>
+              <p className="text-[10px] text-zinc-500 mt-1 leading-relaxed font-bold uppercase tracking-wider">
                 The following premium premium gadgets have fallen below the critical threshold (less than 5 units remaining):
               </p>
               <div className="flex flex-wrap gap-1.5 mt-2.5">
                 {products.filter((p) => p.stockCount < 5).map((p) => (
                   <span
                     key={p.id}
-                    className="text-[10px] font-black bg-rose-200/60 text-rose-900 px-2 py-0.5 rounded-lg border border-rose-200/80"
+                    className="text-[10px] font-bold uppercase tracking-wider bg-black text-white px-2 py-0.5 rounded border border-black"
                   >
                     {p.title} ({p.stockCount === 0 ? 'OUT OF STOCK' : `${p.stockCount} units left`})
                   </span>
@@ -430,9 +425,9 @@ export const Admin: React.FC = () => {
       {/* TAB: ORDERS */}
       {activeTab === 'orders' && (
         <div className="space-y-6" id="admin-orders-tab">
-          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-white p-4 border border-slate-100 rounded-2xl">
-            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
-              <ShoppingBag className="w-5 h-5 text-teal-600" />
+          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-white p-4 border border-zinc-200 rounded">
+            <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-900 flex items-center gap-1.5">
+              <ShoppingBag className="w-4 h-4 text-zinc-900" />
               Incoming Store Orders ({orders.length})
             </h3>
             
@@ -447,7 +442,7 @@ export const Admin: React.FC = () => {
                       setSelectedOrderIds(orders.map(o => o.id));
                     }
                   }}
-                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs transition-all"
+                  className="px-3 py-1.5 border border-zinc-200 hover:bg-zinc-50 text-zinc-900 font-bold rounded text-[10px] uppercase tracking-wider transition-all"
                 >
                   {selectedOrderIds.length === orders.length ? 'Deselect All' : 'Select All'}
                 </button>
@@ -455,7 +450,7 @@ export const Admin: React.FC = () => {
                   type="button"
                   disabled={selectedOrderIds.length === 0}
                   onClick={() => setIsBulkPrinting(true)}
-                  className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold rounded-lg text-xs transition-all flex items-center gap-1"
+                  className="px-3.5 py-1.5 bg-black hover:bg-zinc-900 disabled:opacity-50 text-white font-bold rounded text-[10px] uppercase tracking-wider transition-all flex items-center gap-1.5"
                 >
                   <Printer className="w-3.5 h-3.5" />
                   Print A4 Labels ({selectedOrderIds.length})
@@ -465,50 +460,50 @@ export const Admin: React.FC = () => {
           </div>
 
           {orders.length === 0 ? (
-            <div className="py-16 text-center bg-white border border-slate-100 rounded-3xl" id="admin-no-orders">
-              <AlertTriangle className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-              <h4 className="text-sm font-bold text-slate-700">No active customer checkouts</h4>
-              <p className="text-xs text-slate-400 max-w-xs mx-auto">Orders placed by customers on frontend will show up here immediately with real-time sync.</p>
+            <div className="py-16 text-center bg-white border border-zinc-200 rounded" id="admin-no-orders">
+              <AlertTriangle className="w-8 h-8 text-zinc-300 mx-auto mb-3" />
+              <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-700">No active customer checkouts</h4>
+              <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider max-w-xs mx-auto mt-1">Orders placed by customers on frontend will show up here immediately with real-time sync.</p>
             </div>
           ) : (
             <div className="space-y-4" id="admin-orders-list">
               {orders.map((order) => (
                 <div
                   key={order.id}
-                  className="bg-white border border-slate-100 rounded-2xl p-5 space-y-4 hover:border-slate-200 transition-colors"
+                  className="bg-white border border-zinc-200 rounded p-5 space-y-4 hover:border-black transition-colors"
                   id={`admin-order-card-${order.id}`}
                 >
                   {/* Top order metadata */}
-                  <div className="flex flex-col sm:flex-row justify-between items-start gap-2 border-b border-slate-100 pb-3">
-                    <div className="space-y-0.5">
+                  <div className="flex flex-col sm:flex-row justify-between items-start gap-2 border-b border-zinc-200 pb-3">
+                    <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <input
-                          type="checkbox"
-                          checked={selectedOrderIds.includes(order.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedOrderIds(prev => [...prev, order.id]);
-                            } else {
-                              setSelectedOrderIds(prev => prev.filter(id => id !== order.id));
-                            }
-                          }}
-                          className="w-4 h-4 rounded-md border-slate-200 text-teal-600 focus:ring-teal-500 cursor-pointer"
+                           type="checkbox"
+                           checked={selectedOrderIds.includes(order.id)}
+                           onChange={(e) => {
+                             if (e.target.checked) {
+                               setSelectedOrderIds(prev => [...prev, order.id]);
+                             } else {
+                               setSelectedOrderIds(prev => prev.filter(id => id !== order.id));
+                             }
+                           }}
+                           className="w-4 h-4 rounded border-zinc-300 text-black focus:ring-black cursor-pointer"
                         />
-                        <span className="text-sm font-black text-slate-800 font-mono">{order.id}</span>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                          order.paymentType === 'Online' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-700'
+                        <span className="text-xs font-bold text-zinc-900 font-mono tracking-tight">{order.id}</span>
+                        <span className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${
+                          order.paymentType === 'Online' ? 'bg-zinc-50 border-zinc-200 text-zinc-900' : 'bg-zinc-100 border-zinc-200 text-zinc-700'
                         }`}>
                           {order.paymentType} ({order.paymentStatus})
                         </span>
                       </div>
-                      <p className="text-[10px] text-slate-400 font-medium">Placed: {new Date(order.createdAt).toLocaleString('en-IN')}</p>
+                      <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Placed: {new Date(order.createdAt).toLocaleString('en-IN')}</p>
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0">
                       {/* One-click Packaging Slip Invoice */}
                       <button
                         onClick={() => handlePrintSlip(order)}
-                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs transition-colors flex items-center gap-1"
+                        className="px-3 py-1.5 border border-zinc-200 hover:bg-zinc-50 text-zinc-900 font-bold rounded text-[10px] uppercase tracking-wider transition-colors flex items-center gap-1.5"
                         id={`print-slip-${order.id}`}
                       >
                         <Printer className="w-3.5 h-3.5" />
@@ -519,7 +514,7 @@ export const Admin: React.FC = () => {
                       <select
                         value={order.orderStatus}
                         onChange={(e) => updateOrderStatus(order.id, e.target.value as OrderStatus)}
-                        className="px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:outline-none focus:border-teal-500"
+                        className="px-3 py-1.5 border border-zinc-200 rounded text-xs font-bold text-zinc-900 focus:outline-none focus:border-black bg-white"
                         id={`order-status-select-${order.id}`}
                       >
                         <option value="Pending">Pending</option>
@@ -534,20 +529,20 @@ export const Admin: React.FC = () => {
                   {/* Recipient details */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
                     <div className="space-y-1">
-                      <span className="font-bold text-slate-400 block uppercase tracking-wider text-[9px]">Customer Details</span>
-                      <p className="font-bold text-slate-800">{order.customerName}</p>
-                      <p className="text-slate-500">{order.customerPhone}</p>
-                      <p className="text-slate-500">{order.customerEmail}</p>
+                      <span className="font-bold text-zinc-400 block uppercase tracking-wider text-[9px]">Customer Details</span>
+                      <p className="font-bold text-zinc-900">{order.customerName}</p>
+                      <p className="text-zinc-500 font-medium">{order.customerPhone}</p>
+                      <p className="text-zinc-500 font-medium">{order.customerEmail}</p>
                     </div>
 
                     <div className="space-y-1">
-                      <span className="font-bold text-slate-400 block uppercase tracking-wider text-[9px]">Delivery Directions</span>
-                      <p className="text-slate-600 leading-relaxed">{order.address}</p>
-                      <p className="font-bold text-slate-800">PIN: {order.pincode}</p>
+                      <span className="font-bold text-zinc-400 block uppercase tracking-wider text-[9px]">Delivery Directions</span>
+                      <p className="text-zinc-600 leading-relaxed font-medium">{order.address}</p>
+                      <p className="font-bold text-zinc-900">PIN: {order.pincode}</p>
                     </div>
 
-                    <div className="space-y-1.5 bg-slate-50/50 p-3 rounded-xl border border-slate-100">
-                      <span className="font-bold text-slate-400 block uppercase tracking-wider text-[9px]">India Post Consignment</span>
+                    <div className="space-y-1.5 bg-zinc-50 p-3 rounded border border-zinc-200">
+                      <span className="font-bold text-zinc-400 block uppercase tracking-wider text-[9px]">India Post Consignment</span>
                       <div className="flex gap-1.5">
                         <input
                           type="text"
@@ -557,12 +552,12 @@ export const Admin: React.FC = () => {
                             ...consignmentInputs,
                             [order.id]: e.target.value.toUpperCase()
                           })}
-                          className="flex-1 px-2.5 py-1 text-xs border border-slate-200 rounded-md bg-white focus:outline-none"
+                          className="flex-1 px-2.5 py-1 text-xs border border-zinc-200 rounded bg-white font-mono focus:outline-none focus:border-black"
                           id={`consignment-input-${order.id}`}
                         />
                         <button
                           onClick={() => handleSaveConsignment(order.id, order.orderStatus)}
-                          className="p-1 px-2 bg-teal-600 hover:bg-teal-700 text-white rounded-md text-[10px] font-bold"
+                          className="p-1 px-2.5 bg-black hover:bg-zinc-900 text-white rounded text-[10px] font-bold uppercase tracking-wider"
                           id={`consignment-save-${order.id}`}
                         >
                           Save
@@ -572,20 +567,20 @@ export const Admin: React.FC = () => {
                   </div>
 
                   {/* Items list summary */}
-                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100/60 divide-y divide-slate-200/50">
+                  <div className="p-3.5 bg-zinc-50 rounded border border-zinc-200 divide-y divide-zinc-200">
                     {order.items.map((item, idx) => (
-                      <div key={idx} className="flex justify-between py-1.5 last:pb-0 first:pt-0 text-xs">
+                      <div key={idx} className="flex justify-between py-1.5 last:pb-0 first:pt-0 text-xs font-medium">
                         <div className="flex items-center gap-2">
-                          <span className="w-1.5 h-1.5 rounded-full bg-teal-500" />
-                          <span className="font-bold text-slate-800">{item.title}</span>
-                          <span className="text-slate-400">×{item.quantity}</span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-zinc-900" />
+                          <span className="font-bold text-zinc-900">{item.title}</span>
+                          <span className="text-zinc-400 font-bold">×{item.quantity}</span>
                         </div>
-                        <span className="font-bold text-slate-700">₹{(item.price * item.quantity).toLocaleString('en-IN')}</span>
+                        <span className="font-bold text-zinc-700">₹{(item.price * item.quantity).toLocaleString('en-IN')}</span>
                       </div>
                     ))}
-                    <div className="flex justify-between pt-2.5 mt-2.5 text-xs font-extrabold text-slate-800 border-t">
+                    <div className="flex justify-between pt-2.5 mt-2.5 text-xs font-bold text-zinc-900 border-t border-zinc-200">
                       <span>Total Invoice Amount</span>
-                      <span className="text-sm font-black text-teal-800">₹{order.totalAmount.toLocaleString('en-IN')}</span>
+                      <span className="text-sm font-bold text-zinc-900">₹{order.totalAmount.toLocaleString('en-IN')}</span>
                     </div>
                   </div>
 
@@ -600,15 +595,15 @@ export const Admin: React.FC = () => {
       {activeTab === 'products' && (
         <div className="space-y-6" id="admin-products-tab">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <h3 className="text-base font-black text-slate-800 flex items-center gap-1.5">
-              <Package className="w-5 h-5 text-teal-600" />
+            <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-900 flex items-center gap-1.5">
+              <Package className="w-4 h-4 text-zinc-900" />
               Omexo Active Gadget Inventory ({products.length})
             </h3>
             
             {!isAddingNew && !editingProduct && (
               <button
                 onClick={handleAddNewProductClick}
-                className="px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl text-xs transition-colors flex items-center gap-1 shrink-0"
+                className="px-4 py-2 bg-black hover:bg-zinc-900 text-white font-bold rounded text-[10px] uppercase tracking-wider transition-colors flex items-center gap-1.5 shrink-0"
                 id="btn-admin-add-product"
               >
                 <Plus className="w-4 h-4" />
@@ -619,9 +614,9 @@ export const Admin: React.FC = () => {
 
           {/* New / Edit Product Form Panel */}
           {(isAddingNew || editingProduct) && (
-            <div className="bg-slate-50 border border-slate-200 p-6 rounded-3xl" id="product-form-panel">
+            <div className="bg-zinc-50 border border-zinc-200 p-6 rounded" id="product-form-panel">
               <div className="flex justify-between items-center mb-4">
-                <h4 className="text-sm font-black text-slate-800">
+                <h4 className="text-xs font-bold uppercase tracking-widest text-zinc-900">
                   {editingProduct ? `Modify: ${editingProduct.title}` : 'Introduce New Tech Gadget'}
                 </h4>
                 <button
@@ -629,7 +624,7 @@ export const Admin: React.FC = () => {
                     setIsAddingNew(false);
                     setEditingProduct(null);
                   }}
-                  className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-full"
+                  className="p-1 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-200 rounded"
                   id="btn-close-form"
                 >
                   <X className="w-4.5 h-4.5" />
@@ -640,26 +635,26 @@ export const Admin: React.FC = () => {
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Title */}
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-600 block">Product Title</label>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-wider block">Product Title</label>
                     <input
                       type="text"
                       required
                       value={prodTitle}
                       onChange={(e) => setProdTitle(e.target.value)}
                       placeholder="e.g. Omexo Wave Pro"
-                      className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl"
+                      className="w-full px-3 py-2 text-xs bg-white border border-zinc-200 rounded focus:outline-none focus:border-black font-semibold text-zinc-800"
                       id="form-title"
                     />
                   </div>
 
                   {/* Category */}
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-600 block">Category</label>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-wider block">Category</label>
                     <select
                       value={prodCategory}
                       onChange={(e) => setProdCategory(e.target.value)}
-                      className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl font-medium text-slate-700"
+                      className="w-full px-3 py-2 text-xs bg-white border border-zinc-200 rounded font-semibold text-zinc-800 focus:outline-none focus:border-black"
                       id="form-category"
                     >
                       {categories.map((cat) => (
@@ -673,12 +668,12 @@ export const Admin: React.FC = () => {
 
                 <div className="grid grid-cols-1 gap-4">
                   {/* Brand Selector */}
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-600 block">Brand (Optional)</label>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-wider block">Brand (Optional)</label>
                     <select
                       value={prodBrand}
                       onChange={(e) => setProdBrand(e.target.value)}
-                      className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl font-medium text-slate-700"
+                      className="w-full px-3 py-2 text-xs bg-white border border-zinc-200 rounded font-semibold text-zinc-800 focus:outline-none focus:border-black"
                       id="form-brand"
                     >
                       <option value="">No specific brand</option>
@@ -692,65 +687,65 @@ export const Admin: React.FC = () => {
                 </div>
 
                 {/* Description */}
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-600 block">Description (Features & details)</label>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-wider block">Description (Features & details)</label>
                   <textarea
                     required
                     rows={3}
                     value={prodDescription}
                     onChange={(e) => setProdDescription(e.target.value)}
                     placeholder="Provide aerospace quality description details..."
-                    className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl"
+                    className="w-full px-3 py-2 text-xs bg-white border border-zinc-200 rounded focus:outline-none focus:border-black font-semibold text-zinc-800"
                     id="form-description"
                   />
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">
                   {/* Sale Price */}
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-600 block">Sale Price (₹)</label>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-wider block">Sale Price (₹)</label>
                     <input
                       type="number"
                       required
                       value={prodSalePrice}
                       onChange={(e) => setProdSalePrice(e.target.value)}
                       placeholder="3499"
-                      className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl"
+                      className="w-full px-3 py-2 text-xs bg-white border border-zinc-200 rounded focus:outline-none focus:border-black font-semibold text-zinc-800"
                       id="form-sale-price"
                     />
                   </div>
 
                   {/* Regular Price */}
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-600 block">Regular Price (₹)</label>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-wider block">Regular Price (₹)</label>
                     <input
                       type="number"
                       required
                       value={prodRegularPrice}
                       onChange={(e) => setProdRegularPrice(e.target.value)}
                       placeholder="5999"
-                      className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl"
+                      className="w-full px-3 py-2 text-xs bg-white border border-zinc-200 rounded focus:outline-none focus:border-black font-semibold text-zinc-800"
                       id="form-regular-price"
                     />
                   </div>
 
                   {/* Stock Count */}
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-600 block">Stock Units</label>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-wider block">Stock Units</label>
                     <input
                       type="number"
                       required
                       value={prodStock}
                       onChange={(e) => setProdStock(e.target.value)}
                       placeholder="45"
-                      className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl"
+                      className="w-full px-3 py-2 text-xs bg-white border border-zinc-200 rounded focus:outline-none focus:border-black font-semibold text-zinc-800"
                       id="form-stock"
                     />
                   </div>
                 </div>
 
                 {/* Multi-Image Upload & Textarea URLs */}
-                <div className="space-y-3 bg-white p-4 rounded-2xl border border-slate-100">
+                <div className="space-y-3 bg-white p-4 rounded border border-zinc-200">
                   <ImageUploader 
                     label="Upload Product Image"
                     helperText="Select or drag product photos to convert and append automatically"
@@ -764,15 +759,15 @@ export const Admin: React.FC = () => {
                     }}
                   />
                   
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-500 block">Or view/paste raw image URLs (comma separated for multi-gallery)</label>
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-bold uppercase text-zinc-400 tracking-wider block">Or view/paste raw image URLs (comma separated for multi-gallery)</label>
                     <textarea
                       rows={2}
                       required
                       value={prodImages}
                       onChange={(e) => setProdImages(e.target.value)}
                       placeholder="URL1, URL2, URL3"
-                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl font-mono"
+                      className="w-full px-3 py-2 text-xs bg-zinc-50 border border-zinc-200 rounded font-mono focus:outline-none focus:border-black"
                       id="form-images"
                     />
                   </div>
@@ -780,7 +775,7 @@ export const Admin: React.FC = () => {
 
                 <button
                   type="submit"
-                  className="px-6 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl text-xs flex items-center gap-1"
+                  className="px-6 py-2.5 bg-black hover:bg-zinc-900 text-white font-bold rounded text-xs uppercase tracking-widest transition-colors flex items-center gap-1.5"
                   id="form-submit-btn"
                 >
                   <Save className="w-4 h-4" />
@@ -797,32 +792,32 @@ export const Admin: React.FC = () => {
               return (
                 <div
                   key={p.id}
-                  className="bg-white border border-slate-100 rounded-2xl p-4 flex gap-4 hover:border-slate-200 transition-colors"
+                  className="bg-white border border-zinc-200 rounded p-4 flex gap-4 hover:border-black transition-colors"
                   id={`admin-product-item-${p.id}`}
                 >
                   <img
                     src={p.images[0]}
                     alt={p.title}
-                    className="w-16 h-16 object-cover rounded-xl bg-slate-50 border shrink-0"
+                    className="w-16 h-16 object-cover rounded bg-zinc-50 border border-zinc-200 shrink-0"
                     referrerPolicy="no-referrer"
                   />
                   <div className="flex-1 min-w-0 flex flex-col justify-between">
                     <div>
                       <div className="flex justify-between items-start">
-                        <h4 className="text-xs font-bold text-slate-800 truncate leading-none pr-2">{p.title}</h4>
-                        <span className="text-[9px] bg-slate-100 text-slate-500 font-bold px-1.5 py-0.5 rounded uppercase shrink-0">
+                        <h4 className="text-xs font-bold text-zinc-900 truncate leading-none pr-2">{p.title}</h4>
+                        <span className="text-[9px] bg-zinc-50 border border-zinc-200 text-zinc-800 font-bold px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0">
                           {p.category}
                         </span>
                       </div>
                       
                       <div className="flex items-baseline gap-2 mt-1.5">
-                        <span className="text-xs font-black text-teal-700">₹{p.salePrice.toLocaleString('en-IN')}</span>
-                        <span className="text-[10px] text-slate-400 line-through">₹{p.regularPrice.toLocaleString('en-IN')}</span>
+                        <span className="text-xs font-bold text-zinc-900">₹{p.salePrice.toLocaleString('en-IN')}</span>
+                        <span className="text-[10px] text-zinc-400 line-through">₹{p.regularPrice.toLocaleString('en-IN')}</span>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between border-t border-slate-50 pt-2 mt-2">
-                      <span className={`text-[10px] font-bold ${isLow ? 'text-amber-600 font-extrabold' : 'text-slate-400'}`}>
+                    <div className="flex items-center justify-between border-t border-zinc-100 pt-2 mt-2">
+                      <span className={`text-[9px] font-bold uppercase tracking-wider ${isLow ? 'text-black font-extrabold' : 'text-zinc-400'}`}>
                         Stock: {p.stockCount} left
                       </span>
 
@@ -830,14 +825,14 @@ export const Admin: React.FC = () => {
                       <div className="flex gap-1.5">
                         <button
                           onClick={() => handleEditProductClick(p)}
-                          className="p-1.5 text-slate-500 hover:text-teal-600 hover:bg-slate-50 rounded-lg transition-colors"
+                          className="p-1.5 text-zinc-500 hover:text-black hover:bg-zinc-50 rounded border border-transparent hover:border-zinc-200 transition-colors"
                           id={`edit-prod-btn-${p.id}`}
                         >
                           <Edit className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => handleDeleteProduct(p.id)}
-                          className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-slate-50 rounded-lg transition-colors"
+                          className="p-1.5 text-zinc-500 hover:text-black hover:bg-zinc-50 rounded border border-transparent hover:border-zinc-200 transition-colors"
                           id={`delete-prod-btn-${p.id}`}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -855,48 +850,48 @@ export const Admin: React.FC = () => {
       {/* TAB: TELEGRAM SETUP */}
       {activeTab === 'telegram' && (
         <div className="max-w-xl mx-auto space-y-6" id="admin-telegram-tab">
-          <div className="bg-white border border-slate-100 p-6 rounded-3xl space-y-6 shadow-sm">
+          <div className="bg-white border border-zinc-200 p-6 rounded space-y-6">
             
             <div className="space-y-1.5">
-              <h3 className="text-base font-black text-slate-800 flex items-center gap-1.5">
-                <Bot className="w-5.5 h-5.5 text-teal-600 animate-pulse" />
+              <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-900 flex items-center gap-1.5">
+                <Bot className="w-4 h-4 text-zinc-900" />
                 Telegram Webhook Configuration
               </h3>
-              <p className="text-xs text-slate-400 leading-relaxed">
+              <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">
                 Connect your Telegram Bot to enable instant pushes. Whenever a customer completes an express checkout, a summary gets piped straight to your chat room.
               </p>
             </div>
 
             <form onSubmit={handleSaveTelegram} className="space-y-4">
               {/* Bot Token */}
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-600 block">Telegram Bot Token</label>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-wider block">Telegram Bot Token</label>
                 <input
                   type="text"
                   value={tgToken}
                   onChange={(e) => setTgToken(e.target.value)}
                   placeholder="e.g. 123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ"
-                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-teal-500"
+                  className="w-full px-3 py-2 text-xs border border-zinc-200 rounded bg-white focus:outline-none focus:border-black font-semibold text-zinc-800"
                   id="telegram-bot-token"
                 />
               </div>
 
               {/* Chat ID */}
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-600 block">Your Telegram Chat ID</label>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-wider block">Your Telegram Chat ID</label>
                 <input
                   type="text"
                   value={tgChatId}
                   onChange={(e) => setTgChatId(e.target.value)}
                   placeholder="e.g. 987654321"
-                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-teal-500"
+                  className="w-full px-3 py-2 text-xs border border-zinc-200 rounded bg-white focus:outline-none focus:border-black font-semibold text-zinc-800"
                   id="telegram-chat-id"
                 />
               </div>
 
               {/* Telegram bot setup guide */}
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-[10px] text-slate-500 space-y-2 leading-relaxed">
-                <span className="font-bold text-slate-700 block text-xs">🚀 3-Step Setup Instructions:</span>
+              <div className="p-4 bg-zinc-50 border border-zinc-200 rounded text-[10px] text-zinc-500 space-y-2 leading-relaxed font-medium">
+                <span className="font-bold text-zinc-900 block text-xs uppercase tracking-wider">🚀 3-Step Setup Instructions:</span>
                 <p>1. Open Telegram, search for <strong>@BotFather</strong>, send <code>/newbot</code>, and copy your HTTP API token.</p>
                 <p>2. Message your new bot or search for <strong>@userinfobot</strong> to obtain your numeric Chat ID.</p>
                 <p>3. Paste credentials above, click Synchronize and dispatch a "Test Alert" to confirm pairing!</p>
@@ -905,7 +900,7 @@ export const Admin: React.FC = () => {
               <div className="flex gap-2.5">
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition-colors"
+                  className="flex-1 py-2.5 bg-black hover:bg-zinc-900 text-white font-bold rounded text-xs uppercase tracking-widest transition-colors"
                   id="telegram-config-save"
                 >
                   Synchronize Setup
@@ -913,7 +908,7 @@ export const Admin: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleSendTestTelegram}
-                  className="px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl text-xs transition-colors flex items-center justify-center gap-1 shrink-0"
+                  className="px-4 py-2.5 border border-zinc-200 hover:bg-zinc-50 text-zinc-900 font-bold rounded text-xs uppercase tracking-widest transition-colors flex items-center justify-center gap-1.5 shrink-0"
                   id="telegram-config-test"
                 >
                   <Send className="w-3.5 h-3.5" />
@@ -929,14 +924,14 @@ export const Admin: React.FC = () => {
       {/* TAB: BANNER CONTROL */}
       {activeTab === 'banner' && (
         <div className="max-w-xl mx-auto space-y-6" id="admin-banner-tab">
-          <div className="bg-white border border-slate-100 p-6 rounded-3xl space-y-6 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div className="bg-white border border-zinc-200 p-6 rounded space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-150">
             
             <div className="space-y-1.5">
-              <h3 className="text-base font-black text-slate-800 flex items-center gap-1.5">
-                <Sparkles className="w-5.5 h-5.5 text-teal-600 animate-pulse animate-duration-1000" />
+              <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-900 flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-zinc-900" />
                 Customize Homepage Offer Banner
               </h3>
-              <p className="text-xs text-slate-400 leading-relaxed">
+              <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">
                 Update the hero promo banner on your store front in real-time. Extremely easy-to-use controls to announce daily flash sales, festive discounts, or new arrivals.
               </p>
             </div>
@@ -958,65 +953,65 @@ export const Admin: React.FC = () => {
               className="space-y-4"
             >
               {/* Badge Text */}
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-600 block">Offer Badge / Highlight Ribbon</label>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-wider block">Offer Badge / Highlight Ribbon</label>
                 <input
                   type="text"
                   required
                   value={bannerBadge}
                   onChange={(e) => setBannerBadge(e.target.value)}
                   placeholder="e.g. 🔥 MEGA FESTIVE OFFERS LIVE"
-                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-teal-500 font-bold"
+                  className="w-full px-3 py-2 text-xs border border-zinc-200 rounded bg-white font-bold text-zinc-800 focus:outline-none focus:border-black"
                   id="banner-badge-input"
                 />
               </div>
 
               {/* Title Text */}
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-600 block">Headline / Catchy Title</label>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-wider block">Headline / Catchy Title</label>
                 <input
                   type="text"
                   required
                   value={bannerTitle}
                   onChange={(e) => setBannerTitle(e.target.value)}
                   placeholder="e.g. Engineered to Elevate your lifestyle."
-                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-teal-500 font-bold"
+                  className="w-full px-3 py-2 text-xs border border-zinc-200 rounded bg-white font-bold text-zinc-800 focus:outline-none focus:border-black"
                   id="banner-title-input"
                 />
               </div>
 
               {/* Description */}
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-600 block">Subheading Description / Offer details</label>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-wider block">Subheading Description / Offer details</label>
                 <textarea
                   required
                   rows={3}
                   value={bannerDesc}
                   onChange={(e) => setBannerDesc(e.target.value)}
                   placeholder="e.g. Get flat 20% off plus free express delivery across Kerala..."
-                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-teal-500 leading-relaxed"
+                  className="w-full px-3 py-2 text-xs border border-zinc-200 rounded bg-white font-semibold text-zinc-800 focus:outline-none focus:border-black leading-relaxed"
                   id="banner-desc-input"
                 />
               </div>
 
               {/* Poster Image URL */}
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-600 block">Offer Poster Image URL (Gadget Poster - Right Side)</label>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-wider block">Offer Poster Image URL (Gadget Poster - Right Side)</label>
                 <input
                   type="url"
                   value={bannerImageUrl}
                   onChange={(e) => setBannerImageUrl(e.target.value)}
                   placeholder="e.g. https://images.unsplash.com/photo-1505740420928-5e560c06d30e"
-                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-teal-500 font-mono"
+                  className="w-full px-3 py-2 text-xs border border-zinc-200 rounded bg-white font-mono text-zinc-800 focus:outline-none focus:border-black"
                   id="banner-image-url-input"
                 />
-                <span className="text-[10px] text-slate-400 block leading-tight">
+                <span className="text-[9px] text-zinc-400 uppercase tracking-wider font-bold block mt-1">
                   Enter an Unsplash, Imgur, or direct gadget image link to display on the home screen banner poster.
                 </span>
               </div>
 
               {/* Background Image URL and Uploader */}
-              <div className="space-y-3 bg-white p-4 rounded-2xl border border-slate-100">
+              <div className="space-y-3 bg-white p-4 rounded border border-zinc-200">
                 <ImageUploader 
                   label="Upload Banner Background Poster Image"
                   helperText="Choose or drag an image to set as the entire promo hero banner background"
@@ -1026,17 +1021,17 @@ export const Admin: React.FC = () => {
                   }}
                 />
                 
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 block">Or view/paste raw background image link</label>
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-bold uppercase text-zinc-400 tracking-wider block">Or view/paste raw background image link</label>
                   <input
                     type="url"
                     value={bannerBgImageUrl}
                     onChange={(e) => setBannerBgImageUrl(e.target.value)}
                     placeholder="e.g. https://images.unsplash.com/photo-1511556532299-8f662fc26c06"
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-teal-500 font-mono"
+                    className="w-full px-3 py-2 text-xs border border-zinc-200 rounded bg-white font-mono text-zinc-800 focus:outline-none focus:border-black"
                     id="banner-bg-image-url-input"
                   />
-                  <span className="text-[10px] text-slate-400 block leading-tight">
+                  <span className="text-[9px] text-zinc-400 uppercase tracking-wider font-bold block mt-1">
                     Enter a direct image link or use the file uploader above to serve as the entire background poster for the promo hero banner.
                   </span>
                 </div>
@@ -1044,28 +1039,28 @@ export const Admin: React.FC = () => {
 
               {/* CTAs */}
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-600 block">Primary Action Button</label>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-wider block">Primary Action Button</label>
                   <input
                     type="text"
                     required
                     value={bannerPrimaryCta}
                     onChange={(e) => setBannerPrimaryCta(e.target.value)}
                     placeholder="Explore Accessories"
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-teal-500 font-semibold"
+                    className="w-full px-3 py-2 text-xs border border-zinc-200 rounded bg-white font-bold text-zinc-800 focus:outline-none focus:border-black"
                     id="banner-primary-cta-input"
                   />
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-600 block">Secondary Action Button</label>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-wider block">Secondary Action Button</label>
                   <input
                     type="text"
                     required
                     value={bannerSecondaryCta}
                     onChange={(e) => setBannerSecondaryCta(e.target.value)}
                     placeholder="Track Order"
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-teal-500 font-semibold"
+                    className="w-full px-3 py-2 text-xs border border-zinc-200 rounded bg-white font-bold text-zinc-800 focus:outline-none focus:border-black"
                     id="banner-secondary-cta-input"
                   />
                 </div>
@@ -1073,7 +1068,7 @@ export const Admin: React.FC = () => {
 
               <button
                 type="submit"
-                className="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl text-xs transition-all cursor-pointer shadow-xs"
+                className="w-full py-2.5 bg-black hover:bg-zinc-900 text-white font-bold rounded text-xs uppercase tracking-widest transition-colors cursor-pointer"
                 id="banner-save-submit"
               >
                 Apply Live Offer Banner
@@ -1081,11 +1076,11 @@ export const Admin: React.FC = () => {
             </form>
 
             {/* 2. Promo Banners Catalog Stack Manager */}
-            <div className="border-t border-slate-100 pt-6 space-y-4">
+            <div className="border-t border-zinc-200 pt-6 space-y-4">
               <div className="flex justify-between items-center">
                 <div>
-                  <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">🗂️ Promo Banners Catalog Stack</h4>
-                  <p className="text-[10px] text-slate-400 mt-0.5">Manage additional promotion cards, campaign links, and background headers.</p>
+                  <h4 className="text-xs font-bold uppercase tracking-widest text-zinc-900">🗂️ Promo Banners Catalog Stack</h4>
+                  <p className="text-[9px] text-zinc-400 font-bold uppercase tracking-wider mt-0.5">Manage additional promotion cards, campaign links, and background headers.</p>
                 </div>
                 <button
                   type="button"
@@ -1100,7 +1095,7 @@ export const Admin: React.FC = () => {
                     setNewBannerImageUrl('');
                     setNewBannerBgImageUrl('');
                   }}
-                  className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg text-[10px] flex items-center gap-1 transition-all cursor-pointer"
+                  className="px-2.5 py-1 bg-black hover:bg-zinc-900 text-white font-bold rounded text-[10px] uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer"
                 >
                   <Plus className="w-3 h-3" />
                   Add Campaign Banner
@@ -1109,47 +1104,47 @@ export const Admin: React.FC = () => {
 
               {/* Add / Edit Campaign Banner Form */}
               {isAddingBanner && (
-                <div className="bg-slate-50/50 border border-slate-200/60 p-4 rounded-2xl space-y-4 animate-in fade-in duration-350">
-                  <h5 className="text-[11px] font-bold text-slate-700 uppercase">
+                <div className="bg-zinc-50 border border-zinc-200 p-4 rounded space-y-4 animate-in fade-in duration-150">
+                  <h5 className="text-[10px] font-bold text-zinc-900 uppercase tracking-widest">
                     {editingBannerIdx !== null ? '📝 Edit Campaign Banner' : '✨ New Campaign Banner'}
                   </h5>
                   
                   <div className="space-y-3 text-xs">
                     <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <label className="font-semibold text-slate-600 block">Offer Badge</label>
+                      <div className="space-y-1.5">
+                        <label className="text-[9px] font-bold uppercase text-zinc-400 tracking-wider block">Offer Badge</label>
                         <input
                           type="text"
                           value={newBannerBadge}
                           onChange={(e) => setNewBannerBadge(e.target.value)}
                           placeholder="e.g. FLASH DEALS"
-                          className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white"
+                          className="w-full px-3 py-1.5 border border-zinc-200 rounded bg-white font-semibold text-zinc-800 focus:outline-none focus:border-black"
                         />
                       </div>
-                      <div className="space-y-1">
-                        <label className="font-semibold text-slate-600 block">Title Headline</label>
+                      <div className="space-y-1.5">
+                        <label className="text-[9px] font-bold uppercase text-zinc-400 tracking-wider block">Title Headline</label>
                         <input
                           type="text"
                           value={newBannerTitle}
                           onChange={(e) => setNewBannerTitle(e.target.value)}
                           placeholder="e.g. Pure Titanium Edition"
-                          className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white"
+                          className="w-full px-3 py-1.5 border border-zinc-200 rounded bg-white font-semibold text-zinc-800 focus:outline-none focus:border-black"
                         />
                       </div>
                     </div>
 
-                    <div className="space-y-1">
-                      <label className="font-semibold text-slate-600 block">Subheading / Description</label>
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-bold uppercase text-zinc-400 tracking-wider block">Subheading / Description</label>
                       <textarea
                         value={newBannerDesc}
                         onChange={(e) => setNewBannerDesc(e.target.value)}
                         placeholder="e.g. Built for adventurers and audiophiles."
                         rows={2}
-                        className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white"
+                        className="w-full px-3 py-1.5 border border-zinc-200 rounded bg-white font-semibold text-zinc-800 focus:outline-none focus:border-black"
                       />
                     </div>
 
-                    <div className="space-y-3 bg-white p-3 rounded-xl border border-slate-100">
+                    <div className="space-y-3 bg-white p-3 rounded border border-zinc-200">
                       <ImageUploader
                         label="Upload Promo Graphic (Product Card / Poster)"
                         helperText="Upload or drag Campaign images"
@@ -1158,37 +1153,37 @@ export const Admin: React.FC = () => {
                           toast('Graphic uploaded successfully!', 'success');
                         }}
                       />
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-slate-400 block font-semibold">Or enter Raw Image URL directly</label>
+                      <div className="space-y-1.5">
+                        <label className="text-[9px] text-zinc-400 block font-bold uppercase tracking-wider">Or enter Raw Image URL directly</label>
                         <input
                           type="url"
                           value={newBannerImageUrl}
                           onChange={(e) => setNewBannerImageUrl(e.target.value)}
                           placeholder="Image URL"
-                          className="w-full px-2.5 py-1 text-xs border border-slate-200 rounded-md font-mono"
+                          className="w-full px-2.5 py-1.5 text-xs border border-zinc-200 rounded bg-white font-mono text-zinc-800 focus:outline-none focus:border-black"
                         />
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <label className="font-semibold text-slate-600 block">Primary Action Button Text</label>
+                      <div className="space-y-1.5">
+                        <label className="text-[9px] font-bold uppercase text-zinc-400 tracking-wider block">Primary Action Button Text</label>
                         <input
                           type="text"
                           value={newBannerPrimaryCta}
                           onChange={(e) => setNewBannerPrimaryCta(e.target.value)}
                           placeholder="Shop Now"
-                          className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white"
+                          className="w-full px-3 py-1.5 border border-zinc-200 rounded bg-white font-semibold text-zinc-800 focus:outline-none focus:border-black"
                         />
                       </div>
-                      <div className="space-y-1">
-                        <label className="font-semibold text-slate-600 block">Direct Destination Target URL</label>
+                      <div className="space-y-1.5">
+                        <label className="text-[9px] font-bold uppercase text-zinc-400 tracking-wider block">Direct Destination Target URL</label>
                         <input
                           type="url"
                           value={newBannerSecondaryCta}
                           onChange={(e) => setNewBannerSecondaryCta(e.target.value)}
                           placeholder="e.g. /#products"
-                          className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white font-mono"
+                          className="w-full px-3 py-1.5 border border-zinc-200 rounded bg-white font-mono text-zinc-800 focus:outline-none focus:border-black"
                         />
                       </div>
                     </div>
@@ -1197,7 +1192,7 @@ export const Admin: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setIsAddingBanner(false)}
-                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-[10px]"
+                        className="px-3 py-1.5 border border-zinc-200 hover:bg-zinc-50 text-zinc-800 font-bold rounded text-[10px] uppercase tracking-wider"
                       >
                         Cancel
                       </button>
@@ -1226,7 +1221,7 @@ export const Admin: React.FC = () => {
                           }
                           setIsAddingBanner(false);
                         }}
-                        className="px-3.5 py-1.5 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-lg text-[10px]"
+                        className="px-3.5 py-1.5 bg-black hover:bg-zinc-900 text-white font-bold rounded text-[10px] uppercase tracking-wider"
                       >
                         {editingBannerIdx !== null ? 'Save Changes' : 'Create Campaign Card'}
                       </button>
@@ -1237,27 +1232,27 @@ export const Admin: React.FC = () => {
 
               {/* Banners catalog items list */}
               {banners.length === 0 ? (
-                <div className="py-8 text-center bg-slate-50/50 border border-slate-100 rounded-2xl">
-                  <p className="text-[10px] text-slate-400 font-medium">No additional Campaign banners in catalog.</p>
+                <div className="py-8 text-center bg-zinc-50 border border-zinc-200 rounded">
+                  <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">No additional Campaign banners in catalog.</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {banners.map((b, idx) => (
-                    <div key={idx} className="bg-white border border-slate-100 p-3 rounded-2xl flex gap-3 hover:border-slate-200 transition-colors">
+                    <div key={idx} className="bg-white border border-zinc-200 p-3 rounded flex gap-3 hover:border-black transition-colors">
                       <img
                         src={b.imageUrl}
                         alt={b.title}
-                        className="w-12 h-12 object-cover rounded-xl bg-slate-50 border shrink-0"
+                        className="w-12 h-12 object-cover rounded bg-zinc-50 border border-zinc-200 shrink-0"
                         referrerPolicy="no-referrer"
                       />
                       <div className="flex-1 min-w-0 flex flex-col justify-between">
                         <div>
-                          <span className="text-[8px] bg-teal-50 text-teal-700 font-black px-1.5 py-0.2 rounded uppercase">
+                          <span className="text-[8px] bg-zinc-50 border border-zinc-200 text-zinc-800 font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">
                             {b.badge || 'PROMO'}
                           </span>
-                          <h6 className="text-[11px] font-bold text-slate-800 truncate mt-0.5">{b.title}</h6>
+                          <h6 className="text-[11px] font-bold text-zinc-900 truncate mt-1">{b.title}</h6>
                         </div>
-                        <div className="flex items-center justify-between border-t border-slate-50 pt-1.5 mt-1.5">
+                        <div className="flex items-center justify-between border-t border-zinc-100 pt-1.5 mt-1.5">
                           <button
                             type="button"
                             onClick={() => {
@@ -1270,7 +1265,7 @@ export const Admin: React.FC = () => {
                               setBannerImageUrl(b.imageUrl || '');
                               toast(`Campaign "${b.title}" selected! Click "Apply Live Offer Banner" above to publish.`, 'info');
                             }}
-                            className="text-[9px] font-extrabold text-teal-600 hover:underline"
+                            className="text-[9px] font-bold uppercase tracking-wider text-zinc-900 hover:underline"
                           >
                             Use as Hero
                           </button>
@@ -1288,7 +1283,7 @@ export const Admin: React.FC = () => {
                                 setNewBannerSecondaryCta(b.secondaryCta || '');
                                 setNewBannerImageUrl(b.imageUrl || '');
                               }}
-                              className="p-1 text-slate-400 hover:text-slate-600"
+                              className="p-1 text-zinc-400 hover:text-zinc-900"
                             >
                               <Edit className="w-3 h-3" />
                             </button>
@@ -1298,7 +1293,7 @@ export const Admin: React.FC = () => {
                                 deleteBanner(idx);
                                 toast('Campaign banner removed from catalog', 'info');
                               }}
-                              className="p-1 text-slate-400 hover:text-rose-600"
+                              className="p-1 text-zinc-400 hover:text-black"
                             >
                               <Trash2 className="w-3 h-3" />
                             </button>
@@ -1318,25 +1313,25 @@ export const Admin: React.FC = () => {
       {/* TAB: CRM CUSTOMER RELATIONSHIPS */}
       {activeTab === 'crm' && (
         <div className="space-y-6" id="admin-crm-tab">
-          <div className="bg-white border border-slate-100 p-6 rounded-3xl space-y-6 shadow-sm animate-in fade-in duration-300">
-            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b border-slate-50 pb-4">
+          <div className="bg-white border border-zinc-200 p-6 rounded space-y-6 animate-in fade-in duration-150">
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b border-zinc-100 pb-4">
               <div>
-                <h3 className="text-base font-black text-slate-800 flex items-center gap-1.5">
-                  <Users className="w-5.5 h-5.5 text-teal-600" />
+                <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-900 flex items-center gap-1.5">
+                  <Users className="w-4 h-4 text-zinc-900" />
                   Customer Purchase History & Spend Logs
                 </h3>
-                <p className="text-xs text-slate-400 mt-1">Search registered checkouts and track customer lifetime valuation metrics.</p>
+                <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider mt-1">Search registered checkouts and track customer lifetime valuation metrics.</p>
               </div>
 
               {/* CRM Search input */}
               <div className="relative max-w-xs w-full">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <Search className="w-4 h-4 text-zinc-400 absolute left-3 top-2.5" />
                 <input
                   type="text"
                   placeholder="Search name, phone, or email..."
                   value={crmSearchQuery}
                   onChange={(e) => setCrmSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-4 py-1.5 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-teal-500"
+                  className="w-full pl-9 pr-4 py-1.5 text-xs border border-zinc-200 rounded bg-white focus:outline-none focus:border-black font-semibold text-zinc-800"
                 />
               </div>
             </div>
@@ -1370,7 +1365,7 @@ export const Admin: React.FC = () => {
 
               if (filteredCustomers.length === 0) {
                 return (
-                  <div className="py-16 text-center text-slate-400 font-medium">
+                  <div className="py-16 text-center text-zinc-400 font-bold uppercase tracking-wider text-[10px]">
                     🔍 No customer records found matching search queries.
                   </div>
                 );
@@ -1378,9 +1373,9 @@ export const Admin: React.FC = () => {
 
               return (
                 <div className="overflow-x-auto" id="crm-table-container">
-                  <table className="w-full text-xs text-left text-slate-600 border-collapse">
+                  <table className="w-full text-xs text-left text-zinc-600 border-collapse">
                     <thead>
-                      <tr className="border-b border-slate-100 text-slate-400 font-extrabold uppercase tracking-wider text-[9px] bg-slate-50/50">
+                      <tr className="border-b border-zinc-200 text-zinc-400 font-bold uppercase tracking-wider text-[9px] bg-zinc-50">
                         <th className="py-3 px-4">Customer Name</th>
                         <th className="py-3 px-4">Contact Info</th>
                         <th className="py-3 px-4 text-center">First Purchase</th>
@@ -1389,30 +1384,30 @@ export const Admin: React.FC = () => {
                         <th className="py-3 px-4 text-center">Action</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                    <tbody className="divide-y divide-zinc-200 font-semibold text-zinc-800">
                       {filteredCustomers.map((c) => (
-                        <tr key={c.email} className="hover:bg-slate-50/50 transition-colors">
+                        <tr key={c.email} className="hover:bg-zinc-50 transition-colors">
                           <td className="py-3 px-4">
-                            <div className="font-extrabold text-slate-900">{c.name}</div>
+                            <div className="font-bold text-zinc-900">{c.name}</div>
                           </td>
-                          <td className="py-3 px-4">
+                          <td className="py-3 px-4 text-[11px]">
                             <div>{c.email}</div>
-                            <div className="text-[10px] text-slate-400">{c.phone}</div>
+                            <div className="text-[10px] text-zinc-400">{c.phone}</div>
                           </td>
-                          <td className="py-3 px-4 text-center text-slate-500">{c.joinDate}</td>
+                          <td className="py-3 px-4 text-center text-zinc-500">{c.joinDate}</td>
                           <td className="py-3 px-4 text-center">
-                            <span className="bg-teal-50 text-teal-700 px-2 py-0.5 rounded-md font-bold text-[10px]">
+                            <span className="bg-zinc-50 border border-zinc-200 text-zinc-800 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider">
                               {c.ordersCount} checkouts
                             </span>
                           </td>
-                          <td className="py-3 px-4 text-right font-black text-slate-900">
+                          <td className="py-3 px-4 text-right font-bold text-zinc-900">
                             ₹{c.totalSpend.toLocaleString('en-IN')}
                           </td>
                           <td className="py-3 px-4 text-center">
                             <button
                               type="button"
                               onClick={() => setSelectedCustomerEmail(c.email)}
-                              className="px-2.5 py-1 bg-slate-100 hover:bg-teal-50 hover:text-teal-700 text-slate-700 font-bold rounded-lg text-[10px] transition-colors"
+                              className="px-2.5 py-1 border border-zinc-200 hover:bg-zinc-50 text-zinc-900 font-bold rounded text-[10px] uppercase tracking-wider transition-colors"
                             >
                               View History
                             </button>
@@ -1431,16 +1426,16 @@ export const Admin: React.FC = () => {
 
       {/* TAB: CATEGORIES AND BRANDS CRUD */}
       {activeTab === 'categories_brands' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in duration-300" id="admin-categories-brands-tab">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in duration-150" id="admin-categories-brands-tab">
           
           {/* Categories Manager Column */}
-          <div className="bg-white border border-slate-100 p-6 rounded-3xl space-y-6 shadow-sm">
+          <div className="bg-white border border-zinc-200 p-6 rounded space-y-6">
             <div>
-              <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
-                <Award className="w-5 h-5 text-teal-600" />
+              <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-900 flex items-center gap-1.5">
+                <Award className="w-4 h-4 text-zinc-900" />
                 Product Categories Manager
               </h3>
-              <p className="text-[11px] text-slate-400 mt-0.5">Add, view, and delete product category definitions.</p>
+              <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider mt-0.5">Add, view, and delete product category definitions.</p>
             </div>
 
             <form
@@ -1455,35 +1450,35 @@ export const Admin: React.FC = () => {
                 setNewSubcategories('');
                 toast('Category added to configuration successfully!', 'success');
               }}
-              className="bg-slate-50/50 p-4 border border-slate-200/60 rounded-2xl space-y-3"
+              className="bg-zinc-50 p-4 border border-zinc-200 rounded space-y-3"
             >
-              <h4 className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wider">🏷️ Create New Category</h4>
+              <h4 className="text-[10px] font-bold text-zinc-900 uppercase tracking-widest">🏷️ Create New Category</h4>
               <div className="grid grid-cols-1 gap-3 text-xs">
-                <div className="space-y-1">
-                  <label className="font-semibold text-slate-600">Category Name</label>
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-bold uppercase text-zinc-400 tracking-wider block">Category Name</label>
                   <input
                     type="text"
                     required
                     value={newCategoryName}
                     onChange={(e) => setNewCategoryName(e.target.value)}
                     placeholder="e.g. Phone Cases"
-                    className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white"
+                    className="w-full px-3 py-1.5 border border-zinc-200 rounded bg-white font-semibold text-zinc-800 focus:outline-none focus:border-black"
                   />
                 </div>
-                <div className="space-y-1">
-                  <label className="font-semibold text-slate-600">Subcategories (comma separated tags)</label>
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-bold uppercase text-zinc-400 tracking-wider block">Subcategories (comma separated tags)</label>
                   <input
                     type="text"
                     value={newSubcategories}
                     onChange={(e) => setNewSubcategories(e.target.value)}
                     placeholder="e.g. Matte, MagSafe, Clear Protective"
-                    className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white"
+                    className="w-full px-3 py-1.5 border border-zinc-200 rounded bg-white font-semibold text-zinc-800 focus:outline-none focus:border-black"
                   />
                 </div>
               </div>
               <button
                 type="submit"
-                className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-[10px] cursor-pointer"
+                className="w-full py-2 bg-black hover:bg-zinc-900 text-white font-bold rounded text-[10px] uppercase tracking-wider cursor-pointer transition-colors"
               >
                 Add Category definition
               </button>
@@ -1492,17 +1487,17 @@ export const Admin: React.FC = () => {
             <div className="overflow-x-auto">
               <table className="w-full text-xs text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-100 text-slate-400 font-extrabold uppercase text-[9px]">
+                  <tr className="border-b border-zinc-200 text-zinc-400 font-bold uppercase text-[9px] tracking-wider">
                     <th className="py-2">Category Name</th>
                     <th className="py-2">Subcategories tags</th>
                     <th className="py-2 text-right">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                <tbody className="divide-y divide-zinc-200 font-semibold text-zinc-800">
                   {categories.map((cat) => (
-                    <tr key={cat.id} className="hover:bg-slate-50/20">
-                      <td className="py-2.5 font-bold text-slate-900">{cat.name}</td>
-                      <td className="py-2.5 text-slate-500 max-w-[150px] truncate">
+                    <tr key={cat.id} className="hover:bg-zinc-50">
+                      <td className="py-2.5 font-bold text-zinc-900">{cat.name}</td>
+                      <td className="py-2.5 text-zinc-500 max-w-[150px] truncate">
                         {cat.subcategories.join(', ') || 'None'}
                       </td>
                       <td className="py-2.5 text-right">
@@ -1512,7 +1507,7 @@ export const Admin: React.FC = () => {
                             deleteCategory(cat.id);
                             toast('Category definition removed', 'info');
                           }}
-                          className="p-1 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                          className="p-1 text-zinc-400 hover:text-black transition-colors cursor-pointer"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -1525,13 +1520,13 @@ export const Admin: React.FC = () => {
           </div>
 
           {/* Brands Manager Column */}
-          <div className="bg-white border border-slate-100 p-6 rounded-3xl space-y-6 shadow-sm">
+          <div className="bg-white border border-zinc-200 p-6 rounded space-y-6">
             <div>
-              <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
-                <Award className="w-5 h-5 text-teal-600" />
+              <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-900 flex items-center gap-1.5">
+                <Award className="w-4 h-4 text-zinc-900" />
                 Product Brands Manager
               </h3>
-              <p className="text-[11px] text-slate-400 mt-0.5">Manage brand partners, premium hardware manufacturers, and labels.</p>
+              <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider mt-0.5">Manage brand partners, premium hardware manufacturers, and labels.</p>
             </div>
 
             <form
@@ -1542,23 +1537,23 @@ export const Admin: React.FC = () => {
                 setNewBrandName('');
                 toast('Brand partner registered successfully!', 'success');
               }}
-              className="bg-slate-50/50 p-4 border border-slate-200/60 rounded-2xl space-y-3"
+              className="bg-zinc-50 p-4 border border-zinc-200 rounded space-y-3"
             >
-              <h4 className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wider">🏷️ Add Brand Partner</h4>
-              <div className="space-y-1 text-xs">
-                <label className="font-semibold text-slate-600">Brand Name</label>
+              <h4 className="text-[10px] font-bold text-zinc-900 uppercase tracking-widest">🏷️ Add Brand Partner</h4>
+              <div className="space-y-1.5 text-xs">
+                <label className="text-[9px] font-bold uppercase text-zinc-400 tracking-wider block">Brand Name</label>
                 <input
                   type="text"
                   required
                   value={newBrandName}
                   onChange={(e) => setNewBrandName(e.target.value)}
                   placeholder="e.g. Omexo Labs"
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white"
+                  className="w-full px-3 py-1.5 border border-zinc-200 rounded bg-white font-semibold text-zinc-800 focus:outline-none focus:border-black"
                 />
               </div>
               <button
                 type="submit"
-                className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-[10px] cursor-pointer"
+                className="w-full py-2 bg-black hover:bg-zinc-900 text-white font-bold rounded text-[10px] uppercase tracking-wider cursor-pointer transition-colors"
               >
                 Register Brand Label
               </button>
@@ -1567,15 +1562,15 @@ export const Admin: React.FC = () => {
             <div className="overflow-x-auto">
               <table className="w-full text-xs text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-100 text-slate-400 font-extrabold uppercase text-[9px]">
+                  <tr className="border-b border-zinc-200 text-zinc-400 font-bold uppercase text-[9px] tracking-wider">
                     <th className="py-2">Registered Brand</th>
                     <th className="py-2 text-right">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                <tbody className="divide-y divide-zinc-200 font-semibold text-zinc-800">
                   {brands.map((b) => (
-                    <tr key={b.id} className="hover:bg-slate-50/20">
-                      <td className="py-2.5 font-bold text-slate-900">{b.name}</td>
+                    <tr key={b.id} className="hover:bg-zinc-50">
+                      <td className="py-2.5 font-bold text-zinc-900">{b.name}</td>
                       <td className="py-2.5 text-right">
                         <button
                           type="button"
@@ -1583,7 +1578,7 @@ export const Admin: React.FC = () => {
                             deleteBrand(b.id);
                             toast('Brand definition removed', 'info');
                           }}
-                          className="p-1 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                          className="p-1 text-zinc-400 hover:text-black transition-colors cursor-pointer"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>

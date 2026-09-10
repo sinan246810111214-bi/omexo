@@ -2,38 +2,75 @@
 
 @theme {
   --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-  --font-display: 'Outfit', system-ui, -apple-system, sans-serif;
+  --font-display: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
 
-  /* Earthy Modern Premium Theme Palette Mapping */
-  --color-teal-50: #FAF5F2;          /* Light warm orange tint */
-  --color-teal-100: #F6E7DF;         /* Soft clay tint */
-  --color-teal-200: #EFCFBF;
-  --color-teal-300: #E5A38B;
-  --color-teal-400: #DC8163;
-  --color-teal-500: #D96846;         /* Terracotta Orange (Primary Brand Accent) */
-  --color-teal-600: #D96846;         /* Consistent brand branding */
-  --color-teal-700: #C25635;         /* Deep clay shadow state */
-  --color-teal-800: #A04428;
-  --color-teal-900: #6D2E1A;
+  /* Minimalist Black-and-White Theme Palette Mapping */
+  --color-teal-50: #FAFAFA;          /* Neutral white */
+  --color-teal-100: #F4F4F5;         /* Crisp zinc line */
+  --color-teal-200: #E4E4E7;
+  --color-teal-300: #D4D4D8;
+  --color-teal-400: #A1A1AA;
+  --color-teal-500: #18181B;         /* True Off-Black (Primary Brand Accent) */
+  --color-teal-600: #09090B;         /* Dark Accent */
+  --color-teal-700: #000000;         /* Pure Black */
+  --color-teal-800: #000000;
+  --color-teal-900: #000000;
 
-  --color-emerald-50: #F4F6F0;
-  --color-emerald-100: #E8ECE0;
-  --color-emerald-200: #D2DBC1;
-  --color-emerald-500: #596235;      /* Olive Green (Secondary Brand Accent) */
-  --color-emerald-600: #596235;
-  --color-emerald-700: #4B522C;
-  --color-emerald-800: #3C4223;
+  --color-emerald-50: #FAFAFA;
+  --color-emerald-100: #F4F4F5;
+  --color-emerald-200: #E4E4E7;
+  --color-emerald-500: #27272A;      /* Zinc charcoal */
+  --color-emerald-600: #18181B;
+  --color-emerald-700: #09090B;
+  --color-emerald-800: #000000;
 
-  --color-slate-900: #2F3020;        /* Deep Charcoal Olive (Primary Slate Headers) */
-  --color-slate-950: #1E1F15;        /* Soft Organic Dark Mode / Deep Shadow */
+  --color-slate-50: #FAFAFA;
+  --color-slate-100: #F4F4F5;
+  --color-slate-200: #E4E4E7;
+  --color-slate-300: #D4D4D8;
+  --color-slate-400: #A1A1AA;
+  --color-slate-500: #71717A;
+  --color-slate-600: #52525B;
+  --color-slate-700: #3F3F46;
+  --color-slate-800: #27272A;
+  --color-slate-900: #18181B;
+  --color-slate-950: #09090B;
 
-  --color-slate-50: #F6F6F8;         /* Overriding slate backgrounds for subtle organic touch */
+  /* Global micro-radiuses: replace cartoonish rounded values with crisp, professional subtle corners */
+  --radius-3xl: 8px;
+  --radius-2xl: 6px;
+  --radius-xl: 4px;
+  --radius-lg: 3px;
+  --radius-md: 2px;
+  --radius-sm: 1px;
+
+  /* Global micro-shadows: flatten heavy cartoon shadows into elegant, high-contrast micro-shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.02);
+  --shadow-md: 0 1px 3px 0 rgba(0, 0, 0, 0.03), 0 1px 2px -1px rgba(0, 0, 0, 0.03);
+  --shadow-lg: 0 2px 4px 0 rgba(0, 0, 0, 0.04);
+  --shadow-xl: 0 3px 6px 0 rgba(0, 0, 0, 0.04);
+  --shadow-2xl: 0 6px 16px 0 rgba(0, 0, 0, 0.05);
+  --shadow-inner: inset 0 2px 4px 0 rgba(0, 0, 0, 0.02);
 }
 
 body {
   font-family: var(--font-sans);
+  background-color: #FAFAFA;
 }
 
 h1, h2, h3, h4, h5, h6, .display-font {
   font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+/* Custom transitions and interactive classes for micro-interactions */
+.interactive-action {
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.interactive-action:hover {
+  opacity: 0.85;
+  transform: translateY(-0.5px);
+}
+.interactive-action:active {
+  transform: translateY(0);
 }

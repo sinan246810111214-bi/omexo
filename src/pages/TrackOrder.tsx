@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { useStore } from '../hooks/useStore';
 import { useToast } from '../components/Toast';
-import { Search, MapPin, Truck, Calendar, ArrowRight, ClipboardCheck, Info, PackageOpen, CheckCircle, Clock } from 'lucide-react';
-import { motion } from 'motion/react';
+import { Search, MapPin, Truck, ArrowRight, ClipboardCheck, Info, PackageOpen, CheckCircle, Clock } from 'lucide-react';
 import { OrderStatus } from '../types';
 
 export const TrackOrder: React.FC = () => {
@@ -54,33 +53,33 @@ export const TrackOrder: React.FC = () => {
   ];
 
   return (
-    <div className="max-w-3xl mx-auto space-y-8 pb-16 animate-in fade-in duration-300" id="tracking-container">
+    <div className="max-w-3xl mx-auto space-y-8 pb-16 animate-in fade-in duration-150" id="tracking-container">
       
       {/* Header section */}
       <div className="text-center space-y-2">
-        <h1 className="text-3xl font-black text-slate-800 tracking-tight leading-none">Consignment Tracking</h1>
-        <p className="text-sm text-slate-500 max-w-md mx-auto">
+        <h1 className="text-xl font-bold uppercase tracking-widest text-zinc-900 leading-none">Consignment Tracking</h1>
+        <p className="text-xs text-zinc-500 max-w-md mx-auto leading-relaxed">
           Trace your Omexo high-performance tech gears from our automated assembly line straight to your doorstep.
         </p>
       </div>
 
       {/* Tracker Search Form */}
-      <div className="bg-white border border-slate-100 p-5 rounded-3xl shadow-sm" id="tracking-search-box">
+      <div className="bg-white border border-zinc-200 p-5 rounded shadow-xs" id="tracking-search-box">
         <form onSubmit={handleTrack} className="flex gap-2">
           <div className="relative flex-1">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 w-4 h-4" />
             <input
               type="text"
               value={orderId}
               onChange={(e) => setOrderId(e.target.value)}
               placeholder="Enter your Order Reference ID (e.g. OMX-123456)"
-              className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/10"
+              className="w-full pl-10 pr-4 py-2 border border-zinc-200 rounded text-xs focus:outline-none focus:border-black focus:ring-0 font-medium"
               id="tracking-id-input"
             />
           </div>
           <button
             type="submit"
-            className="px-6 py-3 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-2xl text-sm transition-colors"
+            className="px-5 py-2 bg-black hover:bg-zinc-900 text-white font-bold rounded text-xs uppercase tracking-widest transition-colors"
             id="tracking-submit-btn"
           >
             Track Order
@@ -89,14 +88,14 @@ export const TrackOrder: React.FC = () => {
 
         {/* pre-filled test IDs (to aid quick testing for reviewer) */}
         {orders.length > 0 ? (
-          <div className="mt-4 pt-3 border-t border-slate-100/70 text-xs">
-            <span className="font-bold text-slate-500 block mb-2">Available Persisted Orders (Click to test):</span>
+          <div className="mt-4 pt-3 border-t border-zinc-100 text-[10px]">
+            <span className="font-bold text-zinc-400 uppercase tracking-wider block mb-2">Available Persisted Orders (Click to test):</span>
             <div className="flex flex-wrap gap-2">
               {orders.slice(0, 4).map((o) => (
                 <button
                   key={o.id}
                   onClick={() => selectPrebuiltId(o.id)}
-                  className="px-2.5 py-1.5 rounded-lg border border-teal-100 hover:bg-teal-50/50 text-teal-700 font-mono font-bold transition-all"
+                  className="px-2.5 py-1 rounded border border-zinc-200 hover:border-black text-zinc-900 font-mono font-bold transition-all text-[10px] uppercase tracking-wider"
                   id={`test-order-${o.id}`}
                 >
                   {o.id} ({o.orderStatus})
@@ -105,8 +104,8 @@ export const TrackOrder: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div className="mt-4 pt-3 border-t border-slate-100/70 text-xs text-slate-400">
-            💡 No orders placed yet in this browser session. Place an order on the checkout screen first to generate tracking references!
+          <div className="mt-4 pt-3 border-t border-zinc-100 text-[10px] text-zinc-400 font-medium uppercase tracking-wider">
+            💡 No orders placed yet in this browser session. Place an order on checkout first!
           </div>
         )}
       </div>
@@ -118,60 +117,60 @@ export const TrackOrder: React.FC = () => {
             <div className="space-y-6">
               
               {/* Order Basic Meta Header */}
-              <div className="bg-slate-50 border border-slate-100 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="bg-zinc-50 border border-zinc-200 rounded p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="space-y-1">
-                  <div className="text-xs text-slate-400 font-bold uppercase tracking-wider">Persisted Reference</div>
-                  <h3 className="text-lg font-black text-slate-800 font-mono leading-none">{searchedOrder.id}</h3>
-                  <div className="text-xs text-slate-500">Placed on: {new Date(searchedOrder.createdAt).toLocaleDateString('en-IN', { dateStyle: 'long' })}</div>
+                  <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Persisted Reference</div>
+                  <h3 className="text-base font-bold text-zinc-900 font-mono leading-none">{searchedOrder.id}</h3>
+                  <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-wide">Placed: {new Date(searchedOrder.createdAt).toLocaleDateString('en-IN', { dateStyle: 'long' })}</div>
                 </div>
 
                 <div className="flex flex-col sm:items-end space-y-1">
-                  <div className="text-xs text-slate-400 font-bold uppercase">Estimated Status</div>
-                  <span className={`px-3 py-1 text-xs font-black rounded-full text-center ${
+                  <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Estimated Status</div>
+                  <span className={`px-3 py-1 text-[10px] font-bold rounded border uppercase tracking-wider text-center ${
                     searchedOrder.orderStatus === 'Cancelled'
-                      ? 'bg-rose-50 text-rose-700 border border-rose-100'
+                      ? 'bg-zinc-100 text-zinc-900 border-zinc-300'
                       : searchedOrder.orderStatus === 'Delivered'
-                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
-                      : 'bg-teal-50 text-teal-700 border border-teal-100'
+                      ? 'bg-black text-white border-black'
+                      : 'bg-zinc-100 text-zinc-900 border-zinc-200'
                   }`}>
-                    • {searchedOrder.orderStatus}
+                    {searchedOrder.orderStatus}
                   </span>
                 </div>
               </div>
 
               {/* India Post Consignment redirection */}
-              <div className="bg-white border border-slate-100 p-5 rounded-2xl space-y-4" id="consignment-redirection-box">
-                <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-1.5">
-                  <Truck className="w-4 h-4 text-teal-600" />
+              <div className="bg-white border border-zinc-200 p-5 rounded space-y-4" id="consignment-redirection-box">
+                <h4 className="text-[10px] font-bold text-zinc-900 uppercase tracking-widest flex items-center gap-1.5">
+                  <Truck className="w-3.5 h-3.5 text-zinc-900" />
                   India Post Logistics
                 </h4>
                 
                 {searchedOrder.consignmentNumber ? (
                   <div className="space-y-3">
-                    <div className="p-3 bg-teal-50/50 border border-teal-100/60 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="p-3 bg-zinc-50 border border-zinc-200 rounded flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div>
-                        <div className="text-[10px] text-slate-400 font-bold uppercase">Consignment Tracking ID</div>
-                        <div className="text-sm font-black font-mono text-teal-800">{searchedOrder.consignmentNumber}</div>
+                        <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Consignment Tracking ID</div>
+                        <div className="text-xs font-bold font-mono text-zinc-900">{searchedOrder.consignmentNumber}</div>
                       </div>
                       <a
                         href="https://www.indiapost.gov.in/_layouts/15/dop.portal.tracking/trackconsignment.aspx"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 shrink-0"
+                        className="px-4 py-2 bg-black hover:bg-zinc-900 text-white font-bold text-[10px] uppercase tracking-wider rounded transition-all flex items-center justify-center gap-1.5 shrink-0"
                         id="india-post-portal-link"
                       >
                         Launch India Post Portal
-                        <ArrowRight className="w-3.5 h-3.5" />
+                        <ArrowRight className="w-3 h-3" />
                       </a>
                     </div>
-                    <p className="text-[10px] text-slate-400 leading-relaxed font-medium">
-                      Note: Your consignment code is officially registered with India Post. Clicking the link redirects to the official government portal where you can verify exact GPS courier locations.
+                    <p className="text-[10px] text-zinc-405 leading-relaxed font-semibold uppercase tracking-wider">
+                      Note: Your consignment code is officially registered with India Post. Clicking the link redirects to the government portal.
                     </p>
                   </div>
                 ) : (
-                  <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl flex items-start gap-3">
-                    <Info className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
-                    <div className="text-xs text-slate-500 leading-relaxed">
+                  <div className="p-4 bg-zinc-50 border border-zinc-200 rounded flex items-start gap-3">
+                    <Info className="w-3.5 h-3.5 text-zinc-400 shrink-0 mt-0.5" />
+                    <div className="text-[10px] text-zinc-500 font-medium leading-relaxed">
                       Your parcel is being packaged & sorted in our central warehouse. Consignment and carrier IDs are automatically generated upon hand-over to India Post cargo dispatchers (Usually within 12 hours). Check back shortly!
                     </div>
                   </div>
@@ -180,35 +179,35 @@ export const TrackOrder: React.FC = () => {
 
               {/* Vertical Pipeline Tracker */}
               {searchedOrder.orderStatus !== 'Cancelled' ? (
-                <div className="bg-white border border-slate-100 p-6 rounded-2xl space-y-6" id="pipeline-tracker-box">
-                  <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-1.5 mb-2">
-                    <ClipboardCheck className="w-4 h-4 text-teal-600" />
+                <div className="bg-white border border-zinc-200 p-6 rounded space-y-6" id="pipeline-tracker-box">
+                  <h4 className="text-[10px] font-bold text-zinc-900 uppercase tracking-widest flex items-center gap-1.5 mb-2">
+                    <ClipboardCheck className="w-3.5 h-3.5 text-zinc-900" />
                     Delivery Progression Pipeline
                   </h4>
 
-                  <div className="relative pl-6 space-y-6 before:absolute before:left-2 before:top-1.5 before:bottom-1.5 before:w-0.5 before:bg-slate-100">
-                    {statusSteps.map((step, idx) => {
+                  <div className="relative pl-6 space-y-6 before:absolute before:left-2 before:top-1.5 before:bottom-1.5 before:w-0.5 before:bg-zinc-200">
+                    {statusSteps.map((step) => {
                       const isCompleted = getPipelineIndex(searchedOrder.orderStatus) >= getPipelineIndex(step.key);
                       const isCurrent = searchedOrder.orderStatus === step.key;
 
                       return (
                         <div key={step.key} className="relative" id={`pipeline-step-${step.key.toLowerCase()}`}>
                           {/* Dot indicator */}
-                          <div className={`absolute -left-6 top-1 w-4.5 h-4.5 rounded-full border-2 flex items-center justify-center -translate-x-1/2 z-10 transition-colors ${
+                          <div className={`absolute -left-6 top-1 w-4 h-4 rounded border flex items-center justify-center -translate-x-1/2 z-10 transition-colors ${
                             isCompleted
-                              ? 'border-teal-600 bg-teal-600 text-white'
-                              : 'border-slate-200 bg-white'
+                              ? 'border-black bg-black text-white'
+                              : 'border-zinc-200 bg-white text-zinc-300'
                           }`}>
-                            {isCompleted && <CheckCircle className="w-3.5 h-3.5" />}
+                            {isCompleted && <CheckCircle className="w-3 h-3" />}
                           </div>
 
-                          <div className="space-y-0.5">
-                            <h5 className={`text-xs font-bold ${
-                              isCurrent ? 'text-teal-700' : isCompleted ? 'text-slate-800' : 'text-slate-400'
+                          <div className="space-y-1">
+                            <h5 className={`text-xs font-bold uppercase tracking-wider ${
+                              isCurrent ? 'text-black font-extrabold' : isCompleted ? 'text-zinc-800' : 'text-zinc-400'
                             }`}>
                               {step.label}
                             </h5>
-                            <p className="text-[10px] text-slate-400 max-w-md">{step.desc}</p>
+                            <p className="text-[10px] text-zinc-400 font-medium leading-relaxed">{step.desc}</p>
                           </div>
                         </div>
                       );
@@ -216,9 +215,9 @@ export const TrackOrder: React.FC = () => {
                   </div>
                 </div>
               ) : (
-                <div className="bg-rose-50 border border-rose-100 p-5 rounded-2xl flex items-start gap-3">
-                  <Clock className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
-                  <div className="text-xs text-rose-800 leading-relaxed font-semibold">
+                <div className="bg-zinc-50 border border-zinc-200 p-5 rounded flex items-start gap-3">
+                  <Clock className="w-4 h-4 text-zinc-900 shrink-0 mt-0.5" />
+                  <div className="text-[10px] text-zinc-500 leading-relaxed font-bold uppercase tracking-wide">
                     This order has been officially cancelled. Refund processing is underway. Please contact support@omexo.in if you have further inquiries.
                   </div>
                 </div>
@@ -226,11 +225,11 @@ export const TrackOrder: React.FC = () => {
 
             </div>
           ) : (
-            <div className="py-12 bg-white border border-slate-100 rounded-3xl text-center space-y-3" id="tracking-error-panel">
-              <PackageOpen className="w-12 h-12 text-slate-300 mx-auto" />
-              <h4 className="text-sm font-bold text-slate-700">No Consignment Linked</h4>
-              <p className="text-xs text-slate-400 max-w-xs mx-auto">
-                No active invoice matches this tracking reference. Check the spelling or try adding a new order to generate valid sequences.
+            <div className="py-12 bg-white border border-zinc-200 rounded text-center space-y-3" id="tracking-error-panel">
+              <PackageOpen className="w-10 h-10 text-zinc-300 mx-auto" />
+              <h4 className="text-xs font-bold text-zinc-900 uppercase tracking-widest">No Consignment Linked</h4>
+              <p className="text-[10px] text-zinc-400 uppercase tracking-wider max-w-xs mx-auto leading-relaxed">
+                No active invoice matches this tracking reference. Check the spelling or try placing a new order.
               </p>
             </div>
           )}

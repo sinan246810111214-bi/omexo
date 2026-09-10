@@ -17,6 +17,7 @@ import { Checkout } from './pages/Checkout';
 import { TrackOrder } from './pages/TrackOrder';
 import { Admin } from './pages/Admin';
 import { Legal } from './pages/Legal';
+import { AIAssistant } from './components/AIAssistant';
 
 function MainAppContent() {
   const { route, params, navigate } = useHashRouter();
@@ -44,10 +45,9 @@ function MainAppContent() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex flex-col text-slate-800 antialiased font-sans relative overflow-hidden" id="omexo-app-layout">
-      {/* Premium Ambient Background Texture */}
-      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[radial-gradient(circle_at_top_right,rgba(217,104,70,0.04),transparent_70%)] pointer-events-none z-0" />
-      <div className="absolute bottom-20 left-0 w-[600px] h-[600px] bg-[radial-gradient(circle_at_bottom_left,rgba(89,98,53,0.02),transparent_70%)] pointer-events-none z-0" />
+    <div className="min-h-screen bg-zinc-50 flex flex-col text-zinc-900 antialiased font-sans relative overflow-hidden" id="omexo-app-layout">
+      {/* Premium Minimalist Subtle Light Gradients */}
+      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[radial-gradient(circle_at_top_right,rgba(0,0,0,0.01),transparent_70%)] pointer-events-none z-0" />
 
       {/* Brand Header */}
       <Navbar />
@@ -58,38 +58,40 @@ function MainAppContent() {
       </main>
 
       {/* Elegant, multi-column footer containing all policy page links and the admin gear icon */}
-      <footer className="mt-auto border-t border-slate-100 bg-white/95 backdrop-blur-md z-10 relative" id="omexo-app-footer">
+      <footer className="mt-auto border-t border-zinc-200 bg-white z-10 relative" id="omexo-app-footer">
         <div className="max-w-7xl mx-auto px-4 py-12 grid grid-cols-1 md:grid-cols-12 gap-8">
           
           {/* Column 1: Brand Info */}
           <div className="md:col-span-5 space-y-4">
-            <div className="flex items-center gap-2 select-none">
-              <div className="w-8 h-8 rounded-lg bg-teal-600 flex items-center justify-center font-bold text-white text-base tracking-wider">
-                O
-              </div>
-              <span className="text-lg font-black text-slate-800 tracking-tight leading-none">OMEXO</span>
+            <div className="flex items-center select-none cursor-pointer" onClick={() => navigate('home')}>
+              <img 
+                src="https://i.ibb.co/qY8X8qv1/Chat-GPT-Image-Sep-10-2026-11-28-10-AM.png" 
+                alt="OMEXO Logo" 
+                className="h-[80px] md:h-[100px] w-auto object-contain"
+                referrerPolicy="no-referrer"
+              />
             </div>
-            <p className="text-xs text-slate-400 font-medium leading-relaxed max-w-sm">
+            <p className="text-xs text-zinc-400 font-medium leading-relaxed max-w-sm">
               Discover a curated collection of ultra-premium smartwatches, high-fidelity hybrid audio earbuds, and ultra-fast GaN chargers. Engineered to elevate your modern digital lifestyle.
             </p>
-            <div className="text-[11px] text-teal-600 font-bold bg-teal-50 px-3 py-1.5 rounded-lg w-fit">
+            <div className="text-[11px] text-zinc-800 font-bold border border-zinc-200 bg-zinc-50 px-3 py-1.5 rounded w-fit">
               ✓ 100% Cash On Delivery • Guaranteed Free Shipping
             </div>
           </div>
 
           {/* Column 2: Customer Support */}
           <div className="md:col-span-3 space-y-3">
-            <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-400">Support Desk</h4>
-            <ul className="space-y-2 text-xs font-semibold text-slate-500">
+            <h4 className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Support Desk</h4>
+            <ul className="space-y-2 text-xs font-semibold text-zinc-500">
               <li>
-                <button onClick={() => navigate('contact-us')} className="hover:text-teal-600 transition-colors cursor-pointer text-left">
+                <button onClick={() => navigate('contact-us')} className="hover:text-zinc-950 transition-colors cursor-pointer text-left">
                   Contact Us
                 </button>
               </li>
-              <li className="text-[11px] text-slate-400 font-normal">
+              <li className="text-[11px] text-zinc-400 font-normal">
                 Email: omexoofficial@gmail.com
               </li>
-              <li className="text-[11px] text-slate-400 font-normal">
+              <li className="text-[11px] text-zinc-400 font-normal">
                 WhatsApp: +91 99465 97201
               </li>
             </ul>
@@ -97,25 +99,25 @@ function MainAppContent() {
 
           {/* Column 3: Legal Policies */}
           <div className="md:col-span-4 space-y-3">
-            <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-400">Legal Policies</h4>
-            <ul className="grid grid-cols-2 gap-2 text-xs font-semibold text-slate-500">
+            <h4 className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Legal Policies</h4>
+            <ul className="grid grid-cols-2 gap-2 text-xs font-semibold text-zinc-500">
               <li>
-                <button onClick={() => navigate('privacy-policy')} className="hover:text-teal-600 transition-colors cursor-pointer text-left">
+                <button onClick={() => navigate('privacy-policy')} className="hover:text-zinc-950 transition-colors cursor-pointer text-left">
                   Privacy Policy
                 </button>
               </li>
               <li>
-                <button onClick={() => navigate('terms')} className="hover:text-teal-600 transition-colors cursor-pointer text-left">
+                <button onClick={() => navigate('terms')} className="hover:text-zinc-950 transition-colors cursor-pointer text-left">
                   Terms of Service
                 </button>
               </li>
               <li>
-                <button onClick={() => navigate('shipping-policy')} className="hover:text-teal-600 transition-colors cursor-pointer text-left">
+                <button onClick={() => navigate('shipping-policy')} className="hover:text-zinc-950 transition-colors cursor-pointer text-left">
                   Shipping Policy
                 </button>
               </li>
               <li>
-                <button onClick={() => navigate('refund-policy')} className="hover:text-teal-600 transition-colors cursor-pointer text-left">
+                <button onClick={() => navigate('refund-policy')} className="hover:text-zinc-950 transition-colors cursor-pointer text-left">
                   Refund Policy
                 </button>
               </li>
@@ -125,13 +127,13 @@ function MainAppContent() {
         </div>
 
         {/* Copyright area with subtle Admin Gear */}
-        <div className="border-t border-slate-100 py-6 bg-slate-50/50">
-          <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-slate-400 font-semibold">
+        <div className="border-t border-zinc-200 py-6 bg-zinc-50">
+          <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-zinc-400 font-semibold">
             <span>&copy; {new Date().getFullYear()} Omexo Premium Gadgets. All rights reserved.</span>
             
             <button
               onClick={() => navigate('admin')}
-              className="p-1.5 text-slate-300 hover:text-teal-600 hover:bg-slate-100 transition-all rounded-lg cursor-pointer flex items-center"
+              className="p-1.5 text-zinc-300 hover:text-zinc-950 hover:bg-zinc-100 transition-all rounded cursor-pointer flex items-center"
               title="Admin Control"
               id="btn-footer-admin-gear"
             >
@@ -140,6 +142,7 @@ function MainAppContent() {
           </div>
         </div>
       </footer>
+      <AIAssistant />
     </div>
   );
 }
