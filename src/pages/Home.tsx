@@ -23,7 +23,9 @@ export const Home: React.FC = () => {
     selectedCategory,
     setSelectedCategory,
     selectedBrand,
-    setSelectedBrand
+    setSelectedBrand,
+    showCategoryBrands,
+    showFeaturedGrids
   } = useStore();
   
   const { navigate } = useHashRouter();
@@ -249,171 +251,175 @@ export const Home: React.FC = () => {
       </section>
 
       {/* 3. Category Grid & Brand Quick-Links */}
-      <section className="space-y-4" id="category-brands-anchors">
-        <div className="space-y-1">
-          <h2 className="text-xs font-bold uppercase text-zinc-400 tracking-widest">Shop By Department</h2>
-          <p className="text-xs text-zinc-500 font-medium">Instant shortcuts to filter our tactical gear collections</p>
-        </div>
+      {showCategoryBrands && (
+        <section className="space-y-4" id="category-brands-anchors">
+          <div className="space-y-1">
+            <h2 className="text-xs font-bold uppercase text-zinc-400 tracking-widest">Shop By Department</h2>
+            <p className="text-xs text-zinc-500 font-medium">Instant shortcuts to filter our tactical gear collections</p>
+          </div>
 
-        {/* Categories Grid (Bento style) */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {categories.map((cat) => {
-            const productCount = products.filter(p => p.category === cat.name).length;
-            // Aesthetic cover image pairings based on name
-            let imageSrc = 'https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&w=300&q=80';
-            if (cat.name.toLowerCase().includes('audio') || cat.name.toLowerCase().includes('earbuds')) {
-              imageSrc = 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=300&q=80';
-            } else if (cat.name.toLowerCase().includes('charger') || cat.name.toLowerCase().includes('gan')) {
-              imageSrc = 'https://images.unsplash.com/photo-1619134778706-7015533a6150?auto=format&fit=crop&w=300&q=80';
-            } else if (cat.name.toLowerCase().includes('case') || cat.name.toLowerCase().includes('phone')) {
-              imageSrc = 'https://images.unsplash.com/photo-1603302576837-37561b2e2302?auto=format&fit=crop&w=300&q=80';
-            } else if (cat.name.toLowerCase().includes('adapter') || cat.name.toLowerCase().includes('hub')) {
-              imageSrc = 'https://images.unsplash.com/photo-1468495244123-6c6c332eeece?auto=format&fit=crop&w=300&q=80';
-            }
+          {/* Categories Grid (Bento style) */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {categories.map((cat) => {
+              const productCount = products.filter(p => p.category === cat.name).length;
+              // Aesthetic cover image pairings based on name
+              let imageSrc = 'https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&w=300&q=80';
+              if (cat.name.toLowerCase().includes('audio') || cat.name.toLowerCase().includes('earbuds')) {
+                imageSrc = 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=300&q=80';
+              } else if (cat.name.toLowerCase().includes('charger') || cat.name.toLowerCase().includes('gan')) {
+                imageSrc = 'https://images.unsplash.com/photo-1619134778706-7015533a6150?auto=format&fit=crop&w=300&q=80';
+              } else if (cat.name.toLowerCase().includes('case') || cat.name.toLowerCase().includes('phone')) {
+                imageSrc = 'https://images.unsplash.com/photo-1603302576837-37561b2e2302?auto=format&fit=crop&w=300&q=80';
+              } else if (cat.name.toLowerCase().includes('adapter') || cat.name.toLowerCase().includes('hub')) {
+                imageSrc = 'https://images.unsplash.com/photo-1468495244123-6c6c332eeece?auto=format&fit=crop&w=300&q=80';
+              }
 
-            return (
-              <div
-                key={cat.id}
-                onClick={() => {
-                  setSelectedCategory(cat.name);
-                  setSelectedBrand('All');
-                  const el = document.getElementById('catalog-deck');
-                  el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }}
-                className={`relative aspect-[4/3] rounded overflow-hidden group cursor-pointer border ${
-                  selectedCategory === cat.name ? 'border-zinc-900 ring-1 ring-zinc-900' : 'border-zinc-200'
-                }`}
-              >
-                <img 
-                  src={imageSrc} 
-                  alt={cat.name} 
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-102" 
-                  referrerPolicy="no-referrer"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
-                <div className="absolute bottom-3 left-3 text-white">
-                  <h4 className="text-[11px] font-bold tracking-wide uppercase">{cat.name}</h4>
-                  <span className="text-[9px] text-zinc-300 font-semibold uppercase">{productCount} Products</span>
+              return (
+                <div
+                  key={cat.id}
+                  onClick={() => {
+                    setSelectedCategory(cat.name);
+                    setSelectedBrand('All');
+                    const el = document.getElementById('catalog-deck');
+                    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }}
+                  className={`relative aspect-[4/3] rounded overflow-hidden group cursor-pointer border ${
+                    selectedCategory === cat.name ? 'border-zinc-900 ring-1 ring-zinc-900' : 'border-zinc-200'
+                  }`}
+                >
+                  <img 
+                    src={imageSrc} 
+                    alt={cat.name} 
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-102" 
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
+                  <div className="absolute bottom-3 left-3 text-white">
+                    <h4 className="text-[11px] font-bold tracking-wide uppercase">{cat.name}</h4>
+                    <span className="text-[9px] text-zinc-300 font-semibold uppercase">{productCount} Products</span>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
 
-        {/* Brands Horizontal Row */}
-        <div className="flex flex-wrap items-center gap-2 pt-1">
-          <span className="text-[10px] font-bold uppercase text-zinc-400 tracking-wider mr-2">Top Brands:</span>
-          <button
-            onClick={() => {
-              setSelectedBrand('All');
-              const el = document.getElementById('catalog-deck');
-              el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }}
-            className={`px-3 py-1.5 border rounded text-[10px] font-bold uppercase transition-all duration-150 ${
-              selectedBrand === 'All'
-                ? 'bg-black text-white border-black'
-                : 'bg-white text-zinc-600 border-zinc-200 hover:border-black hover:text-black'
-            }`}
-          >
-            All Brands
-          </button>
-          {brands.map((b) => (
+          {/* Brands Horizontal Row */}
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <span className="text-[10px] font-bold uppercase text-zinc-400 tracking-wider mr-2">Top Brands:</span>
             <button
-              key={b.id}
               onClick={() => {
-                setSelectedBrand(b.name);
+                setSelectedBrand('All');
                 const el = document.getElementById('catalog-deck');
                 el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
               }}
               className={`px-3 py-1.5 border rounded text-[10px] font-bold uppercase transition-all duration-150 ${
-                selectedBrand === b.name
-                  ? 'bg-black text-white border-black shadow-xs'
+                selectedBrand === 'All'
+                  ? 'bg-black text-white border-black'
                   : 'bg-white text-zinc-600 border-zinc-200 hover:border-black hover:text-black'
               }`}
-              id={`brand-tag-${b.id}`}
             >
-              {b.name}
+              All Brands
             </button>
-          ))}
-        </div>
-      </section>
+            {brands.map((b) => (
+              <button
+                key={b.id}
+                onClick={() => {
+                  setSelectedBrand(b.name);
+                  const el = document.getElementById('catalog-deck');
+                  el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+                className={`px-3 py-1.5 border rounded text-[10px] font-bold uppercase transition-all duration-150 ${
+                  selectedBrand === b.name
+                    ? 'bg-black text-white border-black shadow-xs'
+                    : 'bg-white text-zinc-600 border-zinc-200 hover:border-black hover:text-black'
+                }`}
+                id={`brand-tag-${b.id}`}
+              >
+                {b.name}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* 4. Dual Tab Featured Grids: 'Best Sellers' vs 'New Arrivals' */}
-      <section className="space-y-6 pt-4 border-t border-zinc-200" id="featured-grids-tabbed">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          
-          {/* Best Sellers Column */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Flame className="w-4 h-4 text-zinc-900 fill-zinc-950" />
-              <h3 className="text-xs font-bold uppercase text-zinc-900 tracking-wider">Best Sellers</h3>
-            </div>
+      {showFeaturedGrids && (
+        <section className="space-y-6 pt-4 border-t border-zinc-200" id="featured-grids-tabbed">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             
-            <div className="grid grid-cols-2 gap-3">
-              {bestSellers.map((p) => {
-                const discount = Math.round(((p.regularPrice - p.salePrice) / p.regularPrice) * 100);
-                return (
-                  <div
-                    key={p.id}
-                    onClick={() => navigate('product', { id: p.id })}
-                    className="p-3 bg-white border border-zinc-200 hover:border-black rounded flex flex-col justify-between cursor-pointer group transition-all duration-150"
-                  >
-                    <div className="aspect-square rounded bg-zinc-50 border border-zinc-100 overflow-hidden relative mb-2">
-                      <img src={p.images[0]} alt={p.title} className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-200" referrerPolicy="no-referrer" />
-                      {discount > 0 && (
-                        <span className="absolute top-1.5 left-1.5 bg-black text-white text-[8px] font-bold uppercase px-1.5 py-0.5 rounded">
-                          -{discount}%
+            {/* Best Sellers Column */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Flame className="w-4 h-4 text-zinc-900 fill-zinc-950" />
+                <h3 className="text-xs font-bold uppercase text-zinc-900 tracking-wider">Best Sellers</h3>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3">
+                {bestSellers.map((p) => {
+                  const discount = Math.round(((p.regularPrice - p.salePrice) / p.regularPrice) * 100);
+                  return (
+                    <div
+                      key={p.id}
+                      onClick={() => navigate('product', { id: p.id })}
+                      className="p-3 bg-white border border-zinc-200 hover:border-black rounded flex flex-col justify-between cursor-pointer group transition-all duration-150"
+                    >
+                      <div className="aspect-square rounded bg-zinc-50 border border-zinc-100 overflow-hidden relative mb-2">
+                        <img src={p.images[0]} alt={p.title} className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-200" referrerPolicy="no-referrer" />
+                        {discount > 0 && (
+                          <span className="absolute top-1.5 left-1.5 bg-black text-white text-[8px] font-bold uppercase px-1.5 py-0.5 rounded">
+                            -{discount}%
+                          </span>
+                        )}
+                      </div>
+                      <h4 className="text-[11px] font-bold text-zinc-850 leading-snug line-clamp-2 truncate-line">{p.title}</h4>
+                      <div className="flex items-baseline gap-1.5 mt-1.5 justify-between">
+                        <span className="text-xs font-black text-zinc-950">₹{p.salePrice.toLocaleString('en-IN')}</span>
+                        <span className="text-[9px] text-zinc-600 font-bold flex items-center gap-0.5">
+                          <Star className="w-3 h-3 text-zinc-800 fill-zinc-800" /> 4.9
                         </span>
-                      )}
+                      </div>
                     </div>
-                    <h4 className="text-[11px] font-bold text-zinc-850 leading-snug line-clamp-2 truncate-line">{p.title}</h4>
-                    <div className="flex items-baseline gap-1.5 mt-1.5 justify-between">
-                      <span className="text-xs font-black text-zinc-950">₹{p.salePrice.toLocaleString('en-IN')}</span>
-                      <span className="text-[9px] text-zinc-600 font-bold flex items-center gap-0.5">
-                        <Star className="w-3 h-3 text-zinc-800 fill-zinc-800" /> 4.9
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </div>
 
-          {/* New Arrivals Column */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-zinc-900" />
-              <h3 className="text-xs font-bold uppercase text-zinc-900 tracking-wider">New Arrivals</h3>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-3">
-              {newArrivals.map((p) => {
-                const discount = Math.round(((p.regularPrice - p.salePrice) / p.regularPrice) * 100);
-                return (
-                  <div
-                    key={p.id}
-                    onClick={() => navigate('product', { id: p.id })}
-                    className="p-3 bg-white border border-zinc-200 hover:border-black rounded flex flex-col justify-between cursor-pointer group transition-all duration-150"
-                  >
-                    <div className="aspect-square rounded bg-zinc-50 border border-zinc-100 overflow-hidden relative mb-2">
-                      <img src={p.images[0]} alt={p.title} className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-200" referrerPolicy="no-referrer" />
-                      <span className="absolute top-1.5 left-1.5 bg-black text-white text-[8px] font-bold uppercase px-1.5 py-0.5 rounded">
-                        NEW
-                      </span>
+            {/* New Arrivals Column */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-zinc-900" />
+                <h3 className="text-xs font-bold uppercase text-zinc-900 tracking-wider">New Arrivals</h3>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3">
+                {newArrivals.map((p) => {
+                  const discount = Math.round(((p.regularPrice - p.salePrice) / p.regularPrice) * 100);
+                  return (
+                    <div
+                      key={p.id}
+                      onClick={() => navigate('product', { id: p.id })}
+                      className="p-3 bg-white border border-zinc-200 hover:border-black rounded flex flex-col justify-between cursor-pointer group transition-all duration-150"
+                    >
+                      <div className="aspect-square rounded bg-zinc-50 border border-zinc-100 overflow-hidden relative mb-2">
+                        <img src={p.images[0]} alt={p.title} className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-200" referrerPolicy="no-referrer" />
+                        <span className="absolute top-1.5 left-1.5 bg-black text-white text-[8px] font-bold uppercase px-1.5 py-0.5 rounded">
+                          NEW
+                        </span>
+                      </div>
+                      <h4 className="text-[11px] font-bold text-zinc-850 leading-snug line-clamp-2 truncate-line">{p.title}</h4>
+                      <div className="flex items-baseline gap-1.5 mt-1.5 justify-between">
+                        <span className="text-xs font-black text-zinc-950">₹{p.salePrice.toLocaleString('en-IN')}</span>
+                        <span className="text-[9px] text-zinc-500 font-medium">Just Landed</span>
+                      </div>
                     </div>
-                    <h4 className="text-[11px] font-bold text-zinc-850 leading-snug line-clamp-2 truncate-line">{p.title}</h4>
-                    <div className="flex items-baseline gap-1.5 mt-1.5 justify-between">
-                      <span className="text-xs font-black text-zinc-950">₹{p.salePrice.toLocaleString('en-IN')}</span>
-                      <span className="text-[9px] text-zinc-500 font-medium">Just Landed</span>
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </div>
 
-        </div>
-      </section>
+          </div>
+        </section>
+      )}
 
       {/* 5. Precision Shop Catalog Deck (Robust Filtering, Pricing Range, Stock Availability, and Sorting) */}
       <section className="space-y-6 pt-6 border-t border-zinc-200" id="catalog-deck">

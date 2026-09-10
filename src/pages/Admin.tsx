@@ -29,6 +29,10 @@ export const Admin: React.FC = () => {
     addBanner,
     updateBanner,
     deleteBanner,
+    showCategoryBrands,
+    setShowCategoryBrands,
+    showFeaturedGrids,
+    setShowFeaturedGrids,
   } = useStore();
 
   const { toast } = useToast();
@@ -935,6 +939,67 @@ export const Admin: React.FC = () => {
       {/* TAB: BANNER CONTROL */}
       {activeTab === 'banner' && (
         <div className="max-w-xl mx-auto space-y-6" id="admin-banner-tab">
+          {/* Section Visibility Controls */}
+          <div className="bg-white border border-zinc-200 p-6 rounded space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-150">
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-900 flex items-center gap-1.5">
+                <Settings className="w-4 h-4 text-zinc-900" />
+                Homepage Layout Toggle Switches
+              </h3>
+              <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider mt-1">
+                Toggle specific homepage sections on or off in real-time.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+              <div className="flex items-center justify-between p-3 bg-zinc-50 border border-zinc-200 rounded">
+                <div className="space-y-0.5">
+                  <span className="text-[10px] font-bold text-zinc-900 uppercase">Shop By Department</span>
+                  <p className="text-[9px] text-zinc-400 font-medium">Categories & Brands Row</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCategoryBrands(!showCategoryBrands);
+                    toast(`"Shop By Department" section is now ${!showCategoryBrands ? 'visible' : 'hidden'}!`, 'success');
+                  }}
+                  className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    showCategoryBrands ? 'bg-black' : 'bg-zinc-200'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out ${
+                      showCategoryBrands ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-zinc-50 border border-zinc-200 rounded">
+                <div className="space-y-0.5">
+                  <span className="text-[10px] font-bold text-zinc-900 uppercase">Featured Grids</span>
+                  <p className="text-[9px] text-zinc-400 font-medium">Best Sellers & New Arrivals</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowFeaturedGrids(!showFeaturedGrids);
+                    toast(`"Featured Grids" section is now ${!showFeaturedGrids ? 'visible' : 'hidden'}!`, 'success');
+                  }}
+                  className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    showFeaturedGrids ? 'bg-black' : 'bg-zinc-200'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out ${
+                      showFeaturedGrids ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div className="bg-white border border-zinc-200 p-6 rounded space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-150">
             
             <div className="space-y-1.5">

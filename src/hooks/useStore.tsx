@@ -48,6 +48,10 @@ interface StoreContextType {
   addBanner: (banner: OfferBanner) => void;
   updateBanner: (idx: number, banner: OfferBanner) => void;
   deleteBanner: (idx: number) => void;
+  showCategoryBrands: boolean;
+  setShowCategoryBrands: (val: boolean) => void;
+  showFeaturedGrids: boolean;
+  setShowFeaturedGrids: (val: boolean) => void;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -139,6 +143,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return saved ? JSON.parse(saved) : DEFAULT_OFFER_BANNER;
   });
 
+  // Homepage Section Visibility states
+  const [showCategoryBrands, setShowCategoryBrands] = useState<boolean>(() => {
+    const saved = localStorage.getItem('omexo_show_category_brands');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
+
+  const [showFeaturedGrids, setShowFeaturedGrids] = useState<boolean>(() => {
+    const saved = localStorage.getItem('omexo_show_featured_grids');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
+
   // Global search and filtering states
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -176,6 +191,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     localStorage.setItem('omexo_banners', JSON.stringify(banners));
   }, [banners]);
+
+  useEffect(() => {
+    localStorage.setItem('omexo_show_category_brands', JSON.stringify(showCategoryBrands));
+  }, [showCategoryBrands]);
+
+  useEffect(() => {
+    localStorage.setItem('omexo_show_featured_grids', JSON.stringify(showFeaturedGrids));
+  }, [showFeaturedGrids]);
 
   // Category CRUD actions
   const addCategory = (newCat: Omit<Category, 'id'>) => {
@@ -433,6 +456,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         addBanner,
         updateBanner,
         deleteBanner,
+        showCategoryBrands,
+        setShowCategoryBrands,
+        showFeaturedGrids,
+        setShowFeaturedGrids,
       }}
     >
       {children}
