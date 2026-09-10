@@ -1,0 +1,11 @@
+# https://www.robotstxt.org/robotstxt.html
+
+User-agent: *
+Allow: /
+
+# Exclude sensitive admin directories from search indexation
+Disallow: /#/admin
+Disallow: /admin
+
+# Sitemap link
+Sitemap: https://omexo.in/sitemap.xml
