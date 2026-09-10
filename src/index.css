@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-display: 'Outfit', system-ui, -apple-system, sans-serif;
+
+  /* Earthy Modern Premium Theme Palette Mapping */
+  --color-teal-50: #FAF5F2;          /* Light warm orange tint */
+  --color-teal-100: #F6E7DF;         /* Soft clay tint */
+  --color-teal-200: #EFCFBF;
+  --color-teal-300: #E5A38B;
+  --color-teal-400: #DC8163;
+  --color-teal-500: #D96846;         /* Terracotta Orange (Primary Brand Accent) */
+  --color-teal-600: #D96846;         /* Consistent brand branding */
+  --color-teal-700: #C25635;         /* Deep clay shadow state */
+  --color-teal-800: #A04428;
+  --color-teal-900: #6D2E1A;
+
+  --color-emerald-50: #F4F6F0;
+  --color-emerald-100: #E8ECE0;
+  --color-emerald-200: #D2DBC1;
+  --color-emerald-500: #596235;      /* Olive Green (Secondary Brand Accent) */
+  --color-emerald-600: #596235;
+  --color-emerald-700: #4B522C;
+  --color-emerald-800: #3C4223;
+
+  --color-slate-900: #2F3020;        /* Deep Charcoal Olive (Primary Slate Headers) */
+  --color-slate-950: #1E1F15;        /* Soft Organic Dark Mode / Deep Shadow */
+
+  --color-slate-50: #F6F6F8;         /* Overriding slate backgrounds for subtle organic touch */
+}
+
+body {
+  font-family: var(--font-sans);
+}
+
+h1, h2, h3, h4, h5, h6, .display-font {
+  font-family: var(--font-display);
+}
