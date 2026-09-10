@@ -16,10 +16,11 @@ export const Checkout: React.FC = () => {
 
   // Form Fields
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [address, setAddress] = useState('');
+  const [houseName, setHouseName] = useState('');
+  const [post, setPost] = useState('');
+  const [district, setDistrict] = useState('');
   const [pincode, setPincode] = useState('');
+  const [phone, setPhone] = useState('');
 
   // Confirmation Prompt State
   const [showConfirmPrompt, setShowConfirmPrompt] = useState(false);
@@ -51,11 +52,12 @@ export const Checkout: React.FC = () => {
     setShowConfirmPrompt(false);
     setIsSubmitting(true);
     try {
+      const combinedAddress = `${houseName} (H), ${post} (P.O), ${district}`;
       const order = await createOrder({
         name,
-        email,
+        email: 'customer@omexo.in',
         phone,
-        address,
+        address: combinedAddress,
         pincode,
         paymentType: 'COD',
       });
@@ -243,73 +245,87 @@ export const Checkout: React.FC = () => {
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Priyan Sharma"
+                placeholder="Name"
                 className="w-full px-3 py-2 text-xs border border-zinc-200 bg-white rounded focus:outline-none focus:border-black font-semibold"
                 id="checkout-name"
               />
             </div>
 
-            {/* Email */}
+            {/* House name */}
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-wider">Email Address</label>
+              <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-wider">House name</label>
               <input
-                type="email"
+                type="text"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="e.g. priyan.sharma@gmail.com"
+                value={houseName}
+                onChange={(e) => setHouseName(e.target.value)}
+                placeholder="House name"
                 className="w-full px-3 py-2 text-xs border border-zinc-200 bg-white rounded focus:outline-none focus:border-black font-semibold"
-                id="checkout-email"
+                id="checkout-house-name"
               />
             </div>
 
-            {/* Mobile Contact */}
+            {/* Post */}
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-wider">Active Mobile Number</label>
-              <div className="relative">
-                <input
-                  type="tel"
-                  required
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').substring(0, 10))}
-                  placeholder="10-digit delivery mobile number"
-                  className="w-full pl-10 pr-3 py-2 text-xs border border-zinc-200 bg-white rounded focus:outline-none focus:border-black font-semibold tracking-wider"
-                  id="checkout-phone"
-                />
-                <Smartphone className="w-3.5 h-3.5 text-zinc-400 absolute left-3.5 top-3" />
-              </div>
-              <span className="text-[9px] text-zinc-400 font-medium">Our courier executive will call this number before arrival.</span>
+              <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-wider">Post Office (Post)</label>
+              <input
+                type="text"
+                required
+                value={post}
+                onChange={(e) => setPost(e.target.value)}
+                placeholder="Post"
+                className="w-full px-3 py-2 text-xs border border-zinc-200 bg-white rounded focus:outline-none focus:border-black font-semibold"
+                id="checkout-post"
+              />
             </div>
 
-            {/* Shipping Address */}
+            {/* District */}
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-wider">Detailed Shipping Address</label>
-              <textarea
+              <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-wider">District</label>
+              <input
+                type="text"
                 required
-                rows={3}
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                placeholder="Flat/House No, Building, Landmark, Area, City, State"
+                value={district}
+                onChange={(e) => setDistrict(e.target.value)}
+                placeholder="District"
                 className="w-full px-3 py-2 text-xs border border-zinc-200 bg-white rounded focus:outline-none focus:border-black font-semibold"
-                id="checkout-address"
+                id="checkout-district"
               />
             </div>
 
             {/* Pincode */}
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-wider">Delivery Pincode / ZIP</label>
+              <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-wider">Delivery Pincode</label>
               <div className="relative">
                 <input
                   type="text"
                   required
                   value={pincode}
                   onChange={(e) => setPincode(e.target.value.replace(/\D/g, '').substring(0, 6))}
-                  placeholder="6-digit PIN Code"
+                  placeholder="Pincode"
                   className="w-full pl-10 pr-3 py-2 text-xs border border-zinc-200 bg-white rounded focus:outline-none focus:border-black font-semibold tracking-wider"
                   id="checkout-pincode"
                 />
                 <MapPin className="w-3.5 h-3.5 text-zinc-400 absolute left-3.5 top-3" />
               </div>
+            </div>
+
+            {/* Mobile Contact */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-wider">Mobile Number</label>
+              <div className="relative">
+                <input
+                  type="tel"
+                  required
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').substring(0, 10))}
+                  placeholder="Mobile number"
+                  className="w-full pl-10 pr-3 py-2 text-xs border border-zinc-200 bg-white rounded focus:outline-none focus:border-black font-semibold tracking-wider"
+                  id="checkout-phone"
+                />
+                <Smartphone className="w-3.5 h-3.5 text-zinc-400 absolute left-3.5 top-3" />
+              </div>
+              <span className="text-[9px] text-zinc-400 font-medium">Our courier executive will call this number before arrival.</span>
             </div>
 
             {/* LOCKED COD PAYMENT PERK */}

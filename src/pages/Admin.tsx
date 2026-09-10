@@ -88,7 +88,7 @@ export const Admin: React.FC = () => {
   const [prodSalePrice, setProdSalePrice] = useState('');
   const [prodRegularPrice, setProdRegularPrice] = useState('');
   const [prodStock, setProdStock] = useState('');
-  const [prodImages, setProdImages] = useState('');
+  const [prodImages, setProdImages] = useState<string[]>([]);
 
   // India post input state mapping
   const [consignmentInputs, setConsignmentInputs] = useState<Record<string, string>>({});
@@ -122,7 +122,7 @@ export const Admin: React.FC = () => {
     setProdSalePrice('');
     setProdRegularPrice('');
     setProdStock('');
-    setProdImages('https://images.unsplash.com/photo-1542496658-e33a6d0d50f6?auto=format&fit=crop&w=600&q=80');
+    setProdImages(['https://images.unsplash.com/photo-1542496658-e33a6d0d50f6?auto=format&fit=crop&w=600&q=80']);
   };
 
   const handleEditProductClick = (prod: Product) => {
@@ -135,12 +135,12 @@ export const Admin: React.FC = () => {
     setProdSalePrice(prod.salePrice.toString());
     setProdRegularPrice(prod.regularPrice.toString());
     setProdStock(prod.stockCount.toString());
-    setProdImages(prod.images.join(', '));
+    setProdImages(prod.images || []);
   };
 
   const handleSaveProduct = (e: React.FormEvent) => {
     e.preventDefault();
-    const imagesArray = prodImages.split(',').map((img) => img.trim()).filter(Boolean);
+    const imagesArray = prodImages.filter(Boolean);
 
     const productPayload = {
       title: prodTitle,
@@ -744,33 +744,44 @@ export const Admin: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Multi-Image Upload & Textarea URLs */}
+                {/* Multi-Image Upload & Visual Thumbnail List */}
                 <div className="space-y-3 bg-white p-4 rounded border border-zinc-200">
                   <ImageUploader 
-                    label="Upload Product Image"
-                    helperText="Select or drag product photos to convert and append automatically"
+                    label="Upload Product Images"
+                    helperText="Select or drag product photos to upload instantly"
                     onUploadSuccess={(base64) => {
-                      if (prodImages.trim() === '') {
-                        setProdImages(base64);
+                      if (prodImages.length === 1 && prodImages[0] === 'https://images.unsplash.com/photo-1542496658-e33a6d0d50f6?auto=format&fit=crop&w=600&q=80') {
+                        setProdImages([base64]);
                       } else {
-                        setProdImages(prev => `${prev}, ${base64}`);
+                        setProdImages(prev => [...prev, base64]);
                       }
-                      toast('Product image uploaded and added to list!', 'success');
+                      toast('Product image uploaded!', 'success');
                     }}
                   />
                   
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] font-bold uppercase text-zinc-400 tracking-wider block">Or view/paste raw image URLs (comma separated for multi-gallery)</label>
-                    <textarea
-                      rows={2}
-                      required
-                      value={prodImages}
-                      onChange={(e) => setProdImages(e.target.value)}
-                      placeholder="URL1, URL2, URL3"
-                      className="w-full px-3 py-2 text-xs bg-zinc-50 border border-zinc-200 rounded font-mono focus:outline-none focus:border-black"
-                      id="form-images"
-                    />
-                  </div>
+                  {prodImages.filter(Boolean).length > 0 && (
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-bold uppercase text-zinc-400 tracking-wider block">Uploaded Product Gallery (Hover to remove)</label>
+                      <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                        {prodImages.filter(Boolean).map((img, i) => (
+                          <div key={i} className="relative aspect-square border border-zinc-200 rounded overflow-hidden group bg-zinc-50">
+                            <img src={img} className="w-full h-full object-cover" referrerPolicy="no-referrer" alt="" />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = prodImages.filter((_, idx) => idx !== i);
+                                setProdImages(updated);
+                                toast('Image removed from gallery', 'info');
+                              }}
+                              className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white cursor-pointer animate-in fade-in duration-100"
+                            >
+                              <Trash2 className="w-4 h-4 text-white" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <button
@@ -994,20 +1005,34 @@ export const Admin: React.FC = () => {
                 />
               </div>
 
-              {/* Poster Image URL */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-wider block">Offer Poster Image URL (Gadget Poster - Right Side)</label>
-                <input
-                  type="url"
-                  value={bannerImageUrl}
-                  onChange={(e) => setBannerImageUrl(e.target.value)}
-                  placeholder="e.g. https://images.unsplash.com/photo-1505740420928-5e560c06d30e"
-                  className="w-full px-3 py-2 text-xs border border-zinc-200 rounded bg-white font-mono text-zinc-800 focus:outline-none focus:border-black"
-                  id="banner-image-url-input"
+              {/* Poster Image (Right Side Graphic) */}
+              <div className="space-y-3 bg-white p-4 rounded border border-zinc-200">
+                <ImageUploader 
+                  label="Upload Offer Poster Image (Right Side Graphic)"
+                  helperText="Select or drag an image to display on the home screen banner poster"
+                  onUploadSuccess={(base64) => {
+                    setBannerImageUrl(base64);
+                    toast('Offer poster graphic uploaded successfully!', 'success');
+                  }}
                 />
-                <span className="text-[9px] text-zinc-400 uppercase tracking-wider font-bold block mt-1">
-                  Enter an Unsplash, Imgur, or direct gadget image link to display on the home screen banner poster.
-                </span>
+                {bannerImageUrl && (
+                  <div className="space-y-1">
+                    <span className="text-[9px] font-bold uppercase text-zinc-400 tracking-wider block">Uploaded Poster (Hover to remove)</span>
+                    <div className="relative w-16 h-16 border border-zinc-200 rounded overflow-hidden group bg-zinc-50">
+                      <img src={bannerImageUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" alt="" />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBannerImageUrl('');
+                          toast('Poster image cleared', 'info');
+                        }}
+                        className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-white" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Background Image URL and Uploader */}
@@ -1020,21 +1045,24 @@ export const Admin: React.FC = () => {
                     toast('Banner background poster uploaded successfully!', 'success');
                   }}
                 />
-                
-                <div className="space-y-1.5">
-                  <label className="text-[9px] font-bold uppercase text-zinc-400 tracking-wider block">Or view/paste raw background image link</label>
-                  <input
-                    type="url"
-                    value={bannerBgImageUrl}
-                    onChange={(e) => setBannerBgImageUrl(e.target.value)}
-                    placeholder="e.g. https://images.unsplash.com/photo-1511556532299-8f662fc26c06"
-                    className="w-full px-3 py-2 text-xs border border-zinc-200 rounded bg-white font-mono text-zinc-800 focus:outline-none focus:border-black"
-                    id="banner-bg-image-url-input"
-                  />
-                  <span className="text-[9px] text-zinc-400 uppercase tracking-wider font-bold block mt-1">
-                    Enter a direct image link or use the file uploader above to serve as the entire background poster for the promo hero banner.
-                  </span>
-                </div>
+                {bannerBgImageUrl && (
+                  <div className="space-y-1">
+                    <span className="text-[9px] font-bold uppercase text-zinc-400 tracking-wider block">Uploaded Background (Hover to remove)</span>
+                    <div className="relative w-24 h-12 border border-zinc-200 rounded overflow-hidden group bg-zinc-50">
+                      <img src={bannerBgImageUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" alt="" />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBannerBgImageUrl('');
+                          toast('Background image cleared', 'info');
+                        }}
+                        className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-white" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* CTAs */}
@@ -1153,16 +1181,24 @@ export const Admin: React.FC = () => {
                           toast('Graphic uploaded successfully!', 'success');
                         }}
                       />
-                      <div className="space-y-1.5">
-                        <label className="text-[9px] text-zinc-400 block font-bold uppercase tracking-wider">Or enter Raw Image URL directly</label>
-                        <input
-                          type="url"
-                          value={newBannerImageUrl}
-                          onChange={(e) => setNewBannerImageUrl(e.target.value)}
-                          placeholder="Image URL"
-                          className="w-full px-2.5 py-1.5 text-xs border border-zinc-200 rounded bg-white font-mono text-zinc-800 focus:outline-none focus:border-black"
-                        />
-                      </div>
+                      {newBannerImageUrl && (
+                        <div className="space-y-1">
+                          <span className="text-[9px] font-bold uppercase text-zinc-400 tracking-wider block">Uploaded Graphic (Hover to remove)</span>
+                          <div className="relative w-16 h-16 border border-zinc-200 rounded overflow-hidden group bg-zinc-50">
+                            <img src={newBannerImageUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" alt="" />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setNewBannerImageUrl('');
+                                toast('Graphic cleared', 'info');
+                              }}
+                              className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5 text-white" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
@@ -1781,13 +1817,25 @@ export const Admin: React.FC = () => {
                           </div>
 
                           {/* Recipient Address details */}
-                          <div className="space-y-1">
-                            <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider block">Ship To Delivery:</span>
-                            <p className="font-extrabold text-[11px] text-slate-900 leading-none">{order.customerName}</p>
-                            <p className="text-[10px] text-slate-700 leading-relaxed font-semibold line-clamp-2">{order.address}</p>
-                            <div className="flex justify-between items-center text-[10px] pt-1">
-                              <span className="font-black text-slate-900">PINCODE: {order.pincode}</span>
-                              <span className="font-bold text-slate-700">Mob: {order.customerPhone}</span>
+                          <div className="grid grid-cols-2 gap-3 border-b border-slate-200 pb-1.5">
+                            <div className="space-y-0.5 border-r border-slate-200 pr-1.5">
+                              <span className="text-[7px] font-bold text-teal-600 uppercase tracking-wider block">Ship To (Recipient):</span>
+                              <p className="font-extrabold text-[10px] text-slate-900 leading-none">{order.customerName}</p>
+                              <p className="text-[9px] text-slate-700 leading-tight font-semibold line-clamp-3 mt-0.5">{order.address}</p>
+                              <div className="text-[9px] pt-1 space-y-0.5">
+                                <div className="font-extrabold text-slate-900">PIN: {order.pincode}</div>
+                                <div className="font-bold text-slate-800">Mob: {order.customerPhone}</div>
+                              </div>
+                            </div>
+                            
+                            <div className="space-y-0.5">
+                              <span className="text-[7px] font-bold text-zinc-400 uppercase tracking-wider block">From (Sender):</span>
+                              <p className="font-bold text-[9px] text-slate-900 leading-none">Muhammed Sinan vk</p>
+                              <p className="text-[8px] text-slate-500 leading-tight font-medium mt-0.5">ozhukour, palekod, kondotty, Malappuram, kerala</p>
+                              <div className="text-[8px] pt-1 space-y-0.5">
+                                <div className="font-bold text-slate-900">PIN: 673642</div>
+                                <div className="font-bold text-slate-800">Mob: 8590181381</div>
+                              </div>
                             </div>
                           </div>
 
