@@ -1610,24 +1610,27 @@ export const Admin: React.FC = () => {
 
             {/* Customers table */}
             {(() => {
-              const customerMap: Record<string, { name: string; email: string; phone: string; joinDate: string; totalSpend: number; ordersCount: number; pastOrders: Order[] }> = {};
+              const customerMap: Record<string, { key: string; name: string; email: string; phone: string; joinDate: string; totalSpend: number; ordersCount: number; pastOrders: Order[] }> = {};
               orders.forEach(order => {
                 const email = (order.customerEmail || '').toLowerCase().trim();
-                if (!email) return;
-                if (!customerMap[email]) {
-                  customerMap[email] = {
+                const phone = (order.customerPhone || '').trim();
+                const key = email || phone;
+                if (!key) return;
+                if (!customerMap[key]) {
+                  customerMap[key] = {
+                    key: key,
                     name: order.customerName,
-                    email: order.customerEmail,
-                    phone: order.customerPhone,
+                    email: order.customerEmail || 'No Email',
+                    phone: order.customerPhone || 'No Phone',
                     joinDate: new Date(order.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }),
                     totalSpend: 0,
                     ordersCount: 0,
                     pastOrders: []
                   };
                 }
-                customerMap[email].totalSpend += order.totalAmount;
-                customerMap[email].ordersCount += 1;
-                customerMap[email].pastOrders.push(order);
+                customerMap[key].totalSpend += order.totalAmount;
+                customerMap[key].ordersCount += 1;
+                customerMap[key].pastOrders.push(order);
               });
               const registeredCustomers = Object.values(customerMap);
               const filteredCustomers = registeredCustomers.filter(c => {
@@ -1658,7 +1661,7 @@ export const Admin: React.FC = () => {
                     </thead>
                     <tbody className="divide-y divide-zinc-200 font-semibold text-zinc-800">
                       {filteredCustomers.map((c) => (
-                        <tr key={c.email} className="hover:bg-zinc-50 transition-colors">
+                        <tr key={c.key} className="hover:bg-zinc-50 transition-colors">
                           <td className="py-3 px-4">
                             <div className="font-bold text-zinc-900">{c.name}</div>
                           </td>
@@ -1678,7 +1681,7 @@ export const Admin: React.FC = () => {
                           <td className="py-3 px-4 text-center">
                             <button
                               type="button"
-                              onClick={() => setSelectedCustomerEmail(c.email)}
+                              onClick={() => setSelectedCustomerEmail(c.key)}
                               className="px-2.5 py-1 border border-zinc-200 hover:bg-zinc-50 text-zinc-900 font-bold rounded text-[10px] uppercase tracking-wider transition-colors"
                             >
                               View History
@@ -1877,25 +1880,27 @@ export const Admin: React.FC = () => {
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
               className="bg-white w-full max-w-md h-full shadow-2xl p-6 overflow-y-auto space-y-6 flex flex-col border-l border-slate-100"
             >
-              {(() => {
+               {(() => {
                 const map: Record<string, { name: string; email: string; phone: string; joinDate: string; totalSpend: number; ordersCount: number; pastOrders: Order[] }> = {};
                 orders.forEach(order => {
                   const email = (order.customerEmail || '').toLowerCase().trim();
-                  if (!email) return;
-                  if (!map[email]) {
-                    map[email] = {
+                  const phone = (order.customerPhone || '').trim();
+                  const key = email || phone;
+                  if (!key) return;
+                  if (!map[key]) {
+                    map[key] = {
                       name: order.customerName,
-                      email: order.customerEmail,
-                      phone: order.customerPhone,
+                      email: order.customerEmail || 'No Email',
+                      phone: order.customerPhone || 'No Phone',
                       joinDate: new Date(order.createdAt).toLocaleDateString(),
                       totalSpend: 0,
                       ordersCount: 0,
                       pastOrders: []
                     };
                   }
-                  map[email].totalSpend += order.totalAmount;
-                  map[email].ordersCount += 1;
-                  map[email].pastOrders.push(order);
+                  map[key].totalSpend += order.totalAmount;
+                  map[key].ordersCount += 1;
+                  map[key].pastOrders.push(order);
                 });
                 const c = map[selectedCustomerEmail.toLowerCase().trim()];
                 if (!c) return null;
