@@ -46,7 +46,9 @@ export const Admin: React.FC = () => {
   const { toast } = useToast();
 
   // Authentication states
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return localStorage.getItem('omexo_admin_logged_in') === 'true';
+  });
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [username, setUsername] = useState('');
@@ -59,15 +61,19 @@ export const Admin: React.FC = () => {
         if (ALLOWED_ADMINS.includes((user.email || '').toLowerCase().trim())) {
           setCurrentUser(user);
           setIsAuthenticated(true);
+          localStorage.setItem('omexo_admin_logged_in', 'true');
         } else {
           toast(`Access Denied! ${user.email} is not an authorized owner.`, 'error');
           signOut(auth);
           setCurrentUser(null);
           setIsAuthenticated(false);
+          localStorage.removeItem('omexo_admin_logged_in');
         }
       } else {
         setCurrentUser(null);
-        setIsAuthenticated(false);
+        if (localStorage.getItem('omexo_admin_logged_in') !== 'true') {
+          setIsAuthenticated(false);
+        }
       }
       setAuthLoading(false);
     });
@@ -78,10 +84,11 @@ export const Admin: React.FC = () => {
     try {
       setAuthLoading(true);
       await signInWithPopup(auth, googleProvider);
+      localStorage.setItem('omexo_admin_logged_in', 'true');
       toast('Welcome back! Console loaded with Google.', 'success');
     } catch (err) {
       console.error(err);
-      toast('Google Authenticator failed or closed.', 'error');
+      toast('Google Authenticator failed or closed. Please use the password login below.', 'error');
     } finally {
       setAuthLoading(false);
     }
@@ -90,6 +97,9 @@ export const Admin: React.FC = () => {
   const handleSignOut = async () => {
     try {
       await signOut(auth);
+      localStorage.removeItem('omexo_admin_logged_in');
+      setIsAuthenticated(false);
+      setCurrentUser(null);
       toast('Logged out from command console.', 'success');
     } catch (err) {
       toast('Sign out failed.', 'error');
@@ -162,6 +172,7 @@ export const Admin: React.FC = () => {
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (username.toLowerCase().trim() === 'omexoofficial@gmail.com' && password === 'omexo246') {
+      localStorage.setItem('omexo_admin_logged_in', 'true');
       setIsAuthenticated(true);
       toast('Welcome back, Chief! Omexo console loaded.', 'success');
     } else {
@@ -294,7 +305,7 @@ export const Admin: React.FC = () => {
   if (!isAuthenticated) {
     // 1. Authenticated Secure Login Screen
     return (
-      <div className="max-w-md mx-auto py-16 animate-in zoom-in duration-150" id="admin-login-screen">
+      <div className="max-w-md mx-auto py-6 px-4 animate-in zoom-in duration-150" id="admin-login-screen">
         <div className="bg-white border border-zinc-200 p-6 rounded space-y-6">
           <div className="text-center space-y-2">
             <div className="w-10 h-10 bg-zinc-50 text-zinc-900 rounded border border-zinc-200 flex items-center justify-center mx-auto">
@@ -310,7 +321,7 @@ export const Admin: React.FC = () => {
               <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest animate-pulse">Authenticating secure link...</span>
             </div>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-5">
               {/* Google Sign-In Button */}
               <button
                 type="button"
