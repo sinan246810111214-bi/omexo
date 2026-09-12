@@ -105,6 +105,13 @@ app.post('/api/ai/chat', async (req, res) => {
       return res.status(400).json({ error: 'Message payload content is required' });
     }
 
+    const key = process.env.GEMINI_API_KEY;
+    if (!key || key === "MY_GEMINI_API_KEY" || key.trim() === "") {
+      return res.json({
+        reply: "ഹലോ! Omexo AI അസിസ്റ്റന്റ് ഇപ്പോൾ ഡെമോ മോഡിലാണ്. നിങ്ങളുടെ AI Studio **Settings > Secrets** വിൻഡോയിൽ `GEMINI_API_KEY` കോൺഫിഗർ ചെയ്താൽ എനിക്ക് ലൈവായി മറുപടി നൽകാൻ സാധിക്കും. \n\n(Hello! The Omexo AI assistant is currently in demo mode. Please configure your `GEMINI_API_KEY` in the **Settings > Secrets** panel to enable live responses.)"
+      });
+    }
+
     const ai = getGeminiClient();
 
     // Reconstruct conversation history compatible with @google/genai SDK format
@@ -145,7 +152,7 @@ Be helpful, concise, polite, and technical-savvy. Present choices clearly using 
     }
 
     const geminiResponse = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
+      model: 'gemini-3.6-flash',
       contents: contents,
       config: {
         systemInstruction: systemInstruction,

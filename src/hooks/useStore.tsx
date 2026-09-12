@@ -72,7 +72,8 @@ const DEFAULT_CATEGORIES: Category[] = [
   { id: 'cat-1', name: 'Chargers', subcategories: ['GaN Chargers', 'Wireless Chargers', 'Car Chargers'] },
   { id: 'cat-2', name: 'Audio', subcategories: ['Earbuds', 'Headphones', 'Bluetooth Speakers'] },
   { id: 'cat-3', name: 'Cases', subcategories: ['Tactical Cases', 'Clear Cases', 'Leather Sleeves'] },
-  { id: 'cat-4', name: 'Adapters', subcategories: ['USB-C Hubs', 'OTG Adapters'] }
+  { id: 'cat-4', name: 'Adapters', subcategories: ['USB-C Hubs', 'OTG Adapters'] },
+  { id: 'cat-5', name: 'Special', subcategories: ['Festive Deals', 'Exclusive Offers', 'Hot Items'] }
 ];
 
 const DEFAULT_BRANDS: Brand[] = [
@@ -191,8 +192,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           for (const c of DEFAULT_CATEGORIES) {
             await setDoc(doc(db, 'categories', c.id), c);
           }
+          finalCategories = DEFAULT_CATEGORIES;
+          setCategories(finalCategories);
+          localStorage.setItem('omexo_categories', JSON.stringify(finalCategories));
         } else {
           finalCategories = catSnap.docs.map(d => d.data() as Category);
+          const hasSpecial = finalCategories.some(c => c.name.toLowerCase() === 'special');
+          if (!hasSpecial) {
+            const specialCat = { id: 'cat-5', name: 'Special', subcategories: ['Festive Deals', 'Exclusive Offers', 'Hot Items'] };
+            await setDoc(doc(db, 'categories', specialCat.id), specialCat);
+            finalCategories.push(specialCat);
+          }
           setCategories(finalCategories);
           localStorage.setItem('omexo_categories', JSON.stringify(finalCategories));
         }

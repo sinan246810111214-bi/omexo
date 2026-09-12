@@ -56,7 +56,7 @@ export const Admin: React.FC = () => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         const ALLOWED_ADMINS = ['omexoofficial@gmail.com'];
-        if (ALLOWED_ADMINS.includes(user.email || '')) {
+        if (ALLOWED_ADMINS.includes((user.email || '').toLowerCase().trim())) {
           setCurrentUser(user);
           setIsAuthenticated(true);
         } else {
@@ -161,7 +161,7 @@ export const Admin: React.FC = () => {
   // Authentication Submission
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (username === 'omexoofficial@gmail.com' && password === 'omexo246') {
+    if (username.toLowerCase().trim() === 'omexoofficial@gmail.com' && password === 'omexo246') {
       setIsAuthenticated(true);
       toast('Welcome back, Chief! Omexo console loaded.', 'success');
     } else {
@@ -1394,6 +1394,35 @@ export const Admin: React.FC = () => {
                       )}
                     </div>
 
+                    <div className="space-y-3 bg-white p-3 rounded border border-zinc-200">
+                      <ImageUploader
+                        label="Upload Campaign Background Poster (Optional)"
+                        helperText="Upload or drag a background poster image"
+                        onUploadSuccess={(url) => {
+                          setNewBannerBgImageUrl(url);
+                          toast('Campaign background uploaded successfully!', 'success');
+                        }}
+                      />
+                      {newBannerBgImageUrl && (
+                        <div className="space-y-1">
+                          <span className="text-[9px] font-bold uppercase text-zinc-400 tracking-wider block">Uploaded Background (Hover to remove)</span>
+                          <div className="relative w-24 h-12 border border-zinc-200 rounded overflow-hidden group bg-zinc-50">
+                            <img src={newBannerBgImageUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" alt="" />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setNewBannerBgImageUrl('');
+                                toast('Background cleared', 'info');
+                              }}
+                              className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5 text-white" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1.5">
                         <label className="text-[9px] font-bold uppercase text-zinc-400 tracking-wider block">Primary Action Button Text</label>
@@ -1439,6 +1468,7 @@ export const Admin: React.FC = () => {
                             primaryCta: newBannerPrimaryCta || 'Learn More',
                             secondaryCta: newBannerSecondaryCta || '',
                             imageUrl: newBannerImageUrl,
+                            backgroundImageUrl: newBannerBgImageUrl,
                           };
 
                           if (editingBannerIdx !== null) {
@@ -1492,9 +1522,10 @@ export const Admin: React.FC = () => {
                               setBannerPrimaryCta(b.primaryCta);
                               setBannerSecondaryCta(b.secondaryCta);
                               setBannerImageUrl(b.imageUrl || '');
+                              setBannerBgImageUrl(b.backgroundImageUrl || '');
                               toast(`Campaign "${b.title}" selected! Click "Apply Live Offer Banner" above to publish.`, 'info');
                             }}
-                            className="text-[9px] font-bold uppercase tracking-wider text-zinc-900 hover:underline"
+                            className="text-[9px] font-bold uppercase tracking-wider text-zinc-900 hover:underline cursor-pointer"
                           >
                             Use as Hero
                           </button>
@@ -1511,8 +1542,9 @@ export const Admin: React.FC = () => {
                                 setNewBannerPrimaryCta(b.primaryCta);
                                 setNewBannerSecondaryCta(b.secondaryCta || '');
                                 setNewBannerImageUrl(b.imageUrl || '');
+                                setNewBannerBgImageUrl(b.backgroundImageUrl || '');
                               }}
-                              className="p-1 text-zinc-400 hover:text-zinc-900"
+                              className="p-1 text-zinc-400 hover:text-zinc-900 cursor-pointer"
                             >
                               <Edit className="w-3 h-3" />
                             </button>
