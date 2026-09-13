@@ -74,3 +74,76 @@ h1, h2, h3, h4, h5, h6, .display-font {
 .interactive-action:active {
   transform: translateY(0);
 }
+
+/* 🖨️ Professional A4 PDF Printing Stylesheet */
+@media print {
+  /* Hide the rest of the application and all background wrappers */
+  #root,
+  #omexo-app-layout,
+  #omexo-app-layout *,
+  header,
+  footer,
+  aside,
+  button,
+  .print\:hidden {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  /* Force display of the bulk print container and its contents */
+  #bulk-print-modal,
+  #bulk-print-modal * {
+    display: block !important;
+    visibility: visible !important;
+  }
+
+  /* Specific overrides for bulk print modal to fit A4 layout */
+  #bulk-print-modal {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 210mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+    color: black !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+  }
+
+  /* Render the grids cleanly for A4 page dimensions (2 columns, 3 rows) */
+  #bulk-print-modal .grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 16px !important;
+    width: 210mm !important;
+    height: 297mm !important;
+    box-sizing: border-box !important;
+    padding: 10mm !important;
+    page-break-after: always !important;
+  }
+
+  /* Precise label dimensions: h-[92mm] is perfect for 3 rows on 297mm height */
+  #bulk-print-modal .border-dashed {
+    border: 2px dashed #475569 !important;
+    padding: 16px !important;
+    border-radius: 8px !important;
+    height: 88mm !important;
+    max-height: 88mm !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+    background-color: white !important;
+    color: black !important;
+  }
+
+  #bulk-print-modal .bg-slate-50 {
+    background-color: #f8fafc !important;
+    border: 1px solid #e2e8f0 !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+}

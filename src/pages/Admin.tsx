@@ -1984,7 +1984,7 @@ export const Admin: React.FC = () => {
       {/* BULK LABELS PRINT PREVIEW MODAL */}
       <AnimatePresence>
         {isBulkPrinting && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[9999] flex flex-col justify-between p-4 sm:p-6 print:p-0 overflow-y-auto">
+          <div id="bulk-print-modal" className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[9999] flex flex-col justify-between p-4 sm:p-6 print:p-0 overflow-y-auto">
             {/* Top Preview Controls bar - hidden when printing */}
             <div className="bg-white max-w-4xl w-full mx-auto p-4 rounded-2xl flex justify-between items-center shadow-2xl border border-slate-100 shrink-0 print:hidden mb-6">
               <div>
