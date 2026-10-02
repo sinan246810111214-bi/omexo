@@ -56,19 +56,25 @@ export const Home: React.FC = () => {
   // Add Special Combo directly to cart & proceed
   const handleGetCombo = () => {
     const comboProduct = products.find(p => p.id === 'omexo-special-combo');
-    if (comboProduct) {
+    if (comboProduct && comboProduct.stockCount > 0) {
       addToCart(comboProduct, 1);
       toast('Omexo Special Combo added to cart!', 'success');
       navigate('checkout');
     } else {
-      // Fallback if not loaded yet: add keychain & stand individually
+      // Fallback if not loaded yet or combo item is out of stock: add keychain & stand individually
       const keychain = products.find(p => p.id === 'mechanical-switch-keychain');
       const stand = products.find(p => p.id === 'foldable-phone-stand');
-      if (keychain && stand) {
-        addToCart(keychain, 1);
-        addToCart(stand, 1);
+      
+      const keychainOk = keychain && keychain.stockCount > 0;
+      const standOk = stand && stand.stockCount > 0;
+
+      if (keychainOk && standOk) {
+        addToCart(keychain!, 1);
+        addToCart(stand!, 1);
         toast('Added Mechanical Switch Keychain & Foldable Phone Stand Combo!', 'success');
         navigate('checkout');
+      } else {
+        toast('Sorry, the Omexo Special Combo is currently out of stock!', 'error');
       }
     }
   };

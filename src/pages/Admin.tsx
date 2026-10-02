@@ -104,9 +104,77 @@ export const Admin: React.FC = () => {
   const [adminRole, setAdminRole] = useState<'Super Admin' | 'Admin' | 'Staff'>(() => {
     return (localStorage.getItem('omexo_admin_role') as any) || 'Super Admin';
   });
-  const [username, setUsername] = useState('omexoofficial@gmail.com');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
+
+  // Security & Alarm Siren states
+  const [isAlarmActive, setIsAlarmActive] = useState(false);
+  const audioCtxRef = React.useRef<AudioContext | null>(null);
+  const oscillatorRef = React.useRef<OscillatorNode | null>(null);
+  const gainNodeRef = React.useRef<GainNode | null>(null);
+  const alarmIntervalRef = React.useRef<any>(null);
+
+  const startSiren = () => {
+    try {
+      stopSiren(); // Always clean up first
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+
+      const audioCtx = new AudioContextClass();
+      audioCtxRef.current = audioCtx;
+
+      const oscillator = audioCtx.createOscillator();
+      oscillatorRef.current = oscillator;
+
+      const gainNode = audioCtx.createGain();
+      gainNodeRef.current = gainNode;
+
+      oscillator.type = 'sawtooth';
+      oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
+      gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      oscillator.start();
+
+      let up = true;
+      alarmIntervalRef.current = setInterval(() => {
+        if (!oscillatorRef.current || !audioCtxRef.current) return;
+        const currentFreq = oscillatorRef.current.frequency.value;
+        if (up) {
+          oscillatorRef.current.frequency.setValueAtTime(currentFreq + 60, audioCtxRef.current.currentTime);
+          if (currentFreq >= 1200) up = false;
+        } else {
+          oscillatorRef.current.frequency.setValueAtTime(currentFreq - 60, audioCtxRef.current.currentTime);
+          if (currentFreq <= 500) up = true;
+        }
+      }, 40);
+    } catch (e) {
+      console.error('Failed to start Web Audio siren:', e);
+    }
+  };
+
+  const stopSiren = () => {
+    if (alarmIntervalRef.current) {
+      clearInterval(alarmIntervalRef.current);
+      alarmIntervalRef.current = null;
+    }
+    if (oscillatorRef.current) {
+      try { oscillatorRef.current.stop(); } catch (e) {}
+      oscillatorRef.current = null;
+    }
+    if (audioCtxRef.current) {
+      try { audioCtxRef.current.close(); } catch (e) {}
+      audioCtxRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      stopSiren();
+    };
+  }, []);
 
   // Layout and Sidebar Toggles
   const [activeTab, setActiveTab] = useState<string>('dashboard');
@@ -370,6 +438,8 @@ export const Admin: React.FC = () => {
       addAuditLog('Successfully logged into Staff control panel', 'Access');
     } else {
       toast('Access Denied. Check your administrator credentials.', 'error');
+      setIsAlarmActive(true);
+      startSiren();
     }
   };
 
@@ -1019,86 +1089,138 @@ export const Admin: React.FC = () => {
         
         {/* UNAUTHENTICATED STATE: Premium Glassmorphic Login Screen */}
         {!isAuthenticated ? (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="min-h-screen flex items-center justify-center p-4 relative bg-[#234F1E] overflow-hidden"
-            id="admin-login-screen"
-          >
-            {/* Soft lighting accents inspired by posters */}
-            <div className="absolute top-1/4 left-1/4 w-[400px] h-[400px] bg-white/10 rounded-full blur-3xl pointer-events-none" />
-            <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-[#E8E0D2]/10 rounded-full blur-3xl pointer-events-none" />
-
-            <div className="max-w-md w-full bg-white/10 backdrop-blur-md border border-white/20 p-8 rounded-[32px] text-center space-y-6 relative z-10 shadow-2xl">
-              <div className="flex flex-col items-center gap-2">
-                <div className="bg-white/90 p-4 rounded-2xl shadow-inner mb-2">
-                  <span className="text-2xl font-black tracking-widest text-[#234F1E] font-display">omexo</span>
-                </div>
-                <h1 className="text-xl font-extrabold uppercase tracking-widest text-white font-display">Command Console</h1>
-                <p className="text-xs text-white/70 font-semibold tracking-wide">Authorized store managers access point only.</p>
-              </div>
-
-              <form onSubmit={handleLogin} className="space-y-4 text-left">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold uppercase text-white/60 tracking-wider">Email Address</label>
-                  <input
-                    type="email"
-                    required
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="name@omexo.in"
-                    className="w-full px-4 py-2.5 bg-white/10 border border-white/20 rounded-xl text-xs font-bold text-white placeholder-white/40 focus:outline-none focus:border-white/50"
-                  />
+          isAlarmActive ? (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="min-h-screen flex items-center justify-center p-4 relative bg-black overflow-hidden"
+              id="admin-alarm-screen"
+              style={{
+                animation: 'admin-alarm-flash 0.25s infinite alternate'
+              }}
+            >
+              <style>{`
+                @keyframes admin-alarm-flash {
+                  0% { background-color: #090202; }
+                  100% { background-color: #6a0d0d; }
+                }
+              `}</style>
+              
+              <div className="max-w-md w-full bg-black/85 backdrop-blur-xl border-4 border-red-600 p-8 rounded-[32px] text-center space-y-6 relative z-10 shadow-2xl ring-4 ring-black">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="bg-red-600/20 p-4 rounded-full border border-red-500 animate-bounce">
+                    <AlertTriangle className="w-12 h-12 text-red-500 animate-pulse" />
+                  </div>
+                  <h1 className="text-2xl font-black uppercase tracking-widest text-red-500 font-display">SECURITY ALERT</h1>
+                  <p className="text-xs text-red-400 font-extrabold uppercase tracking-widest leading-none">Access Attempt Blocked</p>
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold uppercase text-white/60 tracking-wider">Security Password</label>
-                  <input
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full px-4 py-2.5 bg-white/10 border border-white/20 rounded-xl text-xs font-bold text-white placeholder-white/40 focus:outline-none focus:border-white/50"
-                  />
+                <div className="p-4 bg-red-950/40 border border-red-500/20 rounded-2xl text-[10px] text-red-200/90 font-mono text-left space-y-1.5 leading-relaxed">
+                  <div className="flex items-center gap-2 font-black text-red-400">
+                    <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+                    <span>[ ALERT ] UNAUTHORIZED CREDENTIALS DETECTED</span>
+                  </div>
+                  <div>• SIREN ACTIVE: Web Audio Synthesizer Beacons On</div>
+                  <div>• CONSOLE PORT: Admin Dashboard Access Forbidden</div>
+                  <div>• IP LOGGED: Logged to persistent store & audit table</div>
+                  <div>• TELEGRAM ALERT: Security broadcast queued</div>
                 </div>
 
-                <div className="flex items-center justify-between text-[11px] font-bold text-white/80">
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      checked={rememberMe} 
-                      onChange={(e) => setRememberMe(e.target.checked)} 
-                      className="rounded border-white/20 text-[#234F1E] focus:ring-transparent"
-                    />
-                    <span>Remember console</span>
-                  </label>
-                  <button 
-                    type="button" 
-                    onClick={() => toast('Credentials shared offline securely on official channel.', 'info')}
-                    className="hover:text-white"
+                <div className="space-y-3">
+                  <p className="text-[10px] text-zinc-400 font-bold uppercase leading-snug">
+                    Access denied. Intruder alert is sounding to warn off unauthorized attempts.
+                  </p>
+                  
+                  <button
+                    type="button"
+                    onClick={() => {
+                      stopSiren();
+                      setIsAlarmActive(false);
+                      setPassword('');
+                    }}
+                    className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-black text-xs uppercase tracking-widest rounded-full transition-all cursor-pointer shadow-lg active:scale-95"
                   >
-                    Forgot Password?
+                    Silence Alert & Reset Console
                   </button>
                 </div>
-
-                <button
-                  type="submit"
-                  className="w-full py-3 bg-[#FAF9F4] hover:bg-[#E8E0D2] text-[#234F1E] font-black text-xs uppercase tracking-widest rounded-full transition-all cursor-pointer shadow-md"
-                >
-                  Verify Access
-                </button>
-              </form>
-
-              {/* Login accounts overview */}
-              <div className="p-4 bg-white/5 border border-white/10 rounded-2xl text-[10px] text-white/70 font-semibold text-left space-y-1 leading-relaxed">
-                <div>🔑 <strong className="text-white">Super Admin:</strong> omexoofficial@gmail.com / omexo246</div>
-                <div>🧑‍💼 <strong className="text-white">Admin:</strong> albin@omexo.in / admin123</div>
-                <div>📦 <strong className="text-white">Staff:</strong> fida@omexo.in / staff123</div>
               </div>
-            </div>
-          </motion.div>
+            </motion.div>
+          ) : (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="min-h-screen flex items-center justify-center p-4 relative bg-[#234F1E] overflow-hidden"
+              id="admin-login-screen"
+            >
+              {/* Soft lighting accents inspired by posters */}
+              <div className="absolute top-1/4 left-1/4 w-[400px] h-[400px] bg-white/10 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-[#E8E0D2]/10 rounded-full blur-3xl pointer-events-none" />
+
+              <div className="max-w-md w-full bg-white/10 backdrop-blur-md border border-white/20 p-8 rounded-[32px] text-center space-y-6 relative z-10 shadow-2xl">
+                <div className="flex flex-col items-center gap-2">
+                  <div className="bg-white/90 p-4 rounded-2xl shadow-inner mb-2">
+                    <span className="text-2xl font-black tracking-widest text-[#234F1E] font-display">omexo</span>
+                  </div>
+                  <h1 className="text-xl font-extrabold uppercase tracking-widest text-white font-display">Command Console</h1>
+                  <p className="text-xs text-white/70 font-semibold tracking-wide">Authorized store managers access point only.</p>
+                </div>
+
+                <form onSubmit={handleLogin} className="space-y-4 text-left">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase text-white/60 tracking-wider">Email Address</label>
+                    <input
+                      type="email"
+                      required
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      placeholder="name@omexo.in"
+                      className="w-full px-4 py-2.5 bg-white/10 border border-white/20 rounded-xl text-xs font-bold text-white placeholder-white/40 focus:outline-none focus:border-white/50"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase text-white/60 tracking-wider">Security Password</label>
+                    <input
+                      type="password"
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full px-4 py-2.5 bg-white/10 border border-white/20 rounded-xl text-xs font-bold text-white placeholder-white/40 focus:outline-none focus:border-white/50"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px] font-bold text-white/80">
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={rememberMe} 
+                        onChange={(e) => setRememberMe(e.target.checked)} 
+                        className="rounded border-white/20 text-[#234F1E] focus:ring-transparent"
+                      />
+                      <span>Remember console</span>
+                    </label>
+                    <button 
+                      type="button" 
+                      onClick={() => toast('Credentials shared offline securely on official channel.', 'info')}
+                      className="hover:text-white"
+                    >
+                      Forgot Password?
+                    </button>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full py-3 bg-[#FAF9F4] hover:bg-[#E8E0D2] text-[#234F1E] font-black text-xs uppercase tracking-widest rounded-full transition-all cursor-pointer shadow-md"
+                  >
+                    Verify Access
+                  </button>
+                </form>
+              </div>
+            </motion.div>
+          )
         ) : (
           
           /* AUTHENTICATED STATE: Complete Responsive Dashboard Console */

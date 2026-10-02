@@ -179,6 +179,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           for (const p of INITIAL_PRODUCTS) {
             await setDoc(doc(db, 'products', p.id), p);
           }
+          finalProducts = INITIAL_PRODUCTS;
+          setProducts(finalProducts);
+          localStorage.setItem('omexo_products', JSON.stringify(finalProducts));
         } else {
           finalProducts = prodSnap.docs.map(d => d.data() as Product);
           setProducts(finalProducts);
@@ -214,6 +217,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           for (const b of DEFAULT_BRANDS) {
             await setDoc(doc(db, 'brands', b.id), b);
           }
+          finalBrands = DEFAULT_BRANDS;
+          setBrands(finalBrands);
+          localStorage.setItem('omexo_brands', JSON.stringify(finalBrands));
         } else {
           finalBrands = brandSnap.docs.map(d => d.data() as Brand);
           setBrands(finalBrands);
@@ -228,6 +234,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             // we use index as id
             await setDoc(doc(db, 'banners', b.title.replace(/\s+/g, '_')), b);
           }
+          finalBanners = DEFAULT_BANNERS;
+          setBanners(finalBanners);
+          localStorage.setItem('omexo_banners', JSON.stringify(finalBanners));
         } else {
           finalBanners = bannerSnap.docs.map(d => d.data() as OfferBanner);
           setBanners(finalBanners);
