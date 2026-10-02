@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useStore } from '../hooks/useStore';
 import { useHashRouter, AppRoute } from '../hooks/useHashRouter';
 import { CartDrawer } from './CartDrawer';
-import { ShoppingBag, Menu, X, Compass, Truck, Settings, Search, ChevronDown, Sparkles } from 'lucide-react';
+import { ShoppingBag, Menu, X, Search, ChevronDown, User, Heart } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
   const { 
@@ -22,11 +22,10 @@ export const Navbar: React.FC = () => {
   
   // Custom states for search & categories dropdown
   const [localSearch, setLocalSearch] = useState('');
-  const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
+  const [isSearchActive, setIsSearchActive] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   
   const searchRef = useRef<HTMLDivElement>(null);
-  const categoryDropdownRef = useRef<HTMLDivElement>(null);
 
   const cartItemsCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -35,41 +34,67 @@ export const Navbar: React.FC = () => {
     const handleOutsideClick = (event: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
         setIsSearchFocused(false);
-      }
-      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target as Node)) {
-        setIsCategoryDropdownOpen(false);
+        if (localSearch.trim() === '') {
+          setIsSearchActive(false);
+        }
       }
     };
     document.addEventListener('mousedown', handleOutsideClick);
     return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, []);
+  }, [localSearch]);
 
-  const navItems: { label: string; icon: any; route: AppRoute }[] = [
-    { label: 'Shop Catalog', icon: Compass, route: 'home' },
-    { label: 'Track Order', icon: Truck, route: 'track-order' },
-  ];
-
-  const handleNavClick = (targetRoute: AppRoute) => {
-    navigate(targetRoute);
-    setIsMobileMenuOpen(false);
-  };
-
-  const handleCategorySelect = (categoryName: string) => {
-    setSelectedCategory(categoryName);
+  const handleHomeClick = () => {
+    setSelectedCategory('All');
     setSelectedBrand('All');
     setSearchQuery('');
     setLocalSearch('');
-    setIsCategoryDropdownOpen(false);
-    setIsMobileMenuOpen(false);
     navigate('home');
+    setIsMobileMenuOpen(false);
+  };
+
+  const handleShopClick = () => {
+    setSelectedCategory('All');
+    setSelectedBrand('All');
+    setSearchQuery('');
+    setLocalSearch('');
+    navigate('home');
+    setIsMobileMenuOpen(false);
     
-    // Smooth scroll to catalog anchor
     setTimeout(() => {
       const el = document.getElementById('catalog-deck');
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
-    }, 100);
+    }, 150);
+  };
+
+  const handleOffersClick = () => {
+    // Navigate to Special/Festive Deals category
+    setSelectedCategory('Trending');
+    setSelectedBrand('All');
+    setSearchQuery('');
+    setLocalSearch('');
+    navigate('home');
+    setIsMobileMenuOpen(false);
+
+    setTimeout(() => {
+      const el = document.getElementById('catalog-deck');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 150);
+  };
+
+  const handleAboutClick = () => {
+    navigate('home');
+    setIsMobileMenuOpen(false);
+    
+    setTimeout(() => {
+      const el = document.getElementById('footer-container');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 150);
   };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -83,12 +108,13 @@ export const Navbar: React.FC = () => {
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
-    }, 100);
+    }, 150);
   };
 
   const handleSuggestionClick = (prodId: string) => {
     setLocalSearch('');
     setIsSearchFocused(false);
+    setIsSearchActive(false);
     navigate('product', { id: prodId });
   };
 
@@ -105,229 +131,208 @@ export const Navbar: React.FC = () => {
 
   return (
     <>
-      <header className="sticky top-0 z-40 w-full border-b border-zinc-200 bg-white" id="global-navbar">
+      <header className="sticky top-0 z-40 w-full border-b border-pine-green/10 bg-warm-white/95 backdrop-blur-md" id="global-navbar">
         <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between gap-4">
           
-          {/* Logo Brand */}
+          {/* 1. Left Zone: Original omexo logo */}
           <div 
-            onClick={() => {
-              setSelectedCategory('All');
-              setSelectedBrand('All');
-              setSearchQuery('');
-              setLocalSearch('');
-              handleNavClick('home');
-            }}
+            onClick={handleHomeClick}
             className="flex items-center cursor-pointer group select-none shrink-0"
             id="nav-brand-logo"
           >
             <img 
               src="https://i.ibb.co/qY8X8qv1/Chat-GPT-Image-Sep-10-2026-11-28-10-AM.png" 
               alt="OMEXO Logo" 
-              className="h-[96px] md:h-[120px] w-auto object-contain transition-transform duration-200 group-hover:scale-[1.02]"
+              className="h-16 md:h-20 w-auto object-contain transition-transform duration-200 group-hover:scale-[1.02]"
               referrerPolicy="no-referrer"
             />
           </div>
 
-          {/* Desktop Categories Dropdown & Menu */}
-          <div className="hidden lg:flex items-center gap-4 shrink-0" ref={categoryDropdownRef}>
-            <button
-              onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
-              className="flex items-center gap-1 px-3 py-2 text-zinc-600 hover:text-black font-bold text-xs tracking-wide uppercase transition-all duration-150 relative"
-              id="desktop-category-dropdown-btn"
+          {/* 2. Center Zone: Clean navigation links */}
+          <nav className="hidden lg:flex items-center gap-8 text-sm font-bold tracking-wider text-pine-green uppercase">
+            <button 
+              onClick={handleHomeClick} 
+              className={`hover:underline hover:underline-offset-8 transition-all cursor-pointer ${route === 'home' && !searchQuery && selectedCategory === 'All' ? 'underline underline-offset-8 decoration-2' : ''}`}
             >
-              <span>Categories</span>
-              <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform duration-200 ${isCategoryDropdownOpen ? 'rotate-180' : ''}`} />
+              Home
             </button>
+            <button 
+              onClick={handleShopClick} 
+              className="hover:underline hover:underline-offset-8 transition-all cursor-pointer"
+            >
+              Shop
+            </button>
+            <button 
+              onClick={handleOffersClick} 
+              className={`hover:underline hover:underline-offset-8 transition-all cursor-pointer ${selectedCategory === 'Trending' ? 'underline underline-offset-8 decoration-2' : ''}`}
+            >
+              Offers
+            </button>
+            <button 
+              onClick={handleAboutClick} 
+              className="hover:underline hover:underline-offset-8 transition-all cursor-pointer"
+            >
+              About
+            </button>
+          </nav>
 
-            {/* Category Dropdown Floating Menu */}
-            {isCategoryDropdownOpen && (
-              <div 
-                className="absolute top-16 bg-white border border-zinc-200 rounded shadow-md py-2 w-52 animate-in fade-in slide-in-from-top-1 duration-100 z-50"
-                id="desktop-category-menu"
-              >
+          {/* 3. Right Zone: CTAs (Search, Cart, Account/Admin) */}
+          <div className="flex items-center gap-3 shrink-0">
+            
+            {/* Desktop Slide-out Search Bar trigger */}
+            <div className="relative flex items-center" ref={searchRef}>
+              {isSearchActive ? (
+                <form onSubmit={handleSearchSubmit} className="relative animate-in slide-in-from-right-3 duration-200">
+                  <input
+                    type="text"
+                    placeholder="Search smart gear..."
+                    value={localSearch}
+                    onChange={(e) => setLocalSearch(e.target.value)}
+                    onFocus={() => setIsSearchFocused(true)}
+                    className="pl-8 pr-4 py-1.5 border border-pine-green/20 bg-white/50 rounded-full text-xs font-medium text-pine-green placeholder-pine-green/40 focus:outline-none focus:ring-1 focus:ring-pine-green focus:border-pine-green w-48 md:w-64 transition-all duration-200"
+                    id="navbar-search-input"
+                    autoFocus
+                  />
+                  <Search className="w-3.5 h-3.5 text-pine-green/60 absolute left-3 top-2.5" />
+                  {localSearch && (
+                    <button 
+                      type="button" 
+                      onClick={() => { setLocalSearch(''); setIsSearchActive(false); }}
+                      className="absolute right-3 top-2 text-[10px] font-bold text-pine-green/40 hover:text-pine-green"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </form>
+              ) : (
                 <button
-                  onClick={() => handleCategorySelect('All')}
-                  className="w-full text-left px-4 py-2 text-xs font-bold text-zinc-700 hover:bg-zinc-50 hover:text-black transition-colors duration-100"
+                  onClick={() => setIsSearchActive(true)}
+                  className="p-2 text-pine-green hover:bg-pine-green/5 rounded-full transition-all"
+                  aria-label="Search"
                 >
-                  All Categories
+                  <Search className="w-5 h-5" />
                 </button>
-                <div className="border-t border-zinc-100 my-1" />
-                {categories.map((cat) => (
-                  <button
-                    key={cat.id}
-                    onClick={() => handleCategorySelect(cat.name)}
-                    className="w-full text-left px-4 py-2 text-xs font-bold text-zinc-600 hover:bg-zinc-50 hover:text-black transition-colors duration-100"
-                    id={`dropdown-category-${cat.id}`}
-                  >
-                    {cat.name}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+              )}
 
-          {/* Interactive Real-Time Search Bar with Suggestions */}
-          <div className="flex-1 max-w-md relative" ref={searchRef} id="nav-search-container">
-            <form onSubmit={handleSearchSubmit} className="relative">
-              <input
-                type="text"
-                placeholder="Search premium smart gear..."
-                value={localSearch}
-                onChange={(e) => setLocalSearch(e.target.value)}
-                onFocus={() => setIsSearchFocused(true)}
-                className="w-full pl-9 pr-4 py-2 border border-zinc-200 bg-white rounded text-xs font-medium text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-black focus:border-black transition-all duration-150"
-                id="navbar-search-input"
-              />
-              <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-2.5" />
-            </form>
-
-            {/* Search Suggestions Floating Panel */}
-            {isSearchFocused && suggestions.length > 0 && (
-              <div 
-                className="absolute top-10 left-0 right-0 bg-white border border-zinc-200 rounded shadow-lg overflow-hidden z-50 animate-in fade-in duration-100"
-                id="search-suggestions-box"
-              >
-                <div className="px-4 py-1.5 bg-zinc-50 border-b border-zinc-100 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
-                  Suggested Gadgets
-                </div>
-                <div className="divide-y divide-zinc-100">
-                  {suggestions.map((p) => {
-                    const discount = Math.round(((p.regularPrice - p.salePrice) / p.regularPrice) * 100);
-                    return (
+              {/* Suggestions dropdown */}
+              {isSearchFocused && suggestions.length > 0 && (
+                <div 
+                  className="absolute top-11 right-0 bg-white/95 backdrop-blur-md border border-pine-green/10 rounded-2xl shadow-xl overflow-hidden z-50 w-80 animate-in fade-in duration-100"
+                  id="search-suggestions-box"
+                >
+                  <div className="px-4 py-2 bg-pine-green/5 border-b border-pine-green/5 text-[9px] font-bold text-pine-green/40 uppercase tracking-widest">
+                    Suggested Accessories
+                  </div>
+                  <div className="divide-y divide-pine-green/5">
+                    {suggestions.map((p) => (
                       <div
                         key={p.id}
                         onClick={() => handleSuggestionClick(p.id)}
-                        className="p-3 flex items-center gap-3 hover:bg-zinc-50 cursor-pointer transition-colors duration-100"
+                        className="p-3 flex items-center gap-3 hover:bg-pine-green/5 cursor-pointer transition-colors"
                         id={`suggestion-item-${p.id}`}
                       >
                         <img 
                           src={p.images[0]} 
                           alt={p.title} 
-                          className="w-9 h-9 object-cover rounded bg-zinc-50 border border-zinc-100 shrink-0" 
+                          className="w-9 h-9 object-cover rounded-xl bg-white border border-pine-green/5 shrink-0" 
                           referrerPolicy="no-referrer"
                         />
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-xs font-bold text-zinc-950 truncate">{p.title}</h4>
-                          <span className="text-[9px] text-zinc-800 bg-zinc-100 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
-                            {p.category}
-                          </span>
+                        <div className="flex-1 min-w-0 text-left">
+                          <h4 className="text-xs font-bold text-pine-green truncate">{p.title}</h4>
+                          <span className="text-[9px] text-pine-green/60 font-semibold uppercase">{p.category}</span>
                         </div>
                         <div className="text-right shrink-0">
-                          <div className="text-xs font-black text-zinc-950">₹{p.salePrice.toLocaleString('en-IN')}</div>
-                          {discount > 0 && (
-                            <span className="text-[9px] font-bold text-zinc-500 uppercase">-{discount}%</span>
-                          )}
+                          <div className="text-xs font-black text-pine-green">₹{p.salePrice}</div>
                         </div>
                       </div>
-                    );
-                  })}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
-
-          {/* Nav Right CTAs */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            {/* Desktop Navigation Links */}
-            <nav className="hidden md:flex items-center gap-1 mr-2">
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = route === item.route;
-                return (
-                  <button
-                    key={item.route}
-                    onClick={() => handleNavClick(item.route)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold transition-all duration-150 ${
-                      isActive
-                        ? 'bg-black text-white'
-                        : 'text-zinc-600 hover:text-black hover:bg-zinc-100'
-                    }`}
-                    id={`nav-link-desktop-${item.route}`}
-                  >
-                    <Icon className="w-3.5 h-3.5" />
-                    {item.label}
-                  </button>
-                );
-              })}
-            </nav>
+              )}
+            </div>
 
             {/* Cart Button */}
             <button
               onClick={() => setIsCartOpen(true)}
-              className="relative p-2 text-zinc-800 hover:text-black hover:bg-zinc-100 rounded transition-all duration-150"
+              className="relative p-2 text-pine-green hover:bg-pine-green/5 rounded-full transition-all"
               id="nav-cart-trigger"
+              aria-label="Cart"
             >
               <ShoppingBag className="w-5 h-5" />
               {cartItemsCount > 0 && (
-                <span className="absolute top-0 right-0 bg-black text-white font-bold text-[9px] w-4.5 h-4.5 rounded-full flex items-center justify-center border border-white shadow-sm">
+                <span className="absolute top-0 right-0 bg-pine-green text-warm-white font-bold text-[9px] w-4.5 h-4.5 rounded-full flex items-center justify-center border border-warm-white shadow-sm">
                   {cartItemsCount}
                 </span>
               )}
             </button>
 
-            {/* Mobile Menu Button */}
+            {/* Account Icon (goes to Admin Panel) */}
+            <button
+              onClick={() => navigate('admin')}
+              className="p-2 text-pine-green hover:bg-pine-green/5 rounded-full transition-all cursor-pointer"
+              title="Admin Control Panel"
+              id="nav-admin-trigger"
+              aria-label="Admin Control"
+            >
+              <User className="w-5 h-5" />
+            </button>
+
+            {/* Mobile Menu Toggle button */}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="p-2 text-zinc-800 hover:text-black hover:bg-zinc-100 rounded md:hidden transition-colors"
+              className="p-2 text-pine-green hover:bg-pine-green/5 rounded-full lg:hidden transition-colors"
               id="nav-mobile-toggle"
             >
               {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
+
           </div>
         </div>
 
         {/* Mobile menu panel */}
         {isMobileMenuOpen && (
           <div 
-            className="md:hidden border-t border-zinc-200 bg-white p-4 space-y-4 absolute top-20 left-0 right-0 shadow-lg animate-in slide-in-from-top duration-200 z-50"
+            className="lg:hidden border-t border-pine-green/10 bg-warm-white p-4 space-y-4 absolute top-20 left-0 right-0 shadow-xl animate-in slide-in-from-top duration-200 z-50 text-left"
             id="nav-mobile-menu"
           >
-            {/* Quick Category links for Mobile */}
-            <div className="space-y-1.5">
-              <span className="text-[10px] font-bold tracking-widest text-zinc-400 uppercase block px-1.5 mb-1">
-                Shop By Category
-              </span>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => handleCategorySelect('All')}
-                  className="px-3 py-2 text-left bg-zinc-50 border border-zinc-100 rounded text-xs font-bold text-zinc-800 hover:bg-zinc-100 hover:text-black"
-                >
-                  All Gadgets
-                </button>
-                {categories.map((cat) => (
-                  <button
-                    key={cat.id}
-                    onClick={() => handleCategorySelect(cat.name)}
-                    className="px-3 py-2 text-left bg-zinc-50 border border-zinc-100 rounded text-xs font-bold text-zinc-600 hover:bg-zinc-100 hover:text-black"
-                  >
-                    {cat.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="border-t border-zinc-100 my-2" />
-
+            {/* Quick links */}
             <div className="space-y-1">
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = route === item.route;
-                return (
-                  <button
-                    key={item.route}
-                    onClick={() => handleNavClick(item.route)}
-                    className={`w-full flex items-center gap-3 px-4 py-2.5 rounded text-left text-xs font-bold transition-all duration-150 ${
-                      isActive
-                        ? 'bg-black text-white'
-                        : 'text-zinc-600 hover:text-black hover:bg-zinc-100'
-                    }`}
-                    id={`nav-link-mobile-${item.route}`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    {item.label}
-                  </button>
-                );
-              })}
+              <button
+                onClick={handleHomeClick}
+                className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl hover:bg-pine-green/5 text-xs font-bold text-pine-green uppercase tracking-wider"
+              >
+                <span>Home</span>
+              </button>
+              <button
+                onClick={handleShopClick}
+                className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl hover:bg-pine-green/5 text-xs font-bold text-pine-green uppercase tracking-wider"
+              >
+                <span>Shop Catalog</span>
+              </button>
+              <button
+                onClick={handleOffersClick}
+                className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl hover:bg-pine-green/5 text-xs font-bold text-pine-green uppercase tracking-wider"
+              >
+                <span>Special Offers</span>
+              </button>
+              <button
+                onClick={handleAboutClick}
+                className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl hover:bg-pine-green/5 text-xs font-bold text-pine-green uppercase tracking-wider"
+              >
+                <span>About Us</span>
+              </button>
+              <button
+                onClick={() => { navigate('track-order'); setIsMobileMenuOpen(false); }}
+                className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl hover:bg-pine-green/5 text-xs font-bold text-pine-green uppercase tracking-wider"
+              >
+                <span>Track Order</span>
+              </button>
+              <button
+                onClick={() => { navigate('admin'); setIsMobileMenuOpen(false); }}
+                className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl hover:bg-pine-green/5 text-xs font-bold text-pine-green uppercase tracking-wider"
+              >
+                <span>Admin Panel</span>
+              </button>
             </div>
           </div>
         )}

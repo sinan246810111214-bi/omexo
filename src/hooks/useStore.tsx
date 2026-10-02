@@ -47,7 +47,7 @@ interface StoreContextType {
     address: string;
     pincode: string;
     paymentType: 'COD' | 'Online';
-  }) => Promise<Order>;
+  }, discountAmount?: number) => Promise<Order>;
   updateOrderStatus: (orderId: string, status: OrderStatus, consignmentNumber?: string) => Promise<void>;
   updateTelegramConfig: (config: TelegramConfig) => Promise<void>;
   updateOfferBanner: (banner: OfferBanner) => Promise<void>;
@@ -236,12 +236,90 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         // 5. ORDERS
         const orderSnap = await getDocs(collection(db, 'orders'));
-        if (!orderSnap.empty) {
-          const loadedOrders = orderSnap.docs.map(d => d.data() as Order);
+        let finalOrders = orders;
+        if (orderSnap.empty) {
+          const defaultOrders: Order[] = [
+            {
+              id: 'OMX-749204',
+              customerName: 'Muhammed Sinan vk',
+              customerPhone: '+91 99465 97201',
+              customerEmail: 'omexoofficial@gmail.com',
+              address: 'Omexo Tech Hub, Phase 1, Infopark Kochi, Kerala',
+              pincode: '682030',
+              paymentType: 'COD',
+              paymentStatus: 'Pending',
+              orderStatus: 'Pending',
+              createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+              totalAmount: 350,
+              items: [
+                {
+                  productId: 'omexo-special-combo',
+                  title: 'Special Desk Combo',
+                  price: 350,
+                  quantity: 1,
+                  image: 'https://images.unsplash.com/photo-1541807084-5c52b6b3adef?auto=format&fit=crop&w=600&q=80'
+                }
+              ]
+            },
+            {
+              id: 'OMX-849201',
+              customerName: 'Albin Joseph',
+              customerPhone: '+91 98453 82910',
+              customerEmail: 'albin@omexo.in',
+              address: 'Albin Villa, Kaloor, Kochi, Kerala',
+              pincode: '682017',
+              paymentType: 'COD',
+              paymentStatus: 'Pending',
+              orderStatus: 'Shipped',
+              createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+              totalAmount: 199,
+              consignmentNumber: 'IN184029482IN',
+              items: [
+                {
+                  productId: 'mechanical-switch-keychain',
+                  title: 'Mechanical Switch Fidget Keychain',
+                  price: 199,
+                  quantity: 1,
+                  image: 'https://images.unsplash.com/photo-1595225476474-87563907a212?auto=format&fit=crop&w=600&q=80'
+                }
+              ]
+            },
+            {
+              id: 'OMX-938204',
+              customerName: 'Fida Sherin',
+              customerPhone: '+91 94452 71092',
+              customerEmail: 'fida@omexo.in',
+              address: 'Fida Cottage, Phase 2, Infopark, Kochi, Kerala',
+              pincode: '682030',
+              paymentType: 'COD',
+              paymentStatus: 'Paid',
+              orderStatus: 'Delivered',
+              createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+              totalAmount: 1198,
+              consignmentNumber: 'IN184029451IN',
+              items: [
+                {
+                  productId: 'foldable-phone-stand',
+                  title: 'Ultra-Slim Foldable Phone Stand',
+                  price: 199,
+                  quantity: 6,
+                  image: 'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?auto=format&fit=crop&w=600&q=80'
+                }
+              ]
+            }
+          ];
+          for (const o of defaultOrders) {
+            await setDoc(doc(db, 'orders', o.id), o);
+          }
+          finalOrders = defaultOrders;
+          setOrders(finalOrders);
+          localStorage.setItem('omexo_orders', JSON.stringify(finalOrders));
+        } else {
+          finalOrders = orderSnap.docs.map(d => d.data() as Order);
           // Sort by date newest first
-          loadedOrders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-          setOrders(loadedOrders);
-          localStorage.setItem('omexo_orders', JSON.stringify(loadedOrders));
+          finalOrders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          setOrders(finalOrders);
+          localStorage.setItem('omexo_orders', JSON.stringify(finalOrders));
         }
 
         // 6. SETTINGS Docs
@@ -451,12 +529,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     address: string;
     pincode: string;
     paymentType: 'COD' | 'Online';
-  }) => {
+  }, discountAmount = 0) => {
     if (cart.length === 0) {
       throw new Error('Cart is empty');
     }
 
-    const totalAmount = cart.reduce((sum, item) => sum + item.product.salePrice * item.quantity, 0);
+    const subtotal = cart.reduce((sum, item) => sum + item.product.salePrice * item.quantity, 0);
+    const totalAmount = Math.max(0, subtotal - discountAmount);
     const orderItems: OrderItem[] = cart.map((item) => ({
       productId: item.product.id,
       title: item.product.title,
