@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Product, Order, CartItem, OrderStatus, OrderItem, OfferBanner, Category, Brand, HeroConfig, ComboConfig } from '../types';
+import { Product, Order, CartItem, OrderStatus, OrderItem, OfferBanner, Category, Brand, HeroConfig, ComboConfig, CustomerReview, Coupon, CMSPage, StoreSettings } from '../types';
 import { INITIAL_PRODUCTS } from '../data/initialProducts';
 import { db } from '../lib/firebase';
 import { 
@@ -29,6 +29,10 @@ interface StoreContextType {
   banners: OfferBanner[];
   heroConfig: HeroConfig;
   comboConfig: ComboConfig;
+  reviews: CustomerReview[];
+  coupons: Coupon[];
+  cmsPages: CMSPage[];
+  storeSettings: StoreSettings;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   selectedCategory: string;
@@ -63,6 +67,13 @@ interface StoreContextType {
   addBanner: (banner: OfferBanner) => Promise<void>;
   updateBanner: (idx: number, banner: OfferBanner) => Promise<void>;
   deleteBanner: (idx: number) => Promise<void>;
+  addReview: (review: Omit<CustomerReview, 'id' | 'date'>) => Promise<void>;
+  updateReviewStatus: (id: string, status: 'Approved' | 'Pending') => Promise<void>;
+  deleteReview: (id: string) => Promise<void>;
+  addCoupon: (coupon: Omit<Coupon, 'id'>) => Promise<void>;
+  deleteCoupon: (id: string) => Promise<void>;
+  updateCMSPage: (page: CMSPage) => Promise<void>;
+  updateStoreSettings: (settings: StoreSettings) => Promise<void>;
   showCategoryBrands: boolean;
   setShowCategoryBrands: (val: boolean) => void;
   showFeaturedGrids: boolean;
@@ -138,6 +149,35 @@ const DEFAULT_COMBO_CONFIG: ComboConfig = {
   isActive: true,
 };
 
+const DEFAULT_REVIEWS: CustomerReview[] = [
+  { id: 'rev-1', customerName: 'Rohan Sharma', productName: 'Mechanical Switch Fidget Keychain', rating: 5, reviewText: 'Extremely satisfying click feeling! Best desk toy ever to kill stress while coding.', date: '01-10-2026', status: 'Approved' },
+  { id: 'rev-2', customerName: 'Anjali Menon', productName: 'Ultra-Slim Foldable Phone Stand', rating: 5, reviewText: 'Super thin and fits easily into my pocket. Premium build quality!', date: '30-09-2026', status: 'Approved' },
+  { id: 'rev-3', customerName: 'Abhishek K.', productName: 'Omexo Wave Pro Active Smartwatch', rating: 5, reviewText: 'Premium quality screen, looks incredibly futuristic. Battery lasts over 5 days!', date: '28-09-2026', status: 'Approved' },
+  { id: 'rev-4', customerName: 'Faisal Rahiman', productName: 'Special Desk Combo', rating: 5, reviewText: 'Unbeatable value set! Received both items in perfect condition within 2 days.', date: '25-09-2026', status: 'Approved' }
+];
+
+const DEFAULT_COUPONS: Coupon[] = [
+  { id: 'coup-1', code: 'OMEXO10', value: 10, type: 'Percentage', minOrder: 300, isActive: true },
+  { id: 'coup-2', code: 'WELCOME50', value: 50, type: 'Fixed', minOrder: 500, isActive: true },
+  { id: 'coup-3', code: 'FESTIVE20', value: 20, type: 'Percentage', minOrder: 1000, isActive: true }
+];
+
+const DEFAULT_CMS_PAGES: CMSPage[] = [
+  { id: 'home', title: 'Homepage Hero Content', content: 'Small Things. Big Joy. Smart, useful products made for everyday life.' },
+  { id: 'about', title: 'About Us Narrative', content: 'At Omexo, we design, test and engineer high-performance smart gadgets and everyday desk accessories to refine your workflow.' },
+  { id: 'refund', title: 'Refund Policy Document', content: 'Our replacement check window remains active for 7 days post door delivery. Simple and zero cost.' },
+  { id: 'shipping', title: 'Express Direct Dispatch', content: 'All orders placed before 3 PM are dispatched same-day via India Post / Express Logistics with real-time tracking.' }
+];
+
+const DEFAULT_STORE_SETTINGS: StoreSettings = {
+  storeName: 'Omexo',
+  supportNum: '+91 99465 97201',
+  supportMail: 'omexoofficial@gmail.com',
+  address: 'Omexo Digital Hub, Calicut, Kerala - 673001, India',
+  seoTitle: 'Omexo | Small Things. Big Joy.',
+  seoDescription: 'Premium clicky keychains, workspace tools, and everyday desk accessories designed with minimal luxury.'
+};
+
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // App states with local fallback
   const [products, setProducts] = useState<Product[]>(() => {
@@ -168,6 +208,26 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [comboConfig, setComboConfig] = useState<ComboConfig>(() => {
     const saved = localStorage.getItem('omexo_combo_config');
     return saved ? JSON.parse(saved) : DEFAULT_COMBO_CONFIG;
+  });
+
+  const [reviews, setReviews] = useState<CustomerReview[]>(() => {
+    const saved = localStorage.getItem('omexo_reviews');
+    return saved ? JSON.parse(saved) : DEFAULT_REVIEWS;
+  });
+
+  const [coupons, setCoupons] = useState<Coupon[]>(() => {
+    const saved = localStorage.getItem('omexo_coupons');
+    return saved ? JSON.parse(saved) : DEFAULT_COUPONS;
+  });
+
+  const [cmsPages, setCmsPages] = useState<CMSPage[]>(() => {
+    const saved = localStorage.getItem('omexo_cms_pages');
+    return saved ? JSON.parse(saved) : DEFAULT_CMS_PAGES;
+  });
+
+  const [storeSettings, setStoreSettings] = useState<StoreSettings>(() => {
+    const saved = localStorage.getItem('omexo_store_settings');
+    return saved ? JSON.parse(saved) : DEFAULT_STORE_SETTINGS;
   });
 
   const [orders, setOrders] = useState<Order[]>(() => {
@@ -409,6 +469,60 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           const comboData = comboDoc.data() as ComboConfig;
           setComboConfig(comboData);
           localStorage.setItem('omexo_combo_config', JSON.stringify(comboData));
+        }
+
+        // 7. REVIEWS
+        const revSnap = await getDocs(collection(db, 'reviews'));
+        if (revSnap.empty) {
+          for (const r of DEFAULT_REVIEWS) {
+            await setDoc(doc(db, 'reviews', r.id), r);
+          }
+          setReviews(DEFAULT_REVIEWS);
+          localStorage.setItem('omexo_reviews', JSON.stringify(DEFAULT_REVIEWS));
+        } else {
+          const loadedRevs = revSnap.docs.map(d => d.data() as CustomerReview);
+          setReviews(loadedRevs);
+          localStorage.setItem('omexo_reviews', JSON.stringify(loadedRevs));
+        }
+
+        // 8. COUPONS
+        const coupSnap = await getDocs(collection(db, 'coupons'));
+        if (coupSnap.empty) {
+          for (const c of DEFAULT_COUPONS) {
+            await setDoc(doc(db, 'coupons', c.id), c);
+          }
+          setCoupons(DEFAULT_COUPONS);
+          localStorage.setItem('omexo_coupons', JSON.stringify(DEFAULT_COUPONS));
+        } else {
+          const loadedCoups = coupSnap.docs.map(d => d.data() as Coupon);
+          setCoupons(loadedCoups);
+          localStorage.setItem('omexo_coupons', JSON.stringify(loadedCoups));
+        }
+
+        // 9. CMS PAGES
+        const cmsSnap = await getDocs(collection(db, 'cmsPages'));
+        if (cmsSnap.empty) {
+          for (const page of DEFAULT_CMS_PAGES) {
+            await setDoc(doc(db, 'cmsPages', page.id), page);
+          }
+          setCmsPages(DEFAULT_CMS_PAGES);
+          localStorage.setItem('omexo_cms_pages', JSON.stringify(DEFAULT_CMS_PAGES));
+        } else {
+          const loadedCms = cmsSnap.docs.map(d => d.data() as CMSPage);
+          setCmsPages(loadedCms);
+          localStorage.setItem('omexo_cms_pages', JSON.stringify(loadedCms));
+        }
+
+        // 10. GENERAL STORE SETTINGS
+        const generalSettingsDoc = await getDoc(doc(db, 'settings', 'general'));
+        if (generalSettingsDoc.exists()) {
+          const genData = generalSettingsDoc.data() as StoreSettings;
+          setStoreSettings(genData);
+          localStorage.setItem('omexo_store_settings', JSON.stringify(genData));
+        } else {
+          await setDoc(doc(db, 'settings', 'general'), DEFAULT_STORE_SETTINGS);
+          setStoreSettings(DEFAULT_STORE_SETTINGS);
+          localStorage.setItem('omexo_store_settings', JSON.stringify(DEFAULT_STORE_SETTINGS));
         }
 
       } catch (err) {
@@ -699,6 +813,59 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     await setDoc(doc(db, 'settings', 'comboConfig'), newCombo);
   };
 
+  // Review Actions
+  const addReview = async (newRev: Omit<CustomerReview, 'id' | 'date'>) => {
+    const id = 'rev-' + Date.now();
+    const dateStr = new Date().toLocaleDateString('en-GB');
+    const payload: CustomerReview = { ...newRev, id, date: dateStr };
+    setReviews((prev) => [payload, ...prev]);
+    localStorage.setItem('omexo_reviews', JSON.stringify([payload, ...reviews]));
+    await setDoc(doc(db, 'reviews', id), payload);
+  };
+
+  const updateReviewStatus = async (id: string, status: 'Approved' | 'Pending') => {
+    setReviews((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
+    const updated = reviews.map((r) => (r.id === id ? { ...r, status } : r));
+    localStorage.setItem('omexo_reviews', JSON.stringify(updated));
+    await updateDoc(doc(db, 'reviews', id), { status });
+  };
+
+  const deleteReview = async (id: string) => {
+    setReviews((prev) => prev.filter((r) => r.id !== id));
+    localStorage.setItem('omexo_reviews', JSON.stringify(reviews.filter((r) => r.id !== id)));
+    await deleteDoc(doc(db, 'reviews', id));
+  };
+
+  // Coupon Actions
+  const addCoupon = async (newCoup: Omit<Coupon, 'id'>) => {
+    const id = 'coup-' + Date.now();
+    const payload: Coupon = { ...newCoup, id };
+    setCoupons((prev) => [...prev, payload]);
+    localStorage.setItem('omexo_coupons', JSON.stringify([...coupons, payload]));
+    await setDoc(doc(db, 'coupons', id), payload);
+  };
+
+  const deleteCoupon = async (id: string) => {
+    setCoupons((prev) => prev.filter((c) => c.id !== id));
+    localStorage.setItem('omexo_coupons', JSON.stringify(coupons.filter((c) => c.id !== id)));
+    await deleteDoc(doc(db, 'coupons', id));
+  };
+
+  // CMS Page Actions
+  const updateCMSPage = async (updatedPage: CMSPage) => {
+    setCmsPages((prev) => prev.map((p) => (p.id === updatedPage.id ? updatedPage : p)));
+    const updated = cmsPages.map((p) => (p.id === updatedPage.id ? updatedPage : p));
+    localStorage.setItem('omexo_cms_pages', JSON.stringify(updated));
+    await setDoc(doc(db, 'cmsPages', updatedPage.id), updatedPage);
+  };
+
+  // Store Settings Actions
+  const updateStoreSettings = async (newSettings: StoreSettings) => {
+    setStoreSettings(newSettings);
+    localStorage.setItem('omexo_store_settings', JSON.stringify(newSettings));
+    await setDoc(doc(db, 'settings', 'general'), newSettings);
+  };
+
   // Layout Controls
   const handleSetShowCategoryBrands = async (val: boolean) => {
     setShowCategoryBrands(val);
@@ -725,6 +892,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         banners,
         heroConfig,
         comboConfig,
+        reviews,
+        coupons,
+        cmsPages,
+        storeSettings,
         searchQuery,
         setSearchQuery,
         selectedCategory,
@@ -752,6 +923,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         addBanner,
         updateBanner,
         deleteBanner,
+        addReview,
+        updateReviewStatus,
+        deleteReview,
+        addCoupon,
+        deleteCoupon,
+        updateCMSPage,
+        updateStoreSettings,
         showCategoryBrands,
         setShowCategoryBrands: handleSetShowCategoryBrands,
         showFeaturedGrids,

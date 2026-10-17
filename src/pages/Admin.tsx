@@ -97,6 +97,16 @@ export const Admin: React.FC = () => {
     updateHeroConfig,
     comboConfig,
     updateComboConfig,
+    reviews,
+    updateReviewStatus,
+    deleteReview,
+    coupons,
+    addCoupon,
+    deleteCoupon,
+    cmsPages,
+    updateCMSPage,
+    storeSettings,
+    updateStoreSettings,
     isLoadingDb
   } = useStore();
 
@@ -192,14 +202,6 @@ export const Admin: React.FC = () => {
   const [orderFilterStatus, setOrderFilterStatus] = useState('All');
 
   // Custom Admin Lists with localStorage persistence
-  const [coupons, setCoupons] = useState<Coupon[]>(() => {
-    const saved = localStorage.getItem('omexo_coupons');
-    return saved ? JSON.parse(saved) : [
-      { code: 'OMEXO50', type: 'Percentage', value: 10, minOrder: 500, expiryDate: '2026-12-31', usageLimit: 100, uses: 45, isActive: true },
-      { code: 'FESTIVE150', type: 'Fixed', value: 150, minOrder: 1500, expiryDate: '2026-11-15', usageLimit: 50, uses: 12, isActive: true }
-    ];
-  });
-
   const [promos, setPromos] = useState<PromoOffer[]>(() => {
     const saved = localStorage.getItem('omexo_promos');
     return saved ? JSON.parse(saved) : [
@@ -222,24 +224,6 @@ export const Admin: React.FC = () => {
       { id: 'log-1', admin: 'Muhammed Sinan vk', action: 'Created Special Combo promotion offer', module: 'Offers', timestamp: '02-10-2026, 09:12 AM' },
       { id: 'log-2', admin: 'Albin Joseph', action: 'Adjusted mechanical keyboard switch stock quantity to +50', module: 'Inventory', timestamp: '02-10-2026, 08:34 AM' },
       { id: 'log-3', admin: 'Fida Sherin', action: 'Dispatched order OMX-749204 to India Post', module: 'Orders', timestamp: '01-10-2026, 04:15 PM' }
-    ];
-  });
-
-  const [cmsPages, setCmsPages] = useState<CMSPage[]>(() => {
-    const saved = localStorage.getItem('omexo_cms_pages');
-    return saved ? JSON.parse(saved) : [
-      { id: 'home', title: 'Homepage Hero Content', content: 'Small Things. Big Joy. Smart, useful products made for everyday life.' },
-      { id: 'about', title: 'About Us Narrative', content: 'At Omexo, we design, test and build high-performance smart gadgets and everyday desk accessories to refine your workflow.' },
-      { id: 'refund', title: 'Refund Policy Document', content: 'Our replacement check window remains active for 7 days post door delivery. Simple and zero cost.' }
-    ];
-  });
-
-  const [reviews, setReviews] = useState<CustomerReview[]>(() => {
-    const saved = localStorage.getItem('omexo_reviews');
-    return saved ? JSON.parse(saved) : [
-      { id: 'rev-1', customerName: 'Rohan Sharma', productName: 'Mechanical Switch Fidget Keychain', rating: 5, reviewText: 'Extremely satisfying clicks. Best desk toy ever!', date: '01-10-2026', status: 'Approved' },
-      { id: 'rev-2', customerName: 'Anjali Menon', productName: 'Ultra-Slim Foldable Phone Stand', rating: 4, reviewText: 'Super thin and fits easily in my pocket. Highly recommended!', date: '30-09-2026', status: 'Approved' },
-      { id: 'rev-3', customerName: 'Abhishek K.', productName: 'Omexo Wave Pro Active Smartwatch', rating: 5, reviewText: 'Premium quality screen, looks incredibly futuristic.', date: '28-09-2026', status: 'Pending' }
     ];
   });
 
@@ -2444,21 +2428,17 @@ export const Admin: React.FC = () => {
                       </div>
 
                       <form
-                        onSubmit={(e) => {
+                        onSubmit={async (e) => {
                           e.preventDefault();
                           if (!newCouponCode.trim()) return;
                           const code = newCouponCode.trim().toUpperCase();
-                          const newCoupon: Coupon = {
+                          await addCoupon({
                             code,
                             type: newCouponType,
                             value: Number(newCouponValue),
                             minOrder: Number(newCouponMinOrder),
-                            expiryDate: '2026-12-31',
-                            isActive: true,
-                            usageLimit: 100,
-                            uses: 0
-                          };
-                          setCoupons(prev => [newCoupon, ...prev]);
+                            isActive: true
+                          });
                           setNewCouponCode('');
                           toast(`Active coupon "${code}" generated successfully!`, 'success');
                           addAuditLog(`Created new store coupon code: "${code}"`, 'Coupons');
@@ -2519,8 +2499,8 @@ export const Admin: React.FC = () => {
                     <div className="glass-card p-6 rounded-[28px] border border-[#234F1E]/10 space-y-4">
                       <h4 className="text-xs font-bold uppercase tracking-widest text-[#234F1E] font-display">Active Shop Coupons</h4>
                       <div className="divide-y divide-[#234F1E]/5">
-                        {coupons.map((coupon, idx) => (
-                          <div key={idx} className="py-3 flex justify-between items-center text-xs font-bold">
+                        {coupons.map((coupon) => (
+                          <div key={coupon.id} className="py-3 flex justify-between items-center text-xs font-bold">
                             <div>
                               <div className="text-[#234F1E] font-mono font-extrabold text-sm">{coupon.code}</div>
                               <div className="text-[10px] text-[#234F1E]/50">
@@ -2528,10 +2508,10 @@ export const Admin: React.FC = () => {
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
-                              <span className="text-[9px] text-[#234F1E]/60">{coupon.uses} uses</span>
+                              <span className="text-[9px] bg-[#234F1E]/10 text-[#234F1E] px-2.5 py-0.5 rounded-full font-bold">Active</span>
                               <button 
-                                onClick={() => {
-                                  setCoupons(prev => prev.filter((_, i) => i !== idx));
+                                onClick={async () => {
+                                  await deleteCoupon(coupon.id);
                                   toast('Removed coupon discount code', 'info');
                                   addAuditLog(`Deleted coupon discount "${coupon.code}"`, 'Coupons');
                                 }} 
@@ -3430,12 +3410,12 @@ export const Admin: React.FC = () => {
                                   {rev.status}
                                 </span>
                               </td>
-                              <td className="p-3 text-right space-x-2">
+                               <td className="p-3 text-right space-x-2">
                                 {rev.status === 'Pending' && (
                                   <button
-                                    onClick={() => {
-                                      setReviews(prev => prev.map(r => r.id === rev.id ? { ...r, status: 'Approved' } : r));
-                                      toast('Review approved live!', 'success');
+                                    onClick={async () => {
+                                      await updateReviewStatus(rev.id, 'Approved');
+                                      toast('Review approved live on store website!', 'success');
                                       addAuditLog(`Approved customer review by "${rev.customerName}"`, 'Reviews');
                                     }}
                                     className="px-2.5 py-1 bg-[#234F1E] text-white rounded-full text-[9px] font-bold uppercase cursor-pointer"
@@ -3444,8 +3424,8 @@ export const Admin: React.FC = () => {
                                   </button>
                                 )}
                                 <button
-                                  onClick={() => {
-                                    setReviews(prev => prev.filter(r => r.id !== rev.id));
+                                  onClick={async () => {
+                                    await deleteReview(rev.id);
                                     toast('Review deleted from records', 'info');
                                     addAuditLog(`Deleted customer review ID ${rev.id}`, 'Reviews');
                                   }}
@@ -3471,20 +3451,21 @@ export const Admin: React.FC = () => {
                     </div>
 
                     <div className="space-y-4">
-                      {cmsPages.map((page, idx) => (
+                      {cmsPages.map((page) => (
                         <div key={page.id} className="p-4 bg-white border border-[#234F1E]/10 rounded-2xl space-y-3">
                           <h4 className="text-xs font-bold uppercase text-[#234F1E] tracking-wider font-display">{page.title}</h4>
                           <textarea
                             value={page.content}
                             onChange={(e) => {
                               const val = e.target.value;
-                              setCmsPages(prev => prev.map((p, i) => i === idx ? { ...p, content: val } : p));
+                              updateCMSPage({ ...page, content: val });
                             }}
                             rows={3}
                             className="w-full p-3 text-xs bg-[#FAF9F4] border border-[#234F1E]/10 rounded-xl text-[#234F1E] font-semibold resize-none focus:outline-none focus:border-[#234F1E]/20"
                           />
                           <button
-                            onClick={() => {
+                            onClick={async () => {
+                              await updateCMSPage(page);
                               toast(`Successfully saved CMS copy edits for "${page.title}"!`, 'success');
                               addAuditLog(`Updated CMS page copy content block: "${page.title}"`, 'Pages');
                             }}
@@ -3543,8 +3524,16 @@ export const Admin: React.FC = () => {
                         </div>
 
                         <button
-                          onClick={() => {
-                            toast('General store details saved successfully!', 'success');
+                          onClick={async () => {
+                            await updateStoreSettings({
+                              storeName,
+                              supportNum,
+                              supportMail,
+                              address: storeSettings?.address || 'Omexo Digital Hub, Calicut, Kerala - 673001, India',
+                              seoTitle,
+                              seoDescription
+                            });
+                            toast('General store details saved and published live to website!', 'success');
                             addAuditLog('Updated global support contact metadata properties', 'Settings');
                           }}
                           className="px-5 py-2.5 bg-[#234F1E] text-white font-extrabold text-[10px] uppercase tracking-widest rounded-full cursor-pointer"

@@ -5,7 +5,7 @@ import { useToast } from '../components/Toast';
 import { 
   ShoppingCart, Flame, Star, Award, Zap, 
   ShieldCheck, Search, SlidersHorizontal, Check, RefreshCw, 
-  Truck, Eye, ArrowRight, Sparkles, Filter
+  Truck, Eye, ArrowRight, Sparkles, Filter, MessageSquare, Plus, X, CheckCircle2, ThumbsUp
 } from 'lucide-react';
 import { Product } from '../types';
 
@@ -23,11 +23,21 @@ export const Home: React.FC = () => {
     setSelectedBrand,
     showCategoryBrands,
     heroConfig,
-    comboConfig
+    comboConfig,
+    reviews,
+    addReview,
+    storeSettings
   } = useStore();
   
   const { navigate } = useHashRouter();
   const { toast } = useToast();
+
+  // Write Review Modal state
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [revCustomerName, setRevCustomerName] = useState('');
+  const [revProductName, setRevProductName] = useState('');
+  const [revRating, setRevRating] = useState(5);
+  const [revText, setRevText] = useState('');
 
   // Local sorting/filtering controls
   const [localPriceLimit, setLocalPriceLimit] = useState<number>(30000);
@@ -615,6 +625,185 @@ export const Home: React.FC = () => {
           </div>
         )}
       </section>
+
+      {/* 5. CUSTOMER REVIEWS & WALL OF LOVE SECTION */}
+      <section className="space-y-8 pt-12 border-t border-pine-green/10" id="customer-reviews-section">
+        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 text-left">
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-1.5 bg-pine-green/10 px-3 py-1 rounded-full text-[9.5px] font-bold tracking-widest text-pine-green uppercase">
+              <Star className="w-3 h-3 fill-pine-green text-pine-green" />
+              <span>4.9 / 5.0 RATING OVER 1,200+ DELIVERIES</span>
+            </div>
+            <h2 className="text-2xl md:text-3xl font-extrabold text-pine-green font-display tracking-tight">
+              What Our Customers Say
+            </h2>
+            <p className="text-xs font-bold text-pine-green/60 max-w-xl">
+              Real feedback from verified buyers across India. Managed and moderated live from our admin panel.
+            </p>
+          </div>
+
+          <button
+            onClick={() => {
+              setIsReviewModalOpen(true);
+              setRevRating(5);
+              setRevCustomerName('');
+              setRevProductName(products[0]?.title || '');
+              setRevText('');
+            }}
+            className="px-5 py-2.5 bg-pine-green hover:bg-pine-green-hover text-warm-white font-extrabold rounded-full text-xs uppercase tracking-widest shadow-md transition-all cursor-pointer flex items-center gap-2 self-start md:self-auto"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Write a Review</span>
+          </button>
+        </div>
+
+        {/* Reviews Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-left">
+          {reviews.filter(r => r.status === 'Approved').map((rev) => (
+            <div key={rev.id} className="glass-card rounded-[24px] p-6 border border-pine-green/10 bg-soft-beige/40 flex flex-col justify-between space-y-4 hover:shadow-md transition-shadow">
+              <div className="space-y-3">
+                {/* Stars Rating */}
+                <div className="flex items-center gap-1">
+                  {[...Array(5)].map((_, i) => (
+                    <Star 
+                      key={i} 
+                      className={`w-4 h-4 ${i < rev.rating ? 'fill-amber-500 text-amber-500' : 'text-zinc-300'}`} 
+                    />
+                  ))}
+                  <span className="ml-2 text-xs font-black text-pine-green font-mono">{rev.rating}.0</span>
+                </div>
+
+                <p className="text-xs font-bold text-pine-green leading-relaxed italic">
+                  "{rev.reviewText}"
+                </p>
+              </div>
+
+              <div className="pt-3 border-t border-pine-green/10 flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-extrabold text-pine-green uppercase font-display">{rev.customerName}</h4>
+                  <p className="text-[10px] font-semibold text-pine-green/60">{rev.productName}</p>
+                </div>
+                <div className="flex items-center gap-1 text-[9px] font-extrabold text-pine-green bg-pine-green/10 px-2 py-0.5 rounded-full">
+                  <CheckCircle2 className="w-3 h-3 text-pine-green" />
+                  <span>Verified Buyer</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* WRITE A REVIEW MODAL */}
+      {isReviewModalOpen && (
+        <div className="fixed inset-0 bg-pine-green/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-warm-white border border-pine-green/20 rounded-[32px] max-w-md w-full p-6 text-left space-y-5 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-pine-green/10 pb-3">
+              <div>
+                <h3 className="text-sm font-extrabold uppercase tracking-wider text-pine-green font-display">Write a Product Review</h3>
+                <p className="text-[10px] font-bold text-pine-green/50 uppercase mt-0.5">Share your feedback with the Omexo community</p>
+              </div>
+              <button 
+                onClick={() => setIsReviewModalOpen(false)}
+                className="text-pine-green/40 hover:text-pine-green p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!revCustomerName.trim() || !revText.trim()) {
+                  toast('Please enter your name and review feedback text.', 'error');
+                  return;
+                }
+                await addReview({
+                  customerName: revCustomerName,
+                  productName: revProductName || (products[0]?.title || 'Omexo Product'),
+                  rating: revRating,
+                  reviewText: revText,
+                  status: 'Approved'
+                });
+                toast('Thank you! Your product review was published live!', 'success');
+                setIsReviewModalOpen(false);
+              }}
+              className="space-y-4 text-xs font-bold text-pine-green"
+            >
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold uppercase text-pine-green/60 tracking-wider">Your Full Name</label>
+                <input
+                  type="text"
+                  required
+                  value={revCustomerName}
+                  onChange={(e) => setRevCustomerName(e.target.value)}
+                  placeholder="e.g. Rahul Varma"
+                  className="w-full px-3.5 py-2 bg-white border border-pine-green/15 rounded-xl font-bold text-pine-green focus:outline-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold uppercase text-pine-green/60 tracking-wider">Select Product Purchased</label>
+                <select
+                  value={revProductName}
+                  onChange={(e) => setRevProductName(e.target.value)}
+                  className="w-full px-3.5 py-2 bg-white border border-pine-green/15 rounded-xl font-bold text-pine-green focus:outline-none"
+                >
+                  {products.map((p) => (
+                    <option key={p.id} value={p.title}>{p.title}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold uppercase text-pine-green/60 tracking-wider">Star Rating</label>
+                <div className="flex items-center gap-2 pt-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setRevRating(star)}
+                      className={`p-2 rounded-xl transition-all cursor-pointer ${
+                        revRating >= star ? 'bg-amber-100 text-amber-600 border border-amber-300' : 'bg-zinc-100 text-zinc-400'
+                      }`}
+                    >
+                      <Star className={`w-5 h-5 ${revRating >= star ? 'fill-amber-500 text-amber-500' : ''}`} />
+                    </button>
+                  ))}
+                  <span className="text-xs font-black ml-2">{revRating} / 5 Stars</span>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold uppercase text-pine-green/60 tracking-wider">Your Honest Feedback / Review</label>
+                <textarea
+                  required
+                  rows={3}
+                  value={revText}
+                  onChange={(e) => setRevText(e.target.value)}
+                  placeholder="Describe product quality, design satisfaction, and delivery..."
+                  className="w-full px-3.5 py-2 bg-white border border-pine-green/15 rounded-xl font-bold text-pine-green focus:outline-none resize-none"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="submit"
+                  className="flex-1 py-3 bg-pine-green hover:bg-pine-green-hover text-warm-white font-extrabold uppercase tracking-widest text-xs rounded-full shadow-md transition-all cursor-pointer"
+                >
+                  Submit Product Review
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsReviewModalOpen(false)}
+                  className="px-5 py-3 bg-pine-green/10 text-pine-green font-extrabold uppercase tracking-widest text-xs rounded-full cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

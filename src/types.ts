@@ -92,3 +92,39 @@ export interface OfferBanner {
   imageUrl?: string;
   backgroundImageUrl?: string;
 }
+
+export interface CustomerReview {
+  id: string;
+  customerName: string;
+  productName: string;
+  productId?: string;
+  rating: number;
+  reviewText: string;
+  date: string;
+  status: 'Approved' | 'Pending';
+}
+
+export interface Coupon {
+  id: string;
+  code: string;
+  value: number;
+  type: 'Percentage' | 'Fixed';
+  minOrder: number;
+  isActive: boolean;
+}
+
+export interface CMSPage {
+  id: string;
+  title: string;
+  content: string;
+}
+
+export interface StoreSettings {
+  storeName: string;
+  supportNum: string;
+  supportMail: string;
+  address: string;
+  seoTitle: string;
+  seoDescription: string;
+}
+

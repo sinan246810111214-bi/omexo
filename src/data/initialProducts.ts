@@ -60,7 +60,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     specs: {
       'Included Item 1': 'Mechanical Switch Fidget Keychain',
       'Included Item 2': 'Ultra-Slim Foldable Phone Stand',
-      'Warranty': '1 Year Premium Replacement Warranty',
       'Delivery': 'Free All India Air Express Delivery'
     },
     isTrending: true
@@ -98,13 +97,14 @@ export const INITIAL_PRODUCTS: Product[] = [
     stockCount: 60,
     images: [
       'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80',
-      'https://images.unsplash.com/photo-1546435770-a3e426bf472b?auto=format&fit=crop&w=600&q=80'
+      'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=600&q=80'
     ],
     specs: {
-      'Drivers': 'Dual Hybrid (10mm Coaxial Dynamic + Balanced Armature)',
-      'Active Noise Cancellation': 'Up to 48dB Adaptive Hybrid ANC',
-      'Playtime': 'Up to 40 Hours total with Charging Case',
-      'Latency': '38ms Ultra-Low Latency Gaming Mode'
+      'Audio Driver': '11mm Dynamic + Balanced Armature Hybrid Drivers',
+      'Noise Cancellation': 'Active ANC up to 48dB with Quad-mic ENC',
+      'Playback': 'Up to 36 Hours Total Battery Life (with Case)',
+      'Charging': 'Type-C Fast Charging (10 mins = 3 hrs playback)',
+      'Bluetooth': 'v5.3 with Dual Device Connectivity'
     },
     isTrending: false
   }
