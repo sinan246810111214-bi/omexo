@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Product, Order, CartItem, OrderStatus, OrderItem, OfferBanner, Category, Brand } from '../types';
+import { Product, Order, CartItem, OrderStatus, OrderItem, OfferBanner, Category, Brand, HeroConfig, ComboConfig } from '../types';
 import { INITIAL_PRODUCTS } from '../data/initialProducts';
 import { db } from '../lib/firebase';
 import { 
@@ -27,6 +27,8 @@ interface StoreContextType {
   categories: Category[];
   brands: Brand[];
   banners: OfferBanner[];
+  heroConfig: HeroConfig;
+  comboConfig: ComboConfig;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   selectedCategory: string;
@@ -51,6 +53,8 @@ interface StoreContextType {
   updateOrderStatus: (orderId: string, status: OrderStatus, consignmentNumber?: string) => Promise<void>;
   updateTelegramConfig: (config: TelegramConfig) => Promise<void>;
   updateOfferBanner: (banner: OfferBanner) => Promise<void>;
+  updateHeroConfig: (config: HeroConfig) => Promise<void>;
+  updateComboConfig: (config: ComboConfig) => Promise<void>;
   addCategory: (category: Omit<Category, 'id'>) => Promise<void>;
   updateCategory: (category: Category) => Promise<void>;
   deleteCategory: (id: string) => Promise<void>;
@@ -69,11 +73,11 @@ interface StoreContextType {
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
 const DEFAULT_CATEGORIES: Category[] = [
-  { id: 'cat-1', name: 'Chargers', subcategories: ['GaN Chargers', 'Wireless Chargers', 'Car Chargers'] },
-  { id: 'cat-2', name: 'Audio', subcategories: ['Earbuds', 'Headphones', 'Bluetooth Speakers'] },
-  { id: 'cat-3', name: 'Cases', subcategories: ['Tactical Cases', 'Clear Cases', 'Leather Sleeves'] },
-  { id: 'cat-4', name: 'Adapters', subcategories: ['USB-C Hubs', 'OTG Adapters'] },
-  { id: 'cat-5', name: 'Special', subcategories: ['Festive Deals', 'Exclusive Offers', 'Hot Items'] }
+  { id: 'cat-1', name: 'Tech Accessories', subcategories: ['GaN Chargers', 'Wireless Chargers', 'Car Chargers'], image: 'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?auto=format&fit=crop&w=400&q=80' },
+  { id: 'cat-2', name: 'Desk Essentials', subcategories: ['Earbuds', 'Headphones', 'Bluetooth Speakers'], image: 'https://images.unsplash.com/photo-1595225476474-87563907a212?auto=format&fit=crop&w=400&q=80' },
+  { id: 'cat-3', name: 'Lifestyle', subcategories: ['Tactical Cases', 'Clear Cases', 'Leather Sleeves'], image: 'https://images.unsplash.com/photo-1542496658-e33a6d0d50f6?auto=format&fit=crop&w=400&q=80' },
+  { id: 'cat-4', name: 'Trending', subcategories: ['USB-C Hubs', 'OTG Adapters'], image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=400&q=80' },
+  { id: 'cat-5', name: 'Special', subcategories: ['Festive Deals', 'Exclusive Offers', 'Hot Items'], image: 'https://images.unsplash.com/photo-1541807084-5c52b6b3adef?auto=format&fit=crop&w=400&q=80' }
 ];
 
 const DEFAULT_BRANDS: Brand[] = [
@@ -106,6 +110,34 @@ const DEFAULT_OFFER_BANNER: OfferBanner = {
   backgroundImageUrl: 'https://images.unsplash.com/photo-1511556532299-8f662fc26c06?auto=format&fit=crop&w=1600&q=80',
 };
 
+const DEFAULT_HERO_CONFIG: HeroConfig = {
+  badge: 'Omexo Design Lab',
+  title: 'Small Things.\nBig Joy.',
+  description: 'Smart, useful products made for everyday life. Experience pure utility wrapped in luxury design.',
+  primaryCtaText: 'SHOP NOW',
+  secondaryCtaText: 'EXPLORE PRODUCTS',
+  cardTitle: 'Mechanical Switch Keychain',
+  cardSubtitle: 'An absolute sensory tactile joy.',
+  cardPrice: 199,
+  cardRegularPrice: 250,
+  cardImage: 'https://images.unsplash.com/photo-1595225476474-87563907a212?auto=format&fit=crop&w=600&q=80',
+};
+
+const DEFAULT_COMBO_CONFIG: ComboConfig = {
+  badge: '🔥 MATCHED SET',
+  title: 'SPECIAL COMBO',
+  subheadline: 'Two useful picks. One special price.',
+  description: 'Get our premium mechanical switch clicky fidget keychain combined with the ultra-slim metal foldable phone stand. Everything you need to elevate your everyday workspace layout.',
+  price: 350,
+  valuePrice: 580,
+  ctaText: 'GET THE COMBO',
+  card1Title: 'Keychain',
+  card1Image: 'https://images.unsplash.com/photo-1595225476474-87563907a212?auto=format&fit=crop&w=300&q=80',
+  card2Title: 'Phone Stand',
+  card2Image: 'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?auto=format&fit=crop&w=300&q=80',
+  isActive: true,
+};
+
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // App states with local fallback
   const [products, setProducts] = useState<Product[]>(() => {
@@ -126,6 +158,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [banners, setBanners] = useState<OfferBanner[]>(() => {
     const saved = localStorage.getItem('omexo_banners');
     return saved ? JSON.parse(saved) : DEFAULT_BANNERS;
+  });
+
+  const [heroConfig, setHeroConfig] = useState<HeroConfig>(() => {
+    const saved = localStorage.getItem('omexo_hero_config');
+    return saved ? JSON.parse(saved) : DEFAULT_HERO_CONFIG;
+  });
+
+  const [comboConfig, setComboConfig] = useState<ComboConfig>(() => {
+    const saved = localStorage.getItem('omexo_combo_config');
+    return saved ? JSON.parse(saved) : DEFAULT_COMBO_CONFIG;
   });
 
   const [orders, setOrders] = useState<Order[]>(() => {
@@ -353,6 +395,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           setShowFeaturedGrids(layoutData.showFeaturedGrids ?? true);
           localStorage.setItem('omexo_show_category_brands', JSON.stringify(layoutData.showCategoryBrands));
           localStorage.setItem('omexo_show_featured_grids', JSON.stringify(layoutData.showFeaturedGrids));
+        }
+
+        const heroDoc = await getDoc(doc(db, 'settings', 'heroConfig'));
+        if (heroDoc.exists()) {
+          const heroData = heroDoc.data() as HeroConfig;
+          setHeroConfig(heroData);
+          localStorage.setItem('omexo_hero_config', JSON.stringify(heroData));
+        }
+
+        const comboDoc = await getDoc(doc(db, 'settings', 'comboConfig'));
+        if (comboDoc.exists()) {
+          const comboData = comboDoc.data() as ComboConfig;
+          setComboConfig(comboData);
+          localStorage.setItem('omexo_combo_config', JSON.stringify(comboData));
         }
 
       } catch (err) {
@@ -631,6 +687,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     await setDoc(doc(db, 'settings', 'offerBanner'), newBanner);
   };
 
+  const updateHeroConfig = async (newHero: HeroConfig) => {
+    setHeroConfig(newHero);
+    localStorage.setItem('omexo_hero_config', JSON.stringify(newHero));
+    await setDoc(doc(db, 'settings', 'heroConfig'), newHero);
+  };
+
+  const updateComboConfig = async (newCombo: ComboConfig) => {
+    setComboConfig(newCombo);
+    localStorage.setItem('omexo_combo_config', JSON.stringify(newCombo));
+    await setDoc(doc(db, 'settings', 'comboConfig'), newCombo);
+  };
+
   // Layout Controls
   const handleSetShowCategoryBrands = async (val: boolean) => {
     setShowCategoryBrands(val);
@@ -655,6 +723,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         categories,
         brands,
         banners,
+        heroConfig,
+        comboConfig,
         searchQuery,
         setSearchQuery,
         selectedCategory,
@@ -672,6 +742,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         updateOrderStatus,
         updateTelegramConfig,
         updateOfferBanner,
+        updateHeroConfig,
+        updateComboConfig,
         addCategory,
         updateCategory,
         deleteCategory,

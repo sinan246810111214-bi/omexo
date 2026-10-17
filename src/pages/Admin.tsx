@@ -85,6 +85,7 @@ export const Admin: React.FC = () => {
     categories,
     brands,
     addCategory,
+    updateCategory,
     deleteCategory,
     addBrand,
     deleteBrand,
@@ -92,6 +93,10 @@ export const Admin: React.FC = () => {
     addBanner,
     updateBanner,
     deleteBanner,
+    heroConfig,
+    updateHeroConfig,
+    comboConfig,
+    updateComboConfig,
     isLoadingDb
   } = useStore();
 
@@ -278,7 +283,23 @@ export const Admin: React.FC = () => {
 
   // Category and Brand Inputs
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryImageUrl, setNewCategoryImageUrl] = useState('');
   const [newBrandName, setNewBrandName] = useState('');
+
+  // Hero Section Config form state
+  const [heroForm, setHeroForm] = useState(heroConfig);
+  const [isUploadingHeroImage, setIsUploadingHeroImage] = useState(false);
+  useEffect(() => {
+    setHeroForm(heroConfig);
+  }, [heroConfig]);
+
+  // Special Combo Config form state
+  const [comboForm, setComboForm] = useState(comboConfig);
+  const [isUploadingComboCard1Image, setIsUploadingComboCard1Image] = useState(false);
+  const [isUploadingComboCard2Image, setIsUploadingComboCard2Image] = useState(false);
+  useEffect(() => {
+    setComboForm(comboConfig);
+  }, [comboConfig]);
 
   // Coupon Inputs
   const [newCouponCode, setNewCouponCode] = useState('');
@@ -590,6 +611,39 @@ export const Admin: React.FC = () => {
     reader.readAsDataURL(file);
   };
 
+  // Reusable helper for image file upload
+  const uploadImageFile = async (file: File): Promise<string> => {
+    if (file.size > 15 * 1024 * 1024) {
+      toast('Selected image file is too large (Maximum size: 15MB).', 'error');
+      throw new Error('File too large');
+    }
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64Data = reader.result as string;
+        try {
+          const response = await fetch('/api/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: base64Data })
+          });
+          if (response.ok) {
+            const resData = await response.json();
+            if (resData.success && resData.url) {
+              resolve(resData.url);
+              return;
+            }
+          }
+          resolve(base64Data);
+        } catch {
+          resolve(base64Data);
+        }
+      };
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsDataURL(file);
+    });
+  };
+
   // Create or Update Promo Offer
   const handlePromoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -722,8 +776,9 @@ export const Admin: React.FC = () => {
               <div class="border-l border-slate-200 pl-2 flex flex-col justify-between space-y-1">
                 <div>
                   <span class="text-[7.5px] text-slate-400 font-extrabold uppercase block leading-none">Sender / Return Address</span>
-                  <strong class="text-slate-900 font-bold text-[8.5px] block leading-none mt-0.5">OMEXO DESIGN LAB</strong>
-                  <p class="text-[8px] text-slate-500 leading-tight">Phase 1, Infopark Kochi, Kerala, PIN: 682030</p>
+                  <strong class="text-slate-900 font-bold text-[8.5px] block leading-none mt-0.5">Muhammed Sinan vk (Omexo)</strong>
+                  <p class="text-[8px] text-slate-500 leading-tight">ozhukour, palekod, kondotty, Malappuram, Kerala</p>
+                  <p class="text-[8px] text-slate-700 font-bold mt-0.5">PIN: 673642 | Mob: 8590181381</p>
                 </div>
 
                 <div class="border-t border-slate-200 pt-1">
@@ -1896,25 +1951,61 @@ export const Admin: React.FC = () => {
                           if (!newCategoryName.trim()) return;
                           addCategory({
                             name: newCategoryName.trim(),
-                            subcategories: []
+                            subcategories: [],
+                            image: newCategoryImageUrl.trim() || undefined
                           });
                           setNewCategoryName('');
+                          setNewCategoryImageUrl('');
                           toast(`Created category "${newCategoryName}"`, 'success');
                           addAuditLog(`Created product category "${newCategoryName}"`, 'Categories');
                         }}
                         className="bg-[#234F1E]/5 p-4 rounded-2xl border border-[#234F1E]/10 space-y-3"
                       >
                         <h4 className="text-[10px] font-bold text-[#234F1E] uppercase tracking-widest">Create New Category</h4>
-                        <div className="space-y-1.5 text-xs">
-                          <label className="text-[9px] font-bold uppercase text-[#234F1E]/50 tracking-wider block">Category Title</label>
-                          <input
-                            type="text"
-                            required
-                            value={newCategoryName}
-                            onChange={(e) => setNewCategoryName(e.target.value)}
-                            placeholder="e.g. Workspace Tools"
-                            className="w-full px-3 py-1.5 border border-[#234F1E]/10 rounded-xl bg-white focus:outline-none font-bold"
-                          />
+                        <div className="space-y-2 text-xs">
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold uppercase text-[#234F1E]/50 tracking-wider block">Category Title</label>
+                            <input
+                              type="text"
+                              required
+                              value={newCategoryName}
+                              onChange={(e) => setNewCategoryName(e.target.value)}
+                              placeholder="e.g. Workspace Tools"
+                              className="w-full px-3 py-1.5 border border-[#234F1E]/10 rounded-xl bg-white focus:outline-none font-bold"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold uppercase text-[#234F1E]/50 tracking-wider block">Category Cover Image</label>
+                            <div className="flex gap-2 items-center">
+                              <input
+                                type="text"
+                                value={newCategoryImageUrl}
+                                onChange={(e) => setNewCategoryImageUrl(e.target.value)}
+                                placeholder="Paste image URL or upload below"
+                                className="w-full px-3 py-1.5 border border-[#234F1E]/10 rounded-xl bg-white focus:outline-none font-bold text-[11px]"
+                              />
+                              <label className="px-3 py-1.5 bg-white border border-[#234F1E]/20 text-[#234F1E] rounded-xl font-bold text-[10px] uppercase cursor-pointer hover:bg-[#234F1E]/5 shrink-0">
+                                Upload
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={async (ev) => {
+                                    const file = ev.target.files?.[0];
+                                    if (file) {
+                                      try {
+                                        const url = await uploadImageFile(file);
+                                        setNewCategoryImageUrl(url);
+                                        toast('Uploaded category image!', 'success');
+                                      } catch (err) {
+                                        toast('Failed to upload image', 'error');
+                                      }
+                                    }
+                                  }}
+                                />
+                              </label>
+                            </div>
+                          </div>
                         </div>
                         <button type="submit" className="w-full py-2.5 bg-[#234F1E] hover:bg-[#1C4018] text-white font-extrabold text-[10px] uppercase tracking-widest rounded-full cursor-pointer">
                           Add category definition
@@ -1923,11 +2014,43 @@ export const Admin: React.FC = () => {
 
                       <div className="divide-y divide-[#234F1E]/5">
                         {categories.map(c => (
-                          <div key={c.id} className="py-2.5 flex justify-between items-center font-bold">
-                            <span className="text-[#234F1E]">{c.name}</span>
-                            <button onClick={() => { deleteCategory(c.id); toast('Removed category', 'info'); }} className="p-1 hover:bg-[#234F1E]/5 rounded text-[#234F1E]/40 hover:text-red-700 cursor-pointer">
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                          <div key={c.id} className="py-3 flex items-center justify-between font-bold gap-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <img
+                                src={c.image || 'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?auto=format&fit=crop&w=400&q=80'}
+                                alt={c.name}
+                                className="w-10 h-10 object-cover rounded-xl border border-[#234F1E]/10 shrink-0 bg-zinc-100"
+                              />
+                              <div className="truncate">
+                                <span className="text-[#234F1E] text-xs font-bold block truncate">{c.name}</span>
+                                <span className="text-[9px] text-[#234F1E]/50 font-semibold block uppercase">Card Image Set</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <label className="p-1 hover:bg-[#234F1E]/10 rounded text-[#234F1E] cursor-pointer" title="Change Image">
+                                <Image className="w-4 h-4" />
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={async (ev) => {
+                                    const file = ev.target.files?.[0];
+                                    if (file) {
+                                      try {
+                                        const url = await uploadImageFile(file);
+                                        await updateCategory({ ...c, image: url });
+                                        toast(`Updated image for "${c.name}"`, 'success');
+                                      } catch (err) {
+                                        toast('Failed to upload category image', 'error');
+                                      }
+                                    }
+                                  }}
+                                />
+                              </label>
+                              <button onClick={() => { deleteCategory(c.id); toast('Removed category', 'info'); }} className="p-1 hover:bg-[#234F1E]/5 rounded text-[#234F1E]/40 hover:text-red-700 cursor-pointer">
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -2427,6 +2550,207 @@ export const Admin: React.FC = () => {
                 {/* 8. OFFERS & PROMOS TAB */}
                 {activeTab === 'offers' && (
                   <div className="space-y-6 animate-in fade-in duration-200 text-left">
+                    {/* Special Combo Section Editor */}
+                    <div className="glass-card p-6 rounded-[28px] border border-[#234F1E]/10 text-left space-y-4">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                        <div>
+                          <h3 className="text-sm font-bold uppercase tracking-widest text-[#234F1E] font-display">
+                            Homepage Special Combo Promo Section
+                          </h3>
+                          <p className="text-[10px] text-[#234F1E]/50 font-bold uppercase mt-0.5">
+                            Edit the special combo banner badge, titles, description, bundle price, and card images.
+                          </p>
+                        </div>
+                        <label className="flex items-center gap-2 cursor-pointer bg-[#234F1E]/10 px-3.5 py-1.5 rounded-full shrink-0">
+                          <input
+                            type="checkbox"
+                            checked={comboForm.isActive}
+                            onChange={(e) => setComboForm(prev => ({ ...prev, isActive: e.target.checked }))}
+                            className="rounded text-[#234F1E] focus:ring-0"
+                          />
+                          <span className="text-[10px] font-extrabold uppercase text-[#234F1E]">Show Combo Section</span>
+                        </label>
+                      </div>
+
+                      <form
+                        onSubmit={async (e) => {
+                          e.preventDefault();
+                          await updateComboConfig(comboForm);
+                          toast('Special Combo Promo section updated successfully!', 'success');
+                          addAuditLog('Updated Special Combo promo banner content', 'Content');
+                        }}
+                        className="space-y-4 text-xs"
+                      >
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold uppercase text-[#234F1E]/50 tracking-wider">Badge Label</label>
+                            <input
+                              type="text"
+                              value={comboForm.badge}
+                              onChange={(e) => setComboForm(prev => ({ ...prev, badge: e.target.value }))}
+                              className="w-full px-3 py-2 border border-[#234F1E]/10 rounded-xl bg-white font-bold text-[#234F1E]"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold uppercase text-[#234F1E]/50 tracking-wider">Main Combo Title</label>
+                            <input
+                              type="text"
+                              value={comboForm.title}
+                              onChange={(e) => setComboForm(prev => ({ ...prev, title: e.target.value }))}
+                              className="w-full px-3 py-2 border border-[#234F1E]/10 rounded-xl bg-white font-bold text-[#234F1E]"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold uppercase text-[#234F1E]/50 tracking-wider">Subheadline</label>
+                            <input
+                              type="text"
+                              value={comboForm.subheadline}
+                              onChange={(e) => setComboForm(prev => ({ ...prev, subheadline: e.target.value }))}
+                              className="w-full px-3 py-2 border border-[#234F1E]/10 rounded-xl bg-white font-bold text-[#234F1E]"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold uppercase text-[#234F1E]/50 tracking-wider">CTA Button Text</label>
+                            <input
+                              type="text"
+                              value={comboForm.ctaText}
+                              onChange={(e) => setComboForm(prev => ({ ...prev, ctaText: e.target.value }))}
+                              className="w-full px-3 py-2 border border-[#234F1E]/10 rounded-xl bg-white font-bold text-[#234F1E]"
+                            />
+                          </div>
+
+                          <div className="space-y-1 md:col-span-2">
+                            <label className="text-[9px] font-bold uppercase text-[#234F1E]/50 tracking-wider">Description</label>
+                            <textarea
+                              rows={2}
+                              value={comboForm.description}
+                              onChange={(e) => setComboForm(prev => ({ ...prev, description: e.target.value }))}
+                              className="w-full px-3 py-2 border border-[#234F1E]/10 rounded-xl bg-white font-bold text-[#234F1E]"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold uppercase text-[#234F1E]/50 tracking-wider">Combo Sale Price (₹)</label>
+                            <input
+                              type="number"
+                              value={comboForm.price}
+                              onChange={(e) => setComboForm(prev => ({ ...prev, price: Number(e.target.value) }))}
+                              className="w-full px-3 py-2 border border-[#234F1E]/10 rounded-xl bg-white font-bold text-[#234F1E]"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold uppercase text-[#234F1E]/50 tracking-wider">Original Value Price (₹)</label>
+                            <input
+                              type="number"
+                              value={comboForm.valuePrice}
+                              onChange={(e) => setComboForm(prev => ({ ...prev, valuePrice: Number(e.target.value) }))}
+                              className="w-full px-3 py-2 border border-[#234F1E]/10 rounded-xl bg-white font-bold text-[#234F1E]"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold uppercase text-[#234F1E]/50 tracking-wider">Card 1 Title</label>
+                            <input
+                              type="text"
+                              value={comboForm.card1Title}
+                              onChange={(e) => setComboForm(prev => ({ ...prev, card1Title: e.target.value }))}
+                              className="w-full px-3 py-2 border border-[#234F1E]/10 rounded-xl bg-white font-bold text-[#234F1E]"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold uppercase text-[#234F1E]/50 tracking-wider">Card 1 Image</label>
+                            <div className="flex gap-2 items-center">
+                              <input
+                                type="text"
+                                value={comboForm.card1Image}
+                                onChange={(e) => setComboForm(prev => ({ ...prev, card1Image: e.target.value }))}
+                                className="w-full px-3 py-2 border border-[#234F1E]/10 rounded-xl bg-white font-mono text-[11px] font-bold text-[#234F1E]"
+                              />
+                              <label className="px-3 py-2 bg-white border border-[#234F1E]/20 text-[#234F1E] rounded-xl font-bold text-[10px] uppercase cursor-pointer hover:bg-[#234F1E]/5 shrink-0">
+                                {isUploadingComboCard1Image ? '...' : 'Upload'}
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={async (ev) => {
+                                    const file = ev.target.files?.[0];
+                                    if (file) {
+                                      try {
+                                        setIsUploadingComboCard1Image(true);
+                                        const url = await uploadImageFile(file);
+                                        setComboForm(prev => ({ ...prev, card1Image: url }));
+                                        toast('Uploaded Card 1 Image!', 'success');
+                                      } catch (err) {
+                                        toast('Failed to upload image', 'error');
+                                      } finally {
+                                        setIsUploadingComboCard1Image(false);
+                                      }
+                                    }
+                                  }}
+                                />
+                              </label>
+                            </div>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold uppercase text-[#234F1E]/50 tracking-wider">Card 2 Title</label>
+                            <input
+                              type="text"
+                              value={comboForm.card2Title}
+                              onChange={(e) => setComboForm(prev => ({ ...prev, card2Title: e.target.value }))}
+                              className="w-full px-3 py-2 border border-[#234F1E]/10 rounded-xl bg-white font-bold text-[#234F1E]"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold uppercase text-[#234F1E]/50 tracking-wider">Card 2 Image</label>
+                            <div className="flex gap-2 items-center">
+                              <input
+                                type="text"
+                                value={comboForm.card2Image}
+                                onChange={(e) => setComboForm(prev => ({ ...prev, card2Image: e.target.value }))}
+                                className="w-full px-3 py-2 border border-[#234F1E]/10 rounded-xl bg-white font-mono text-[11px] font-bold text-[#234F1E]"
+                              />
+                              <label className="px-3 py-2 bg-white border border-[#234F1E]/20 text-[#234F1E] rounded-xl font-bold text-[10px] uppercase cursor-pointer hover:bg-[#234F1E]/5 shrink-0">
+                                {isUploadingComboCard2Image ? '...' : 'Upload'}
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={async (ev) => {
+                                    const file = ev.target.files?.[0];
+                                    if (file) {
+                                      try {
+                                        setIsUploadingComboCard2Image(true);
+                                        const url = await uploadImageFile(file);
+                                        setComboForm(prev => ({ ...prev, card2Image: url }));
+                                        toast('Uploaded Card 2 Image!', 'success');
+                                      } catch (err) {
+                                        toast('Failed to upload image', 'error');
+                                      } finally {
+                                        setIsUploadingComboCard2Image(false);
+                                      }
+                                    }
+                                  }}
+                                />
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+
+                        <button
+                          type="submit"
+                          className="px-6 py-2.5 bg-[#234F1E] hover:bg-[#1C4018] text-white font-extrabold text-xs uppercase tracking-widest rounded-full cursor-pointer shadow-md"
+                        >
+                          Save Special Combo Section Settings
+                        </button>
+                      </form>
+                    </div>
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                       <div>
                         <h3 className="text-sm font-bold uppercase tracking-widest text-[#234F1E] font-display">Offers & Combo Campaigns</h3>
@@ -2666,6 +2990,162 @@ export const Admin: React.FC = () => {
                 {/* 9. SLIDE BANNERS TAB */}
                 {activeTab === 'banners' && (
                   <div className="space-y-6 animate-in fade-in duration-200 text-left">
+                    {/* Main Hero Banner Editor */}
+                    <div className="glass-card p-6 rounded-[28px] border border-[#234F1E]/10 text-left space-y-4">
+                      <div>
+                        <h3 className="text-sm font-bold uppercase tracking-widest text-[#234F1E] font-display">
+                          Main Homepage Hero Banner Section
+                        </h3>
+                        <p className="text-[10px] text-[#234F1E]/50 font-bold uppercase mt-0.5">
+                          Edit the primary hero banner badge, main headline, description, call-to-action buttons, and featured card.
+                        </p>
+                      </div>
+
+                      <form
+                        onSubmit={async (e) => {
+                          e.preventDefault();
+                          await updateHeroConfig(heroForm);
+                          toast('Main Homepage Hero Section updated successfully!', 'success');
+                          addAuditLog('Updated homepage hero banner content', 'Content');
+                        }}
+                        className="space-y-4 text-xs"
+                      >
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold uppercase text-[#234F1E]/50 tracking-wider">Hero Badge Text</label>
+                            <input
+                              type="text"
+                              value={heroForm.badge}
+                              onChange={(e) => setHeroForm(prev => ({ ...prev, badge: e.target.value }))}
+                              className="w-full px-3 py-2 border border-[#234F1E]/10 rounded-xl bg-white font-bold text-[#234F1E]"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold uppercase text-[#234F1E]/50 tracking-wider">Main Headline Title</label>
+                            <input
+                              type="text"
+                              value={heroForm.title}
+                              onChange={(e) => setHeroForm(prev => ({ ...prev, title: e.target.value }))}
+                              className="w-full px-3 py-2 border border-[#234F1E]/10 rounded-xl bg-white font-bold text-[#234F1E]"
+                            />
+                          </div>
+
+                          <div className="space-y-1 md:col-span-2">
+                            <label className="text-[9px] font-bold uppercase text-[#234F1E]/50 tracking-wider">Sub-description</label>
+                            <textarea
+                              rows={2}
+                              value={heroForm.description}
+                              onChange={(e) => setHeroForm(prev => ({ ...prev, description: e.target.value }))}
+                              className="w-full px-3 py-2 border border-[#234F1E]/10 rounded-xl bg-white font-bold text-[#234F1E]"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold uppercase text-[#234F1E]/50 tracking-wider">Primary Button Text</label>
+                            <input
+                              type="text"
+                              value={heroForm.primaryCtaText}
+                              onChange={(e) => setHeroForm(prev => ({ ...prev, primaryCtaText: e.target.value }))}
+                              className="w-full px-3 py-2 border border-[#234F1E]/10 rounded-xl bg-white font-bold text-[#234F1E]"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold uppercase text-[#234F1E]/50 tracking-wider">Secondary Button Text</label>
+                            <input
+                              type="text"
+                              value={heroForm.secondaryCtaText}
+                              onChange={(e) => setHeroForm(prev => ({ ...prev, secondaryCtaText: e.target.value }))}
+                              className="w-full px-3 py-2 border border-[#234F1E]/10 rounded-xl bg-white font-bold text-[#234F1E]"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold uppercase text-[#234F1E]/50 tracking-wider">Featured Item Title</label>
+                            <input
+                              type="text"
+                              value={heroForm.cardTitle}
+                              onChange={(e) => setHeroForm(prev => ({ ...prev, cardTitle: e.target.value }))}
+                              className="w-full px-3 py-2 border border-[#234F1E]/10 rounded-xl bg-white font-bold text-[#234F1E]"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold uppercase text-[#234F1E]/50 tracking-wider">Featured Item Subtitle</label>
+                            <input
+                              type="text"
+                              value={heroForm.cardSubtitle}
+                              onChange={(e) => setHeroForm(prev => ({ ...prev, cardSubtitle: e.target.value }))}
+                              className="w-full px-3 py-2 border border-[#234F1E]/10 rounded-xl bg-white font-bold text-[#234F1E]"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold uppercase text-[#234F1E]/50 tracking-wider">Sale Price (₹)</label>
+                            <input
+                              type="number"
+                              value={heroForm.cardPrice}
+                              onChange={(e) => setHeroForm(prev => ({ ...prev, cardPrice: Number(e.target.value) }))}
+                              className="w-full px-3 py-2 border border-[#234F1E]/10 rounded-xl bg-white font-bold text-[#234F1E]"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold uppercase text-[#234F1E]/50 tracking-wider">Regular Price (₹)</label>
+                            <input
+                              type="number"
+                              value={heroForm.cardRegularPrice}
+                              onChange={(e) => setHeroForm(prev => ({ ...prev, cardRegularPrice: Number(e.target.value) }))}
+                              className="w-full px-3 py-2 border border-[#234F1E]/10 rounded-xl bg-white font-bold text-[#234F1E]"
+                            />
+                          </div>
+
+                          <div className="space-y-1 md:col-span-2">
+                            <label className="text-[9px] font-bold uppercase text-[#234F1E]/50 tracking-wider">Featured Item Image</label>
+                            <div className="flex gap-2 items-center">
+                              <input
+                                type="text"
+                                value={heroForm.cardImage}
+                                onChange={(e) => setHeroForm(prev => ({ ...prev, cardImage: e.target.value }))}
+                                className="w-full px-3 py-2 border border-[#234F1E]/10 rounded-xl bg-white font-mono text-[11px] font-bold text-[#234F1E]"
+                                placeholder="Image URL"
+                              />
+                              <label className="px-4 py-2 bg-white border border-[#234F1E]/20 text-[#234F1E] rounded-xl font-extrabold text-[10px] uppercase cursor-pointer hover:bg-[#234F1E]/5 shrink-0">
+                                {isUploadingHeroImage ? 'Uploading...' : 'Upload File'}
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={async (ev) => {
+                                    const file = ev.target.files?.[0];
+                                    if (file) {
+                                      try {
+                                        setIsUploadingHeroImage(true);
+                                        const url = await uploadImageFile(file);
+                                        setHeroForm(prev => ({ ...prev, cardImage: url }));
+                                        toast('Uploaded hero card image!', 'success');
+                                      } catch (err) {
+                                        toast('Failed to upload hero image', 'error');
+                                      } finally {
+                                        setIsUploadingHeroImage(false);
+                                      }
+                                    }
+                                  }}
+                                />
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+
+                        <button
+                          type="submit"
+                          className="px-6 py-2.5 bg-[#234F1E] hover:bg-[#1C4018] text-white font-extrabold text-xs uppercase tracking-widest rounded-full cursor-pointer shadow-md"
+                        >
+                          Save Main Hero Banner Settings
+                        </button>
+                      </form>
+                    </div>
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                       <div>
                         <h3 className="text-sm font-bold uppercase tracking-widest text-[#234F1E] font-display">Slide Banners Carousel</h3>

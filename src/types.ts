@@ -2,11 +2,40 @@ export interface Category {
   id: string;
   name: string;
   subcategories: string[];
+  image?: string;
 }
 
 export interface Brand {
   id: string;
   name: string;
+}
+
+export interface HeroConfig {
+  badge: string;
+  title: string;
+  description: string;
+  primaryCtaText: string;
+  secondaryCtaText: string;
+  cardTitle: string;
+  cardSubtitle: string;
+  cardPrice: number;
+  cardRegularPrice: number;
+  cardImage: string;
+}
+
+export interface ComboConfig {
+  badge: string;
+  title: string;
+  subheadline: string;
+  description: string;
+  price: number;
+  valuePrice: number;
+  ctaText: string;
+  card1Title: string;
+  card1Image: string;
+  card2Title: string;
+  card2Image: string;
+  isActive: boolean;
 }
 
 export interface Product {

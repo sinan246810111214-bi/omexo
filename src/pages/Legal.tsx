@@ -214,7 +214,7 @@ export const Legal: React.FC<LegalProps> = ({ policyType }) => {
             <div>
               <h4 className="text-[10px] font-bold text-pine-green/45 uppercase tracking-wider mb-0.5">Corporate HQ</h4>
               <p className="text-[10px] text-pine-green/60 leading-relaxed font-bold uppercase tracking-wider">
-                Omexo Tech Hub, Infopark Kochi, Kerala, India - 682030
+                Muhammed Sinan vk (Omexo), ozhukour, palekod, kondotty, Malappuram, Kerala - 673642
               </p>
             </div>
           </div>

@@ -100,7 +100,7 @@ export const Footer: React.FC = () => {
             </li>
             <li className="flex items-start gap-2">
               <MapPin className="w-4 h-4 text-soft-beige shrink-0 mt-0.5" />
-              <span>Omexo Tech, Infopark Kochi, Kerala, India - 682030</span>
+              <span>Muhammed Sinan vk (Omexo), ozhukour, palekod, kondotty, Malappuram, Kerala - 673642</span>
             </li>
           </ul>
         </div>

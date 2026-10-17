@@ -21,7 +21,9 @@ export const Home: React.FC = () => {
     setSelectedCategory,
     selectedBrand,
     setSelectedBrand,
-    showCategoryBrands
+    showCategoryBrands,
+    heroConfig,
+    comboConfig
   } = useStore();
   
   const { navigate } = useHashRouter();
@@ -107,14 +109,6 @@ export const Home: React.FC = () => {
   // Max price for dynamic range
   const maxProductPrice = Math.max(...products.map(p => p.salePrice), 15000);
 
-  // Custom visual categories with subtle glass cards
-  const displayCategories = [
-    { name: 'Tech Accessories', queryName: 'Tech Accessories', image: 'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?auto=format&fit=crop&w=400&q=80' },
-    { name: 'Desk Essentials', queryName: 'Desk Essentials', image: 'https://images.unsplash.com/photo-1595225476474-87563907a212?auto=format&fit=crop&w=400&q=80' },
-    { name: 'Lifestyle', queryName: 'Lifestyle', image: 'https://images.unsplash.com/photo-1542496658-e33a6d0d50f6?auto=format&fit=crop&w=400&q=80' },
-    { name: 'Trending', queryName: 'Trending', image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=400&q=80' }
-  ];
-
   return (
     <div className="space-y-16 pb-24 animate-in fade-in duration-300" id="homepage-container">
       
@@ -132,15 +126,15 @@ export const Home: React.FC = () => {
           <div className="md:col-span-6 space-y-6 text-left">
             <span className="inline-flex items-center gap-1.5 bg-white/10 border border-white/20 px-3 py-1 rounded-full text-[10px] font-bold tracking-widest text-soft-beige uppercase backdrop-blur-md">
               <Sparkles className="w-3 h-3 text-soft-beige animate-pulse" />
-              Omexo Design Lab
+              {heroConfig.badge}
             </span>
             
             <div className="space-y-2">
-              <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight leading-tight text-warm-white text-balance">
-                Small Things.<br />Big Joy.
+              <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight leading-tight text-warm-white text-balance whitespace-pre-line">
+                {heroConfig.title}
               </h1>
               <p className="text-sm md:text-base text-warm-white/80 max-w-md leading-relaxed font-normal">
-                Smart, useful products made for everyday life. Experience pure utility wrapped in luxury design.
+                {heroConfig.description}
               </p>
             </div>
 
@@ -152,7 +146,7 @@ export const Home: React.FC = () => {
                 }}
                 className="px-6 py-3 bg-warm-white hover:bg-soft-beige text-pine-green font-extrabold rounded-full text-xs uppercase tracking-widest transition-all duration-200 hover:scale-[1.02] active:scale-100 shadow-md cursor-pointer"
               >
-                SHOP NOW
+                {heroConfig.primaryCtaText}
               </button>
               <button
                 onClick={() => {
@@ -161,7 +155,7 @@ export const Home: React.FC = () => {
                 }}
                 className="px-6 py-3 bg-white/10 hover:bg-white/20 text-warm-white border border-white/20 font-extrabold rounded-full text-xs uppercase tracking-widest transition-all duration-200 cursor-pointer"
               >
-                EXPLORE PRODUCTS
+                {heroConfig.secondaryCtaText}
               </button>
             </div>
           </div>
@@ -171,19 +165,21 @@ export const Home: React.FC = () => {
             <div className="relative p-6 bg-white/10 backdrop-blur-md border border-white/20 rounded-[32px] shadow-2xl max-w-sm w-full group overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-tr from-white/10 via-transparent to-white/5 pointer-events-none" />
               <img 
-                src="https://images.unsplash.com/photo-1595225476474-87563907a212?auto=format&fit=crop&w=600&q=80" 
-                alt="Mechanical Keychain" 
+                src={heroConfig.cardImage} 
+                alt={heroConfig.cardTitle} 
                 className="max-h-[260px] w-full object-cover rounded-2xl drop-shadow-[0_15px_30px_rgba(0,0,0,0.2)] transition-transform duration-500 group-hover:scale-102"
                 referrerPolicy="no-referrer"
               />
               <div className="mt-4 flex items-center justify-between text-left">
                 <div>
-                  <h4 className="text-sm font-bold tracking-wide text-warm-white">Mechanical Switch Keychain</h4>
-                  <p className="text-[10px] text-warm-white/60">An absolute sensory tactile joy.</p>
+                  <h4 className="text-sm font-bold tracking-wide text-warm-white">{heroConfig.cardTitle}</h4>
+                  <p className="text-[10px] text-warm-white/60">{heroConfig.cardSubtitle}</p>
                 </div>
                 <div className="text-right">
-                  <div className="text-sm font-black text-soft-beige">₹199</div>
-                  <div className="text-[9px] line-through text-warm-white/40">₹250</div>
+                  <div className="text-sm font-black text-soft-beige">₹{heroConfig.cardPrice}</div>
+                  {heroConfig.cardRegularPrice > 0 && (
+                    <div className="text-[9px] line-through text-warm-white/40">₹{heroConfig.cardRegularPrice}</div>
+                  )}
                 </div>
               </div>
             </div>
@@ -225,13 +221,21 @@ export const Home: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {displayCategories.map((cat, idx) => {
-            const isSelected = selectedCategory === cat.queryName;
+          {categories.map((cat, idx) => {
+            const isSelected = selectedCategory === cat.name;
+            const fallbackImages = [
+              'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?auto=format&fit=crop&w=400&q=80',
+              'https://images.unsplash.com/photo-1595225476474-87563907a212?auto=format&fit=crop&w=400&q=80',
+              'https://images.unsplash.com/photo-1542496658-e33a6d0d50f6?auto=format&fit=crop&w=400&q=80',
+              'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=400&q=80'
+            ];
+            const catImage = cat.image || fallbackImages[idx % fallbackImages.length];
+
             return (
               <div
-                key={idx}
+                key={cat.id || idx}
                 onClick={() => {
-                  setSelectedCategory(cat.queryName);
+                  setSelectedCategory(cat.name);
                   setSelectedBrand('All');
                   const el = document.getElementById('catalog-deck');
                   el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -241,7 +245,7 @@ export const Home: React.FC = () => {
                 }`}
               >
                 <img 
-                  src={cat.image} 
+                  src={catImage} 
                   alt={cat.name} 
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
                   referrerPolicy="no-referrer"
@@ -259,68 +263,72 @@ export const Home: React.FC = () => {
       </section>
 
       {/* 5. SPECIAL COMBO SECTION: Gorgeous Frosted Glass Composition */}
-      <section className="pt-4" id="combo-promo">
-        <div className="relative rounded-[32px] overflow-hidden border border-pine-green/15 bg-soft-beige/50 p-8 md:p-12 shadow-lg text-left">
-          {/* Subtle grid mesh and radial backlight */}
-          <div className="absolute top-[-50px] left-[-50px] w-80 h-80 bg-[radial-gradient(circle,rgba(35,79,30,0.06),transparent_70%)] pointer-events-none" />
-          
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center relative z-10">
-            {/* Combo info */}
-            <div className="lg:col-span-6 space-y-6">
-              <span className="inline-flex items-center gap-1 bg-pine-green/10 border border-pine-green/10 px-3 py-1 rounded-full text-[9px] font-bold tracking-widest text-pine-green uppercase">
-                🔥 MATCHED SET
-              </span>
-              <div className="space-y-2">
-                <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight text-pine-green font-display">
-                  SPECIAL COMBO
-                </h2>
-                <p className="text-sm font-bold text-pine-green/70">
-                  Two useful picks. One special price.
-                </p>
-                <p className="text-xs text-pine-green/60 leading-relaxed max-w-md">
-                  Get our premium mechanical switch clicky fidget keychain combined with the ultra-slim metal foldable phone stand. Everything you need to elevate your everyday workspace layout.
-                </p>
-              </div>
-
-              {/* Combo Pricing and Button */}
-              <div className="flex items-center gap-4">
-                <div>
-                  <div className="text-3xl font-black text-pine-green">₹350</div>
-                  <div className="text-xs text-pine-green/40 line-through">Value ₹580</div>
+      {comboConfig.isActive && (
+        <section className="pt-4" id="combo-promo">
+          <div className="relative rounded-[32px] overflow-hidden border border-pine-green/15 bg-soft-beige/50 p-8 md:p-12 shadow-lg text-left">
+            {/* Subtle grid mesh and radial backlight */}
+            <div className="absolute top-[-50px] left-[-50px] w-80 h-80 bg-[radial-gradient(circle,rgba(35,79,30,0.06),transparent_70%)] pointer-events-none" />
+            
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center relative z-10">
+              {/* Combo info */}
+              <div className="lg:col-span-6 space-y-6">
+                <span className="inline-flex items-center gap-1 bg-pine-green/10 border border-pine-green/10 px-3 py-1 rounded-full text-[9px] font-bold tracking-widest text-pine-green uppercase">
+                  {comboConfig.badge}
+                </span>
+                <div className="space-y-2">
+                  <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight text-pine-green font-display">
+                    {comboConfig.title}
+                  </h2>
+                  <p className="text-sm font-bold text-pine-green/70">
+                    {comboConfig.subheadline}
+                  </p>
+                  <p className="text-xs text-pine-green/60 leading-relaxed max-w-md">
+                    {comboConfig.description}
+                  </p>
                 </div>
-                <button
-                  onClick={handleGetCombo}
-                  className="px-6 py-3 bg-pine-green hover:bg-pine-green-hover text-warm-white font-extrabold rounded-full text-xs uppercase tracking-widest transition-all duration-200 hover:scale-[1.02] shadow-md cursor-pointer"
-                >
-                  GET THE COMBO
-                </button>
-              </div>
-            </div>
 
-            {/* Premium glassmorphism composition show off */}
-            <div className="lg:col-span-6 grid grid-cols-2 gap-4">
-              <div className="glass-card rounded-[24px] p-4 text-center">
-                <img 
-                  src="https://images.unsplash.com/photo-1595225476474-87563907a212?auto=format&fit=crop&w=300&q=80" 
-                  alt="Switch Keychain" 
-                  className="w-full aspect-square object-cover rounded-2xl mb-2"
-                  referrerPolicy="no-referrer"
-                />
-                <h5 className="text-[10px] font-bold uppercase tracking-wider text-pine-green">Keychain</h5>
+                {/* Combo Pricing and Button */}
+                <div className="flex items-center gap-4">
+                  <div>
+                    <div className="text-3xl font-black text-pine-green">₹{comboConfig.price}</div>
+                    {comboConfig.valuePrice > 0 && (
+                      <div className="text-xs text-pine-green/40 line-through">Value ₹{comboConfig.valuePrice}</div>
+                    )}
+                  </div>
+                  <button
+                    onClick={handleGetCombo}
+                    className="px-6 py-3 bg-pine-green hover:bg-pine-green-hover text-warm-white font-extrabold rounded-full text-xs uppercase tracking-widest transition-all duration-200 hover:scale-[1.02] shadow-md cursor-pointer"
+                  >
+                    {comboConfig.ctaText}
+                  </button>
+                </div>
               </div>
-              <div className="glass-card rounded-[24px] p-4 text-center">
-                <img 
-                  src="https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?auto=format&fit=crop&w=300&q=80" 
-                  alt="Metal Phone Stand" 
-                  className="w-full aspect-square object-cover rounded-2xl mb-2"
-                  referrerPolicy="no-referrer"
-                />
-                <h5 className="text-[10px] font-bold uppercase tracking-wider text-pine-green">Phone Stand</h5>
+
+              {/* Premium glassmorphism composition show off */}
+              <div className="lg:col-span-6 grid grid-cols-2 gap-4">
+                <div className="glass-card rounded-[24px] p-4 text-center">
+                  <img 
+                    src={comboConfig.card1Image} 
+                    alt={comboConfig.card1Title} 
+                    className="w-full aspect-square object-cover rounded-2xl mb-2"
+                    referrerPolicy="no-referrer"
+                  />
+                  <h5 className="text-[10px] font-bold uppercase tracking-wider text-pine-green">{comboConfig.card1Title}</h5>
+                </div>
+                <div className="glass-card rounded-[24px] p-4 text-center">
+                  <img 
+                    src={comboConfig.card2Image} 
+                    alt={comboConfig.card2Title} 
+                    className="w-full aspect-square object-cover rounded-2xl mb-2"
+                    referrerPolicy="no-referrer"
+                  />
+                  <h5 className="text-[10px] font-bold uppercase tracking-wider text-pine-green">{comboConfig.card2Title}</h5>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* 4. FEATURED PRODUCTS: Responsive Glassmorphism Grid */}
       <section className="space-y-8 pt-4 border-t border-pine-green/10" id="catalog-deck">
