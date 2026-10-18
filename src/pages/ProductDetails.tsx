@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from '../hooks/useStore';
 import { useHashRouter } from '../hooks/useHashRouter';
 import { useToast } from '../components/Toast';
+import { trackViewContent } from '../lib/metaPixel';
 import { 
   ArrowLeft, Star, ShoppingBag, Zap, ShieldAlert, 
   MapPin, Truck, Check, ShieldCheck, Plus, Minus 
@@ -35,6 +36,13 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ productId }) => 
     valid: boolean;
     message: string;
   }>({ checked: false, valid: false, message: '' });
+
+  // Track Meta Pixel ViewContent event
+  useEffect(() => {
+    if (product) {
+      trackViewContent(product);
+    }
+  }, [product]);
 
   if (!product) {
     return (

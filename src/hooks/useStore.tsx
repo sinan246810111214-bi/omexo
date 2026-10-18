@@ -12,6 +12,7 @@ import {
   deleteDoc, 
   addDoc 
 } from 'firebase/firestore';
+import { trackAddToCart, trackPurchase } from '../lib/metaPixel';
 
 interface TelegramConfig {
   botToken: string;
@@ -624,6 +625,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Cart actions (local memory only)
   const addToCart = (product: Product, quantity = 1) => {
+    trackAddToCart(product, quantity);
     setCart((prev) => {
       const existing = prev.find((item) => item.product.id === product.id);
       if (existing) {
@@ -761,6 +763,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // Clear Cart
     setCart([]);
+
+    // Trigger Meta Pixel Purchase Event
+    trackPurchase(newOrder.id, cart, totalAmount);
 
     // Trigger Telegram notification
     sendTelegramAlert(newOrder);

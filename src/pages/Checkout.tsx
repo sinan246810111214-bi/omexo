@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from '../hooks/useStore';
 import { useHashRouter } from '../hooks/useHashRouter';
 import { useToast } from '../components/Toast';
+import { trackInitiateCheckout } from '../lib/metaPixel';
 import { 
   ShoppingBag, ShieldCheck, Truck, ArrowLeft, MessageSquare, 
   Check, Smartphone, Mail, MapPin, Sparkles, CreditCard
@@ -37,6 +38,12 @@ export const Checkout: React.FC = () => {
   const [placedOrder, setPlacedOrder] = useState<Order | null>(null);
 
   const cartSubtotal = cart.reduce((sum, item) => sum + item.product.salePrice * item.quantity, 0);
+
+  useEffect(() => {
+    if (cart.length > 0) {
+      trackInitiateCheckout(cart, cartSubtotal);
+    }
+  }, []);
 
   const handleApplyCoupon = () => {
     if (!couponCodeInput.trim()) {
