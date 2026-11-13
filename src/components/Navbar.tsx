@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useStore } from '../hooks/useStore';
 import { useHashRouter } from '../hooks/useHashRouter';
 import { CartDrawer } from './CartDrawer';
-import { ShoppingBag, Menu, X, Search, User } from 'lucide-react';
+import { ShoppingBag, Menu, X, Search } from 'lucide-react';
 import {
   getSiteBrandConfig,
   getSitePathPrefix,
@@ -263,20 +263,6 @@ export const Navbar: React.FC = () => {
                   {cartItemsCount}
                 </span>
               )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => navigate('admin', undefined, siteSlug)}
-              className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-2 text-pine-green hover:bg-pine-green/5 rounded-full transition-colors cursor-pointer"
-              title={`${activeBrand.name} Admin Panel`}
-              id="nav-admin-trigger"
-              aria-label={`${activeBrand.name} Admin Panel`}
-            >
-              <User className="w-4 h-4" />
-              <span className="hidden xl:inline text-[10px] font-extrabold uppercase tracking-wider">
-                Admin
-              </span>
             </button>
 
             <button

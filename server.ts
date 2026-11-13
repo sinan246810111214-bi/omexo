@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'path';
+import crypto from 'crypto';
 import dotenv from 'dotenv';
 import { v2 as cloudinary } from 'cloudinary';
 import { createServer as createViteServer } from 'vite';
@@ -92,8 +93,171 @@ if (hasCloudinaryEnv) {
   });
 }
 
-// Verify Firebase ID token via Google Identity Toolkit and enforce verified admin email
-async function verifyAdminBearerToken(req: express.Request): Promise<{ email: string; uid: string } | null> {
+// Secret Server-Side Admin Credential Verification (zero plaintext credentials stored in code)
+const ADMIN_HASH_SALT = 'omexo_admin_v1_salt_9f3c';
+const DEFAULT_ADMIN_USER_HASH =
+  '8939b243e07793fb680b3586af70adbb698a6f97135c00f35326bdf415afa4f0f7a99d4b2bab2a2ab2813181884711ef90de99eb413b2341316f0ca5bc176e95';
+const DEFAULT_ADMIN_PASS_HASH =
+  '62eb273d8456e3d67413dcc4b47213fe4a94e507d0c7a792457e8e312c781f27cde7fc1c9eefb234c5a754a9eee0f23f44534ff49637b77b8109d4bb4ceacaa8';
+const ADMIN_SESSION_COOKIE = 'omexo_admin_session';
+const ADMIN_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
+
+interface AdminTokenPayload {
+  sub: 'omexo-credential-admin';
+  role: 'Super Admin';
+  iat: number;
+  exp: number;
+}
+
+function getSessionSecret(): Buffer {
+  const configured = process.env.ADMIN_SESSION_SECRET?.trim();
+  const seed =
+    configured && configured !== 'MY_ADMIN_SESSION_SECRET'
+      ? configured
+      : `${DEFAULT_ADMIN_PASS_HASH}:${process.env.GEMINI_API_KEY || firebaseConfig.apiKey || 'omexo_runtime_key'}`;
+  return crypto.createHash('sha256').update(seed).digest();
+}
+
+function timingSafeHexMatch(actualBuf: Buffer, expectedHex: string): boolean {
+  try {
+    const expectedBuf = Buffer.from(expectedHex, 'hex');
+    if (actualBuf.length !== expectedBuf.length) {
+      return false;
+    }
+    return crypto.timingSafeEqual(actualBuf, expectedBuf);
+  } catch {
+    return false;
+  }
+}
+
+function verifySecretInput(rawInput: string, envOverride: string | undefined, fallbackHashHex: string): boolean {
+  const candidate = rawInput.slice(0, 128);
+  const candidateHash = crypto.scryptSync(candidate, ADMIN_HASH_SALT, 64);
+
+  const cleanOverride = envOverride?.trim();
+  if (cleanOverride && !cleanOverride.startsWith('MY_ADMIN_')) {
+    const overrideHash = crypto.scryptSync(cleanOverride, ADMIN_HASH_SALT, 64);
+    if (candidateHash.length !== overrideHash.length) {
+      return false;
+    }
+    return crypto.timingSafeEqual(candidateHash, overrideHash);
+  }
+
+  return timingSafeHexMatch(candidateHash, fallbackHashHex);
+}
+
+function verifyAdminCredentials(username: string, password: string): boolean {
+  const cleanUser = username.trim();
+  const cleanPass = password.trim();
+  if (!cleanUser || !cleanPass) {
+    // Still perform dummy scrypt work to keep response timing uniform
+    crypto.scryptSync('dummy', ADMIN_HASH_SALT, 64);
+    return false;
+  }
+  const userOk = verifySecretInput(cleanUser, process.env.ADMIN_USERNAME, DEFAULT_ADMIN_USER_HASH);
+  const passOk = verifySecretInput(cleanPass, process.env.ADMIN_PASSWORD, DEFAULT_ADMIN_PASS_HASH);
+  return userOk && passOk;
+}
+
+function issueSignedAdminToken(): { token: string; expiresAt: number } {
+  const now = Date.now();
+  const expiresAt = now + ADMIN_SESSION_TTL_MS;
+  const payload: AdminTokenPayload = {
+    sub: 'omexo-credential-admin',
+    role: 'Super Admin',
+    iat: now,
+    exp: expiresAt,
+  };
+  const payloadB64 = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
+  const sigB64 = crypto
+    .createHmac('sha256', getSessionSecret())
+    .update(payloadB64)
+    .digest('base64url');
+  return { token: `${payloadB64}.${sigB64}`, expiresAt };
+}
+
+function verifySignedAdminToken(token: string | undefined | null): AdminTokenPayload | null {
+  if (!token || typeof token !== 'string' || token.length > 1024) {
+    return null;
+  }
+  const parts = token.split('.');
+  if (parts.length !== 2) {
+    return null;
+  }
+  const [payloadB64, providedSig] = parts;
+  if (!payloadB64 || !providedSig) {
+    return null;
+  }
+
+  try {
+    const expectedSig = crypto
+      .createHmac('sha256', getSessionSecret())
+      .update(payloadB64)
+      .digest('base64url');
+    const a = Buffer.from(providedSig, 'utf8');
+    const b = Buffer.from(expectedSig, 'utf8');
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+      return null;
+    }
+
+    const decoded = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8')) as AdminTokenPayload;
+    if (
+      decoded.sub !== 'omexo-credential-admin' ||
+      decoded.role !== 'Super Admin' ||
+      typeof decoded.exp !== 'number' ||
+      Date.now() > decoded.exp
+    ) {
+      return null;
+    }
+    return decoded;
+  } catch {
+    return null;
+  }
+}
+
+function parseCookies(cookieHeader: string | undefined): Record<string, string> {
+  const cookies: Record<string, string> = {};
+  if (!cookieHeader) return cookies;
+  for (const part of cookieHeader.split(';')) {
+    const idx = part.indexOf('=');
+    if (idx === -1) continue;
+    const key = part.slice(0, idx).trim();
+    const val = part.slice(idx + 1).trim();
+    if (key) {
+      try {
+        cookies[key] = decodeURIComponent(val);
+      } catch {
+        cookies[key] = val;
+      }
+    }
+  }
+  return cookies;
+}
+
+function extractAdminRequestToken(req: express.Request): string | null {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const bearer = authHeader.slice('Bearer '.length).trim();
+    if (bearer) return bearer;
+  }
+  const cookies = parseCookies(req.headers.cookie);
+  return cookies[ADMIN_SESSION_COOKIE] || null;
+}
+
+// Verify either Server Credential Admin Token OR Firebase ID token (strictly omexoofficial@gmail.com)
+async function verifyAdminBearerToken(
+  req: express.Request
+): Promise<{ email: string; uid: string; authMethod: 'google' | 'credentials' } | null> {
+  const token = extractAdminRequestToken(req);
+  if (!token || token.length > 4096) {
+    return null;
+  }
+
+  const credSession = verifySignedAdminToken(token);
+  if (credSession) {
+    return { email: 'omexoofficial@gmail.com', uid: credSession.sub, authMethod: 'credentials' };
+  }
+
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return null;
@@ -131,7 +295,7 @@ async function verifyAdminBearerToken(req: express.Request): Promise<{ email: st
       return null;
     }
 
-    return { email: cleanEmail, uid: user.localId };
+    return { email: cleanEmail, uid: user.localId, authMethod: 'google' };
   } catch {
     return null;
   }
@@ -139,6 +303,77 @@ async function verifyAdminBearerToken(req: express.Request): Promise<{ email: st
 
 app.use(express.json({ limit: '16mb' }));
 app.use(express.urlencoded({ limit: '16mb', extended: true }));
+
+// Secret Server-Side Admin Login / Session / Logout Endpoints
+app.post('/api/admin/login', createRateLimiter(10, 15 * 60_000), (req, res) => {
+  try {
+    const { username, password } = req.body || {};
+    if (typeof username !== 'string' || typeof password !== 'string') {
+      return res.status(400).json({ error: 'Username and password are required.' });
+    }
+
+    const isValid = verifyAdminCredentials(username, password);
+    if (!isValid) {
+      return res.status(401).json({ error: 'Invalid admin username or password.' });
+    }
+
+    const { token, expiresAt } = issueSignedAdminToken();
+    const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https';
+    const cookieParts = [
+      `${ADMIN_SESSION_COOKIE}=${encodeURIComponent(token)}`,
+      'Path=/',
+      'HttpOnly',
+      `Max-Age=${Math.floor(ADMIN_SESSION_TTL_MS / 1000)}`,
+      isHttps ? 'SameSite=None' : 'SameSite=Lax',
+    ];
+    if (isHttps) {
+      cookieParts.push('Secure');
+    }
+    res.setHeader('Set-Cookie', cookieParts.join('; '));
+
+    return res.json({
+      authenticated: true,
+      role: 'Super Admin',
+      authMethod: 'credentials',
+      label: 'Omexo Super Admin',
+      token,
+      expiresAt,
+    });
+  } catch {
+    return res.status(500).json({ error: 'Authentication verification failed.' });
+  }
+});
+
+app.get('/api/admin/session', createRateLimiter(60, 60_000), (req, res) => {
+  const token = extractAdminRequestToken(req);
+  const payload = verifySignedAdminToken(token);
+  if (!payload) {
+    return res.json({ authenticated: false });
+  }
+  return res.json({
+    authenticated: true,
+    role: payload.role,
+    authMethod: 'credentials',
+    label: 'Omexo Super Admin',
+    expiresAt: payload.exp,
+  });
+});
+
+app.post('/api/admin/logout', (req, res) => {
+  const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https';
+  const cookieParts = [
+    `${ADMIN_SESSION_COOKIE}=`,
+    'Path=/',
+    'HttpOnly',
+    'Max-Age=0',
+    isHttps ? 'SameSite=None' : 'SameSite=Lax',
+  ];
+  if (isHttps) {
+    cookieParts.push('Secure');
+  }
+  res.setHeader('Set-Cookie', cookieParts.join('; '));
+  return res.json({ success: true });
+});
 
 // Authenticated Admin-Only API Route for uploading raster images
 app.post('/api/upload', createRateLimiter(20, 60_000), async (req, res) => {

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useHashRouter, AppRoute } from '../hooks/useHashRouter';
 import { useStore } from '../hooks/useStore';
-import { Mail, MapPin, MessageCircle, Instagram, ExternalLink, ArrowUpRight, Phone } from 'lucide-react';
+import { Mail, MapPin, MessageCircle, Instagram, ExternalLink, ArrowUpRight, Phone, User } from 'lucide-react';
 import {
   BRAND_SITES,
   ORDER_LABEL_SENDER,
@@ -172,10 +172,12 @@ export const Footer: React.FC = () => {
             <button
               type="button"
               onClick={() => navigate('admin', undefined, siteSlug)}
-              className="text-soft-beige/90 hover:text-soft-beige font-semibold cursor-pointer"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-soft-beige/85 hover:text-soft-beige text-[10px] font-bold uppercase tracking-wider transition-colors cursor-pointer"
               id="btn-footer-admin-gear"
+              title={`${activeBrand.name} Admin Panel`}
             >
-              {activeBrand.shortLabel} Admin
+              <User className="w-2.5 h-2.5 shrink-0" />
+              <span>{activeBrand.shortLabel} Admin</span>
             </button>
           </div>
 

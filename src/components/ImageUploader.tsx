@@ -39,11 +39,15 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
         setUploadStatus('Uploading image...');
         try {
           const idToken = await auth.currentUser?.getIdToken();
+          const serverToken =
+            idToken ||
+            (typeof window !== 'undefined' ? window.sessionStorage.getItem('omexo_admin_session_token') : null);
           const response = await fetch('/api/upload', {
             method: 'POST',
+            credentials: 'include',
             headers: {
               'Content-Type': 'application/json',
-              ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+              ...(serverToken ? { Authorization: `Bearer ${serverToken}` } : {}),
             },
             body: JSON.stringify({ image: base64Data })
           });

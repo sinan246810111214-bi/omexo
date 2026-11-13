@@ -1,8 +1,5 @@
 export const AUTHORIZED_ADMIN_EMAILS = [
-  'dm8115589@gmail.com',
   'omexoofficial@gmail.com',
-  'albin@omexo.in',
-  'fida@omexo.in',
 ] as const;
 
 export type AdminRole = 'Super Admin' | 'Admin' | 'Staff';
@@ -14,11 +11,8 @@ export function isAuthorizedAdminEmail(email?: string | null): boolean {
 
 export function getAdminRoleForEmail(email?: string | null): AdminRole {
   const clean = (email || '').trim().toLowerCase();
-  if (clean === 'dm8115589@gmail.com' || clean === 'omexoofficial@gmail.com') {
+  if (clean === 'omexoofficial@gmail.com') {
     return 'Super Admin';
-  }
-  if (clean === 'albin@omexo.in') {
-    return 'Admin';
   }
   return 'Staff';
 }

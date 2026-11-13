@@ -103,6 +103,17 @@ export interface OfferBanner {
   backgroundImageUrl?: string;
 }
 
+export interface PromoOffer {
+  id: string;
+  siteSlug?: BrandCategorySlug;
+  title: string;
+  subheadline: string;
+  price: number;
+  ctaText: string;
+  bannerUrl: string;
+  isActive: boolean;
+}
+
 export interface CustomerReview {
   id: string;
   siteSlug?: BrandCategorySlug;

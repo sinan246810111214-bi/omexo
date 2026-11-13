@@ -29,6 +29,9 @@ export const Home: React.FC = () => {
     heroConfig,
     comboConfig,
     banners,
+    promos,
+    categories,
+    cmsPages,
     reviews,
     addReview,
     storeSettings,
@@ -98,12 +101,29 @@ export const Home: React.FC = () => {
     }
   };
 
+  const storeCategoryDef = categories.find(
+    (c) => c.slug === (siteSlug || activeSite) || c.name.toLowerCase() === activeBrand.name.toLowerCase()
+  );
+  const baseSubcategories =
+    storeCategoryDef?.subcategories && storeCategoryDef.subcategories.length > 0
+      ? storeCategoryDef.subcategories
+      : activeBrand.subcategories;
+  const customCategories = categories
+    .filter(
+      (c) =>
+        !c.slug &&
+        !['omexo lifestyle', 'omexo decor', 'omexo essentials'].includes(c.name.toLowerCase())
+    )
+    .map((c) => c.name);
+  const subcategoryTabs = Array.from(new Set([...baseSubcategories, ...customCategories]));
+
   const catalogProducts = siteProducts.filter((p) => p.id !== 'omexo-special-combo');
 
   const filteredProducts = catalogProducts.filter((p) => {
     const subLower = selectedSubcategory.toLowerCase();
     const matchesSubcategory =
       selectedSubcategory === 'All' ||
+      p.category.toLowerCase() === subLower ||
       p.title.toLowerCase().includes(subLower.replace(/s$/, '')) ||
       p.description.toLowerCase().includes(subLower.replace(/s$/, '')) ||
       Object.values(p.specs || {}).some((val) =>
@@ -128,7 +148,8 @@ export const Home: React.FC = () => {
     return 0;
   });
 
-  const featuredPromoBanner = banners[0];
+  const activePromos = promos.filter((p) => p.isActive !== false);
+  const activeCmsPages = cmsPages.filter((p) => p.content && p.content.trim().length > 0);
   const approvedReviews = reviews.filter((r) => r.status === 'Approved');
 
   return (
@@ -283,7 +304,7 @@ export const Home: React.FC = () => {
             All ({catalogProducts.length})
           </button>
 
-          {activeBrand.subcategories.map((sub) => {
+          {subcategoryTabs.map((sub) => {
             const active = selectedSubcategory === sub;
             return (
               <button
@@ -512,28 +533,100 @@ export const Home: React.FC = () => {
         </section>
       )}
 
-      {/* Optional Compact Admin Banner (if configured cleanly in Admin -> Slide Banners) */}
-      {featuredPromoBanner && (
-        <section className="rounded-2xl bg-white border border-pine-green/10 p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
-          <div className="space-y-1 max-w-2xl">
-            <div className="text-[10px] font-extrabold uppercase tracking-widest text-pine-green/60">
-              {featuredPromoBanner.badge}
-            </div>
-            <h3 className="text-base sm:text-lg font-extrabold text-pine-green font-display">
-              {featuredPromoBanner.title}
-            </h3>
-            <p className="text-xs text-pine-green/70">{featuredPromoBanner.description}</p>
+      {/* Live Offer Campaigns (Synced from Admin -> Offers & Promos) */}
+      {activePromos.length > 0 && (
+        <section className="space-y-3" id="active-offers-section">
+          <div className={`grid grid-cols-1 ${activePromos.length > 1 ? 'md:grid-cols-2' : ''} gap-4`}>
+            {activePromos.map((promo) => (
+              <div
+                key={promo.id}
+                className="rounded-2xl bg-white border border-pine-green/15 p-4 sm:p-5 flex items-center gap-4 justify-between shadow-sm"
+              >
+                {promo.bannerUrl && (
+                  <img
+                    src={promo.bannerUrl}
+                    alt={promo.title}
+                    loading="lazy"
+                    decoding="async"
+                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover border border-pine-green/10 shrink-0"
+                    referrerPolicy="no-referrer"
+                  />
+                )}
+                <div className="flex-1 min-w-0 space-y-1">
+                  <div className="text-[10px] font-extrabold uppercase tracking-widest text-pine-green/60">
+                    Limited Campaign
+                  </div>
+                  <h3 className="text-sm sm:text-base font-extrabold text-pine-green font-display truncate">
+                    {promo.title}
+                  </h3>
+                  <p className="text-xs text-pine-green/70 line-clamp-2">{promo.subheadline}</p>
+                </div>
+                <div className="text-right shrink-0 space-y-1.5">
+                  <div className="text-base sm:text-lg font-black text-pine-green tabular-nums">
+                    ₹{Number(promo.price || 0).toLocaleString('en-IN')}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleGetCombo}
+                    className="px-4 py-2 bg-pine-green hover:bg-pine-green-hover text-warm-white font-bold rounded-full text-[11px] uppercase tracking-wider transition-colors cursor-pointer whitespace-nowrap"
+                  >
+                    {promo.ctaText || 'Claim Offer'}
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              document.getElementById('catalog-deck')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }}
-            className="inline-flex items-center gap-1.5 px-5 py-2.5 min-h-[42px] bg-pine-green hover:bg-pine-green-hover text-warm-white font-bold rounded-full text-xs uppercase tracking-wider transition-colors shrink-0 self-start sm:self-center cursor-pointer"
-          >
-            <span>{featuredPromoBanner.primaryCta || `Shop ${activeBrand.shortLabel}`}</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
+        </section>
+      )}
+
+      {/* Admin Slide Banners (Synced live from Admin -> Slide Banners) */}
+      {banners.length > 0 && (
+        <section className="space-y-3" id="store-slide-banners">
+          <div className={`grid grid-cols-1 ${banners.length > 1 ? 'md:grid-cols-2' : ''} gap-4`}>
+            {banners.map((banner, idx) => (
+              <div
+                key={banner.id || idx}
+                className="rounded-2xl bg-white border border-pine-green/10 p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm"
+              >
+                <div className="space-y-1 max-w-2xl">
+                  <div className="text-[10px] font-extrabold uppercase tracking-widest text-pine-green/60">
+                    {banner.badge}
+                  </div>
+                  <h3 className="text-base sm:text-lg font-extrabold text-pine-green font-display">
+                    {banner.title}
+                  </h3>
+                  <p className="text-xs text-pine-green/70">{banner.description}</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 shrink-0 self-start sm:self-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      document.getElementById('catalog-deck')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }}
+                    className="inline-flex items-center gap-1.5 px-5 py-2.5 min-h-[42px] bg-pine-green hover:bg-pine-green-hover text-warm-white font-bold rounded-full text-xs uppercase tracking-wider transition-colors cursor-pointer"
+                  >
+                    <span>{banner.primaryCta || `Shop ${activeBrand.shortLabel}`}</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                  {banner.secondaryCta && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (banner.secondaryCta.toLowerCase().includes('track')) {
+                          navigate('track-order', undefined, siteSlug);
+                        } else {
+                          navigate('contact-us', undefined, siteSlug);
+                        }
+                      }}
+                      className="px-4 py-2.5 min-h-[42px] bg-pine-green/10 hover:bg-pine-green/15 text-pine-green font-bold rounded-full text-xs uppercase tracking-wider transition-colors cursor-pointer"
+                    >
+                      {banner.secondaryCta}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         </section>
       )}
 
@@ -602,6 +695,25 @@ export const Home: React.FC = () => {
           ))}
         </div>
       </section>
+
+      {/* 5. CMS STORY & GUIDELINES (Synced from Admin -> CMS Content Pages) */}
+      {activeCmsPages.length > 0 && (
+        <section className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-pine-green/10" id="cms-copy-section">
+          {activeCmsPages.map((page) => (
+            <div
+              key={page.id}
+              className="rounded-2xl bg-white border border-pine-green/10 p-5 space-y-1.5 shadow-sm"
+            >
+              <h3 className="text-xs font-extrabold uppercase tracking-widest text-pine-green font-display">
+                {page.title}
+              </h3>
+              <p className="text-xs text-pine-green/75 leading-relaxed whitespace-pre-line">
+                {page.content}
+              </p>
+            </div>
+          ))}
+        </section>
+      )}
 
       {/* WRITE A REVIEW MODAL */}
       {isReviewModalOpen && (

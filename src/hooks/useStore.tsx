@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Brand,
   BrandCategorySlug,
@@ -14,10 +14,11 @@ import {
   OrderItem,
   OrderStatus,
   Product,
+  PromoOffer,
   StoreSettings,
 } from '../types';
 import { INITIAL_PRODUCTS } from '../data/initialProducts';
-import { auth, db, onAuthStateChanged, User } from '../lib/firebase';
+import { auth, db, onAuthStateChanged, signOut, User } from '../lib/firebase';
 import {
   collection,
   doc,
@@ -72,6 +73,7 @@ interface StoreContextType {
   allCoupons: Coupon[];
   cmsPages: CMSPage[];
   allCmsPages: CMSPage[];
+  promos: PromoOffer[];
   storeSettings: StoreSettings;
   getStoreSettingsForSite: (site: BrandCategorySlug) => StoreSettings;
   getHeroConfigForSite: (site: BrandCategorySlug) => HeroConfig;
@@ -119,6 +121,9 @@ interface StoreContextType {
   addBanner: (banner: OfferBanner, targetSite?: BrandCategorySlug) => Promise<void>;
   updateBanner: (bannerIdOrIdx: string | number, banner: OfferBanner, targetSite?: BrandCategorySlug) => Promise<void>;
   deleteBanner: (bannerIdOrIdx: string | number, targetSite?: BrandCategorySlug) => Promise<void>;
+  addPromo: (promo: Omit<PromoOffer, 'id'> & { id?: string }, targetSite?: BrandCategorySlug) => Promise<void>;
+  updatePromo: (promo: PromoOffer, targetSite?: BrandCategorySlug) => Promise<void>;
+  deletePromo: (id: string, targetSite?: BrandCategorySlug) => Promise<void>;
   addReview: (review: Omit<CustomerReview, 'id' | 'date'>, targetSite?: BrandCategorySlug) => Promise<void>;
   updateReviewStatus: (id: string, status: 'Approved' | 'Pending') => Promise<void>;
   deleteReview: (id: string) => Promise<void>;
@@ -126,15 +131,22 @@ interface StoreContextType {
   deleteCoupon: (id: string) => Promise<void>;
   updateCMSPage: (page: CMSPage) => Promise<void>;
   updateStoreSettings: (settings: StoreSettings, targetSite?: BrandCategorySlug) => Promise<void>;
+  refreshStore: () => Promise<void>;
   showCategoryBrands: boolean;
   setShowCategoryBrands: (val: boolean) => void;
   showFeaturedGrids: boolean;
   setShowFeaturedGrids: (val: boolean) => void;
   isLoadingDb: boolean;
   authUser: User | null;
+  isGoogleAdmin: boolean;
+  isCredentialAdmin: boolean;
   isAdminUser: boolean;
   adminRole: AdminRole;
+  adminDisplayName: string;
+  serverAdminToken: string | null;
   isAuthReady: boolean;
+  loginWithAdminCredentials: (username: string, password: string) => Promise<{ ok: boolean; error?: string }>;
+  logoutAdmin: () => Promise<void>;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -209,6 +221,75 @@ function createDefaultTelegramMap(): SiteRecord<TelegramConfig> {
   };
 }
 
+function createDefaultPromosMap(): SiteRecord<PromoOffer[]> {
+  return {
+    lifestyle: [
+      {
+        id: 'lifestyle-combo-1',
+        siteSlug: 'lifestyle',
+        title: SITE_BRAND_CONFIGS.lifestyle.defaultComboConfig.title,
+        subheadline: SITE_BRAND_CONFIGS.lifestyle.defaultComboConfig.subheadline,
+        price: SITE_BRAND_CONFIGS.lifestyle.defaultComboConfig.price,
+        ctaText: SITE_BRAND_CONFIGS.lifestyle.defaultComboConfig.ctaText,
+        bannerUrl: SITE_BRAND_CONFIGS.lifestyle.defaultComboConfig.card1Image,
+        isActive: true,
+      },
+    ],
+    decor: [
+      {
+        id: 'decor-combo-1',
+        siteSlug: 'decor',
+        title: SITE_BRAND_CONFIGS.decor.defaultComboConfig.title,
+        subheadline: SITE_BRAND_CONFIGS.decor.defaultComboConfig.subheadline,
+        price: SITE_BRAND_CONFIGS.decor.defaultComboConfig.price,
+        ctaText: SITE_BRAND_CONFIGS.decor.defaultComboConfig.ctaText,
+        bannerUrl: SITE_BRAND_CONFIGS.decor.defaultComboConfig.card1Image,
+        isActive: true,
+      },
+    ],
+    essentials: [
+      {
+        id: 'essentials-combo-1',
+        siteSlug: 'essentials',
+        title: SITE_BRAND_CONFIGS.essentials.defaultComboConfig.title,
+        subheadline: SITE_BRAND_CONFIGS.essentials.defaultComboConfig.subheadline,
+        price: SITE_BRAND_CONFIGS.essentials.defaultComboConfig.price,
+        ctaText: SITE_BRAND_CONFIGS.essentials.defaultComboConfig.ctaText,
+        bannerUrl: SITE_BRAND_CONFIGS.essentials.defaultComboConfig.card1Image,
+        isActive: true,
+      },
+    ],
+  };
+}
+
+const SEED_FLAG_KEY = 'omexo_seed_v1';
+
+function hasSeedMarker(): boolean {
+  try {
+    return localStorage.getItem(SEED_FLAG_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function setLocalSeedMarker(): void {
+  try {
+    localStorage.setItem(SEED_FLAG_KEY, '1');
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function stripUndefined<T extends Record<string, any>>(obj: T): T {
+  const cleaned: Record<string, any> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (v !== undefined) {
+      cleaned[k] = v;
+    }
+  }
+  return cleaned as T;
+}
+
 function sanitizeBannerDocId(title: string, siteSlug?: BrandCategorySlug): string {
   const prefix = siteSlug ? `${siteSlug}_` : '';
   const cleaned = title.replace(/[^a-zA-Z0-9_-]+/g, '_').replace(/^_+|_+$/g, '');
@@ -277,40 +358,60 @@ function normalizeProductRecord(prod: Product): Product {
   const canonicalCategory = getCanonicalCategoryName(lockedSlug);
   const initialMatch = INITIAL_PRODUCTS.find((p) => p.id === prod.id);
   const hasStaleImage = !prod.images?.length || prod.images.some(isStaleDefaultAsset);
+  const fallbackImage = SITE_BRAND_CONFIGS[lockedSlug].defaultHeroConfig.cardImage;
 
-  return {
-    ...prod,
+  const base: Product = {
+    id: prod.id,
+    title: (prod.title || '').trim() || 'Omexo Product',
     category: canonicalCategory === 'All' ? 'Omexo Lifestyle' : canonicalCategory,
     categorySlug: lockedSlug,
-    images: hasStaleImage && initialMatch ? initialMatch.images : prod.images,
+    description: prod.description || '',
+    salePrice: Math.max(0, Number(prod.salePrice) || 0),
+    regularPrice: Math.max(0, Number(prod.regularPrice) || 0),
+    stockCount: Math.max(0, Math.floor(Number(prod.stockCount) || 0)),
+    images:
+      hasStaleImage && initialMatch
+        ? initialMatch.images
+        : prod.images?.length
+        ? prod.images
+        : [fallbackImage],
+    specs:
+      prod.specs && typeof prod.specs === 'object' && Object.keys(prod.specs).length > 0
+        ? prod.specs
+        : { Origin: canonicalCategory === 'All' ? 'Omexo' : canonicalCategory },
   };
+
+  if (typeof prod.brand === 'string' && prod.brand.trim()) {
+    base.brand = prod.brand.trim();
+  }
+  if (typeof prod.isTrending === 'boolean') {
+    base.isTrending = prod.isTrending;
+  }
+
+  return base;
 }
 
 function normalizeCategoryList(rawCategories: Category[]): Category[] {
-  const legacyIds = new Set(['cat-1', 'cat-2', 'cat-3', 'cat-4', 'cat-5']);
-  const customCategories = rawCategories.filter(
-    (c) =>
-      !legacyIds.has(c.id) &&
-      !DEFAULT_BRAND_CATEGORIES.some(
-        (def) => def.id === c.id || def.name.toLowerCase() === c.name.toLowerCase()
-      )
-  );
-  const mergedDefaults = DEFAULT_BRAND_CATEGORIES.map((def) => {
-    const existing = rawCategories.find(
-      (c) => c.id === def.id || c.name.toLowerCase() === def.name.toLowerCase()
+  return rawCategories.map((c) => {
+    const def = DEFAULT_BRAND_CATEGORIES.find(
+      (d) =>
+        d.id === c.id ||
+        (c.slug && d.slug === c.slug) ||
+        d.name.toLowerCase() === (c.name || '').toLowerCase()
     );
-    if (existing) {
+    if (!def) {
       return {
-        ...def,
-        ...existing,
-        name: def.name,
-        slug: def.slug,
-        image: isStaleDefaultAsset(existing.image) ? def.image : existing.image,
+        ...c,
+        subcategories: Array.isArray(c.subcategories) ? c.subcategories : [],
       };
     }
-    return def;
+    return {
+      ...c,
+      subcategories:
+        Array.isArray(c.subcategories) && c.subcategories.length > 0 ? c.subcategories : def.subcategories,
+      image: isStaleDefaultAsset(c.image) ? def.image : c.image,
+    };
   });
-  return [...mergedDefaults, ...customCategories];
 }
 
 function inferReviewSiteSlug(rev: CustomerReview, allProducts: Product[]): BrandCategorySlug {
@@ -383,33 +484,64 @@ function loadSiteMapFromStorage<T>(prefixKey: string, defaults: SiteRecord<T>): 
   return result;
 }
 
+function loadListFromStorage<T>(key: string, fallback: T[], mapFn?: (items: T[]) => T[]): T[] {
+  try {
+    const saved = localStorage.getItem(key);
+    if (saved !== null) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) {
+        return mapFn ? mapFn(parsed as T[]) : (parsed as T[]);
+      }
+    }
+  } catch {
+    // ignore malformed storage
+  }
+  return hasSeedMarker() ? [] : fallback;
+}
+
+function loadPromosMapFromStorage(): SiteRecord<PromoOffer[]> {
+  const defaults = createDefaultPromosMap();
+  const result: SiteRecord<PromoOffer[]> = {
+    lifestyle: hasSeedMarker() ? [] : defaults.lifestyle,
+    decor: hasSeedMarker() ? [] : defaults.decor,
+    essentials: hasSeedMarker() ? [] : defaults.essentials,
+  };
+  for (const slug of BRAND_SITES) {
+    try {
+      const saved = localStorage.getItem(`omexo_promos_${slug}`);
+      if (saved !== null) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          result[slug] = parsed as PromoOffer[];
+        }
+      }
+    } catch {
+      // ignore malformed storage
+    }
+  }
+  return result;
+}
+
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [activeSite, setActiveSite] = useState<BrandCategorySlug>(() => parseHash().siteSlug);
 
-  const [products, setProducts] = useState<Product[]>(() => {
-    const saved = localStorage.getItem('omexo_products');
-    if (saved) {
-      const parsed = (JSON.parse(saved) as Product[]).map(normalizeProductRecord);
-      const missingInitials = INITIAL_PRODUCTS.filter((init) => !parsed.some((p) => p.id === init.id));
-      return [...parsed, ...missingInitials];
-    }
-    return INITIAL_PRODUCTS;
-  });
+  const [products, setProducts] = useState<Product[]>(() =>
+    loadListFromStorage('omexo_products', INITIAL_PRODUCTS, (items) => items.map(normalizeProductRecord))
+  );
 
-  const [categories, setCategories] = useState<Category[]>(() => {
-    const saved = localStorage.getItem('omexo_categories');
-    return saved ? normalizeCategoryList(JSON.parse(saved)) : DEFAULT_CATEGORIES;
-  });
+  const [categories, setCategories] = useState<Category[]>(() =>
+    loadListFromStorage('omexo_categories', DEFAULT_CATEGORIES, normalizeCategoryList)
+  );
 
-  const [brands, setBrands] = useState<Brand[]>(() => {
-    const saved = localStorage.getItem('omexo_brands');
-    return saved ? JSON.parse(saved) : DEFAULT_BRANDS;
-  });
+  const [brands, setBrands] = useState<Brand[]>(() =>
+    loadListFromStorage('omexo_brands', DEFAULT_BRANDS)
+  );
 
-  const [allBanners, setAllBanners] = useState<OfferBanner[]>(() => {
-    const saved = localStorage.getItem('omexo_banners_v2');
-    return saved ? JSON.parse(saved) : DEFAULT_BANNERS;
-  });
+  const [allBanners, setAllBanners] = useState<OfferBanner[]>(() =>
+    loadListFromStorage('omexo_banners_v2', DEFAULT_BANNERS)
+  );
+
+  const [promosMap, setPromosMap] = useState<SiteRecord<PromoOffer[]>>(loadPromosMapFromStorage);
 
   const [heroMap, setHeroMap] = useState<SiteRecord<HeroConfig>>(() =>
     loadSiteMapFromStorage('omexo_hero_config', createDefaultHeroMap())
@@ -427,20 +559,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     loadSiteMapFromStorage('omexo_store_settings', createDefaultSiteSettingsMap())
   );
 
-  const [allReviews, setAllReviews] = useState<CustomerReview[]>(() => {
-    const saved = localStorage.getItem('omexo_reviews');
-    return saved ? JSON.parse(saved) : DEFAULT_REVIEWS;
-  });
+  const [allReviews, setAllReviews] = useState<CustomerReview[]>(() =>
+    loadListFromStorage('omexo_reviews', DEFAULT_REVIEWS)
+  );
 
-  const [allCoupons, setAllCoupons] = useState<Coupon[]>(() => {
-    const saved = localStorage.getItem('omexo_coupons_v2');
-    return saved ? JSON.parse(saved) : DEFAULT_COUPONS;
-  });
+  const [allCoupons, setAllCoupons] = useState<Coupon[]>(() =>
+    loadListFromStorage('omexo_coupons_v2', DEFAULT_COUPONS)
+  );
 
-  const [allCmsPages, setAllCmsPages] = useState<CMSPage[]>(() => {
-    const saved = localStorage.getItem('omexo_cms_pages_v2');
-    return saved ? JSON.parse(saved) : DEFAULT_CMS_PAGES;
-  });
+  const [allCmsPages, setAllCmsPages] = useState<CMSPage[]>(() =>
+    loadListFromStorage('omexo_cms_pages_v2', DEFAULT_CMS_PAGES)
+  );
 
   const [orders, setOrders] = useState<Order[]>([]);
 
@@ -459,10 +588,34 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [telegramMap, setTelegramMap] = useState<SiteRecord<TelegramConfig>>(createDefaultTelegramMap);
 
+  const CREDENTIAL_TOKEN_STORAGE_KEY = 'omexo_admin_session_token';
   const [authUser, setAuthUser] = useState<User | null>(null);
-  const [isAuthReady, setIsAuthReady] = useState(false);
-  const isAdminUser = Boolean(authUser && authUser.emailVerified && isAuthorizedAdminEmail(authUser.email));
-  const adminRole: AdminRole = isAdminUser ? getAdminRoleForEmail(authUser?.email) : 'Staff';
+  const [isFirebaseAuthReady, setIsFirebaseAuthReady] = useState(false);
+  const [isCredentialSessionReady, setIsCredentialSessionReady] = useState(false);
+  const [credentialSession, setCredentialSession] = useState<{
+    authenticated: boolean;
+    role: AdminRole;
+    label: string;
+    token: string | null;
+  } | null>(null);
+
+  const isGoogleAdmin = Boolean(
+    authUser && authUser.emailVerified && isAuthorizedAdminEmail(authUser.email)
+  );
+  const isCredentialAdmin = Boolean(credentialSession?.authenticated);
+  const isAdminUser = isGoogleAdmin || isCredentialAdmin;
+  const adminRole: AdminRole = isGoogleAdmin
+    ? getAdminRoleForEmail(authUser?.email)
+    : isCredentialAdmin
+    ? credentialSession?.role || 'Super Admin'
+    : 'Staff';
+  const adminDisplayName = isGoogleAdmin
+    ? authUser?.displayName || authUser?.email || 'omexoofficial@gmail.com'
+    : isCredentialAdmin
+    ? credentialSession?.label || 'Omexo Super Admin'
+    : 'Verified Admin';
+  const serverAdminToken = credentialSession?.token || null;
+  const isAuthReady = isFirebaseAuthReady && isCredentialSessionReady;
 
   const [showCategoryBrands, setShowCategoryBrands] = useState<boolean>(() => {
     const saved = localStorage.getItem('omexo_show_category_brands');
@@ -506,7 +659,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, []);
 
-  // Track Firebase Auth state and clear sensitive caches when unauthenticated
+  // Track Firebase Auth + Server Credential Admin Session
   useEffect(() => {
     localStorage.removeItem('omexo_telegram_config');
     localStorage.removeItem('omexo_orders');
@@ -515,457 +668,695 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setAuthUser(user);
-      setIsAuthReady(true);
+      setIsFirebaseAuthReady(true);
       if (!user || !user.emailVerified || !isAuthorizedAdminEmail(user.email)) {
         setOrders([]);
         setTelegramMap(createDefaultTelegramMap());
       }
     });
-    return () => unsubscribe();
-  }, []);
 
-  // Load Public Storefront & Admin-Protected Collections from Firebase Firestore in parallel
-  useEffect(() => {
-    if (!isAuthReady) return;
-    let isCancelled = false;
-
-    const safeStorageSet = (key: string, value: unknown) => {
+    let cancelled = false;
+    const hydrateCredentialSession = async () => {
       try {
-        localStorage.setItem(key, JSON.stringify(value));
+        const storedToken =
+          typeof window !== 'undefined' ? window.sessionStorage.getItem(CREDENTIAL_TOKEN_STORAGE_KEY) : null;
+        const resp = await fetch('/api/admin/session', {
+          method: 'GET',
+          credentials: 'include',
+          headers: storedToken ? { Authorization: `Bearer ${storedToken}` } : undefined,
+        });
+        if (!resp.ok) {
+          if (!cancelled) setCredentialSession(null);
+          return;
+        }
+        const data = (await resp.json()) as {
+          authenticated?: boolean;
+          role?: AdminRole;
+          label?: string;
+        };
+        if (!cancelled) {
+          if (data.authenticated) {
+            setCredentialSession({
+              authenticated: true,
+              role: data.role || 'Super Admin',
+              label: data.label || 'Omexo Super Admin',
+              token: storedToken,
+            });
+          } else {
+            if (typeof window !== 'undefined') {
+              window.sessionStorage.removeItem(CREDENTIAL_TOKEN_STORAGE_KEY);
+            }
+            setCredentialSession(null);
+          }
+        }
       } catch {
-        // Ignore storage quota / private-browsing errors
+        if (!cancelled) setCredentialSession(null);
+      } finally {
+        if (!cancelled) setIsCredentialSessionReady(true);
       }
     };
 
-    const initDb = async () => {
+    hydrateCredentialSession();
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, []);
+
+  const loginWithAdminCredentials = useCallback(
+    async (username: string, password: string): Promise<{ ok: boolean; error?: string }> => {
       try {
-        // Immediate UI hydration from localStorage/defaults is already ready; keep background sync fast
-        setIsLoadingDb(false);
+        const resp = await fetch('/api/admin/login', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password }),
+        });
+        const data = (await resp.json().catch(() => ({}))) as {
+          authenticated?: boolean;
+          role?: AdminRole;
+          label?: string;
+          token?: string;
+          error?: string;
+        };
 
-        const [
-          _connResult,
-          prodResult,
-          catResult,
-          brandResult,
-          bannerResult,
-          layoutResult,
-          revResult,
-          coupResult,
-          cmsResult,
-        ] = await Promise.allSettled([
-          getDocFromServer(doc(db, 'test', 'connection')),
-          getDocs(collection(db, 'products')),
-          getDocs(collection(db, 'categories')),
-          getDocs(collection(db, 'brands')),
-          getDocs(collection(db, 'banners')),
-          getDoc(doc(db, 'settings', 'layout')),
-          getDocs(
-            isAdminUser
-              ? collection(db, 'reviews')
-              : query(collection(db, 'reviews'), where('status', '==', 'Approved'))
-          ),
-          getDocs(
-            isAdminUser
-              ? collection(db, 'coupons')
-              : query(collection(db, 'coupons'), where('isActive', '==', true))
-          ),
-          getDocs(collection(db, 'cmsPages')),
-        ]);
-
-        if (isCancelled) return;
-
-        if (
-          _connResult.status === 'rejected' &&
-          _connResult.reason instanceof Error &&
-          _connResult.reason.message.includes('the client is offline')
-        ) {
-          console.error('Please check your Firebase configuration.');
+        if (!resp.ok || !data.authenticated || !data.token) {
+          return { ok: false, error: data.error || 'Invalid admin username or password.' };
         }
 
-        // 1. PRODUCTS
-        let loadedCatalog = INITIAL_PRODUCTS;
-        if (prodResult.status === 'fulfilled') {
-          const prodSnap = prodResult.value;
-          if (prodSnap.empty) {
-            if (isAdminUser) {
+        if (typeof window !== 'undefined') {
+          window.sessionStorage.setItem(CREDENTIAL_TOKEN_STORAGE_KEY, data.token);
+        }
+        setCredentialSession({
+          authenticated: true,
+          role: data.role || 'Super Admin',
+          label: data.label || 'Omexo Super Admin',
+          token: data.token,
+        });
+        return { ok: true };
+      } catch {
+        return { ok: false, error: 'Unable to reach authentication server.' };
+      }
+    },
+    []
+  );
+
+  const logoutAdmin = useCallback(async () => {
+    try {
+      await fetch('/api/admin/logout', { method: 'POST', credentials: 'include' });
+    } catch {
+      // ignore network logout failure
+    }
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.removeItem(CREDENTIAL_TOKEN_STORAGE_KEY);
+    }
+    setCredentialSession(null);
+    setOrders([]);
+    setTelegramMap(createDefaultTelegramMap());
+    if (auth.currentUser) {
+      await signOut(auth);
+    }
+  }, []);
+
+  const safeStorageSet = useCallback((key: string, value: unknown) => {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch {
+      // Ignore storage quota / private-browsing errors
+    }
+  }, []);
+
+  const markSeedInitialized = useCallback(() => {
+    setLocalSeedMarker();
+    if (isGoogleAdmin) {
+      setDoc(doc(db, 'settings', 'seed_v1'), { initialized: true }, { merge: true }).catch(() => {});
+    }
+  }, [isGoogleAdmin]);
+
+  const lastSyncRef = useRef<number>(0);
+
+  const syncFromFirestore = useCallback(async () => {
+    if (!isAuthReady) return;
+    lastSyncRef.current = Date.now();
+
+    try {
+      setIsLoadingDb(false);
+
+      const [
+        _connResult,
+        prodResult,
+        catResult,
+        brandResult,
+        bannerResult,
+        layoutResult,
+        revResult,
+        coupResult,
+        cmsResult,
+        seedResult,
+        promoLifeResult,
+        promoDecorResult,
+        promoEssResult,
+      ] = await Promise.allSettled([
+        getDocFromServer(doc(db, 'test', 'connection')),
+        getDocs(collection(db, 'products')),
+        getDocs(collection(db, 'categories')),
+        getDocs(collection(db, 'brands')),
+        getDocs(collection(db, 'banners')),
+        getDoc(doc(db, 'settings', 'layout')),
+        getDocs(
+          isGoogleAdmin
+            ? collection(db, 'reviews')
+            : query(collection(db, 'reviews'), where('status', '==', 'Approved'))
+        ),
+        getDocs(
+          isGoogleAdmin
+            ? collection(db, 'coupons')
+            : query(collection(db, 'coupons'), where('isActive', '==', true))
+        ),
+        getDocs(collection(db, 'cmsPages')),
+        getDoc(doc(db, 'settings', 'seed_v1')),
+        getDocs(collection(db, 'promos_lifestyle')),
+        getDocs(collection(db, 'promos_decor')),
+        getDocs(collection(db, 'promos_essentials')),
+      ]);
+
+      if (
+        _connResult.status === 'rejected' &&
+        _connResult.reason instanceof Error &&
+        _connResult.reason.message.includes('the client is offline')
+      ) {
+        console.error('Please check your Firebase configuration.');
+      }
+
+      const seedDocExists = seedResult.status === 'fulfilled' && seedResult.value.exists();
+      const anyCollectionHasData =
+        (prodResult.status === 'fulfilled' && !prodResult.value.empty) ||
+        (catResult.status === 'fulfilled' && !catResult.value.empty) ||
+        (brandResult.status === 'fulfilled' && !brandResult.value.empty) ||
+        (bannerResult.status === 'fulfilled' && !bannerResult.value.empty) ||
+        (cmsResult.status === 'fulfilled' && !cmsResult.value.empty) ||
+        (promoLifeResult.status === 'fulfilled' && !promoLifeResult.value.empty) ||
+        (promoDecorResult.status === 'fulfilled' && !promoDecorResult.value.empty) ||
+        (promoEssResult.status === 'fulfilled' && !promoEssResult.value.empty);
+
+      const alreadySeeded = seedDocExists || anyCollectionHasData || hasSeedMarker();
+
+      if (alreadySeeded) {
+        setLocalSeedMarker();
+        if (isGoogleAdmin && !seedDocExists) {
+          setDoc(doc(db, 'settings', 'seed_v1'), { initialized: true }, { merge: true }).catch(() => {});
+        }
+      } else if (isGoogleAdmin) {
+        setLocalSeedMarker();
+        setDoc(doc(db, 'settings', 'seed_v1'), { initialized: true }, { merge: true }).catch(() => {});
+      }
+
+      // 1. PRODUCTS (Respect deletions permanently once seeded)
+      let loadedCatalog: Product[] = [];
+      if (prodResult.status === 'fulfilled') {
+        const prodSnap = prodResult.value;
+        if (prodSnap.empty) {
+          if (!alreadySeeded) {
+            if (isGoogleAdmin) {
               Promise.allSettled(
-                INITIAL_PRODUCTS.map((p) => setDoc(doc(db, 'products', p.id), p))
+                INITIAL_PRODUCTS.map((p) => setDoc(doc(db, 'products', p.id), stripUndefined(normalizeProductRecord(p))))
               );
             }
-            setProducts(INITIAL_PRODUCTS);
-            safeStorageSet('omexo_products', INITIAL_PRODUCTS);
-          } else {
-            const loadedProducts = prodSnap.docs.map((d) => normalizeProductRecord(d.data() as Product));
-            const missingFlagships = INITIAL_PRODUCTS.filter(
-              (init) => !loadedProducts.some((p) => p.id === init.id)
-            );
-            if (isAdminUser && missingFlagships.length > 0) {
-              Promise.allSettled(
-                missingFlagships.map((missing) => setDoc(doc(db, 'products', missing.id), missing))
-              );
-            }
-            loadedCatalog = [...loadedProducts, ...missingFlagships];
+            loadedCatalog = INITIAL_PRODUCTS.map(normalizeProductRecord);
             setProducts(loadedCatalog);
             safeStorageSet('omexo_products', loadedCatalog);
+          } else {
+            loadedCatalog = [];
+            setProducts([]);
+            safeStorageSet('omexo_products', []);
           }
+        } else {
+          loadedCatalog = prodSnap.docs.map((d) => normalizeProductRecord({ ...(d.data() as Product), id: d.id }));
+          setProducts(loadedCatalog);
+          safeStorageSet('omexo_products', loadedCatalog);
         }
+      }
 
-        // 2. CATEGORIES
-        if (catResult.status === 'fulfilled') {
-          const catSnap = catResult.value;
-          if (catSnap.empty) {
-            if (isAdminUser) {
-              Promise.allSettled(DEFAULT_CATEGORIES.map((c) => setDoc(doc(db, 'categories', c.id), c)));
+      // 2. CATEGORIES (Never overwrite or resurrect deleted categories)
+      if (catResult.status === 'fulfilled') {
+        const catSnap = catResult.value;
+        if (catSnap.empty) {
+          if (!alreadySeeded) {
+            if (isGoogleAdmin) {
+              Promise.allSettled(
+                DEFAULT_CATEGORIES.map((c) => setDoc(doc(db, 'categories', c.id), stripUndefined(c)))
+              );
             }
             setCategories(DEFAULT_CATEGORIES);
             safeStorageSet('omexo_categories', DEFAULT_CATEGORIES);
           } else {
-            const rawLoaded = catSnap.docs.map((d) => d.data() as Category);
-            const finalCategories = normalizeCategoryList(rawLoaded);
-            if (isAdminUser) {
-              Promise.allSettled(
-                DEFAULT_BRAND_CATEGORIES.map((def) => setDoc(doc(db, 'categories', def.id), def, { merge: true }))
-              );
-            }
-            setCategories(finalCategories);
-            safeStorageSet('omexo_categories', finalCategories);
+            setCategories([]);
+            safeStorageSet('omexo_categories', []);
           }
+        } else {
+          const rawLoaded = catSnap.docs.map((d) => ({ ...(d.data() as Category), id: d.id }));
+          const finalCategories = normalizeCategoryList(rawLoaded);
+          setCategories(finalCategories);
+          safeStorageSet('omexo_categories', finalCategories);
         }
+      }
 
-        // 3. BRANDS
-        if (brandResult.status === 'fulfilled') {
-          const brandSnap = brandResult.value;
-          if (brandSnap.empty) {
-            if (isAdminUser) {
-              Promise.allSettled(DEFAULT_BRANDS.map((b) => setDoc(doc(db, 'brands', b.id), b)));
+      // 3. BRANDS
+      if (brandResult.status === 'fulfilled') {
+        const brandSnap = brandResult.value;
+        if (brandSnap.empty) {
+          if (!alreadySeeded) {
+            if (isGoogleAdmin) {
+              Promise.allSettled(
+                DEFAULT_BRANDS.map((b) => setDoc(doc(db, 'brands', b.id), stripUndefined(b)))
+              );
             }
             setBrands(DEFAULT_BRANDS);
             safeStorageSet('omexo_brands', DEFAULT_BRANDS);
           } else {
-            const finalBrands = brandSnap.docs.map((d) => d.data() as Brand);
-            setBrands(finalBrands);
-            safeStorageSet('omexo_brands', finalBrands);
+            setBrands([]);
+            safeStorageSet('omexo_brands', []);
           }
+        } else {
+          const finalBrands = brandSnap.docs.map((d) => ({ ...(d.data() as Brand), id: d.id }));
+          setBrands(finalBrands);
+          safeStorageSet('omexo_brands', finalBrands);
         }
+      }
 
-        // 4. BANNERS
-        if (bannerResult.status === 'fulfilled') {
-          const bannerSnap = bannerResult.value;
-          if (bannerSnap.empty) {
-            if (isAdminUser) {
+      // 4. BANNERS (Never resurrect deleted default banners)
+      if (bannerResult.status === 'fulfilled') {
+        const bannerSnap = bannerResult.value;
+        if (bannerSnap.empty) {
+          if (!alreadySeeded) {
+            if (isGoogleAdmin) {
               Promise.allSettled(
                 DEFAULT_BANNERS.map((b) =>
-                  setDoc(doc(db, 'banners', b.id || sanitizeBannerDocId(b.title, b.siteSlug)), b)
+                  setDoc(
+                    doc(db, 'banners', b.id || sanitizeBannerDocId(b.title, b.siteSlug)),
+                    stripUndefined(b)
+                  )
                 )
               );
             }
             setAllBanners(DEFAULT_BANNERS);
             safeStorageSet('omexo_banners_v2', DEFAULT_BANNERS);
           } else {
-            const loadedBanners = bannerSnap.docs.map((d) => {
-              const raw = d.data() as OfferBanner;
-              const inferredSlug: BrandCategorySlug =
-                raw.siteSlug === 'decor' || raw.siteSlug === 'essentials' || raw.siteSlug === 'lifestyle'
-                  ? raw.siteSlug
-                  : d.id.startsWith('decor_')
-                  ? 'decor'
-                  : d.id.startsWith('essentials_')
-                  ? 'essentials'
-                  : 'lifestyle';
-              return { ...raw, id: raw.id || d.id, siteSlug: inferredSlug };
-            });
-            const missingDefaultBanners = DEFAULT_BANNERS.filter(
-              (def) => !loadedBanners.some((b) => b.siteSlug === def.siteSlug)
-            );
-            const finalBanners = [...loadedBanners, ...missingDefaultBanners];
-            setAllBanners(finalBanners);
-            safeStorageSet('omexo_banners_v2', finalBanners);
+            setAllBanners([]);
+            safeStorageSet('omexo_banners_v2', []);
           }
+        } else {
+          const loadedBanners = bannerSnap.docs.map((d) => {
+            const raw = d.data() as OfferBanner;
+            const inferredSlug: BrandCategorySlug =
+              raw.siteSlug === 'decor' || raw.siteSlug === 'essentials' || raw.siteSlug === 'lifestyle'
+                ? raw.siteSlug
+                : d.id.startsWith('decor_')
+                ? 'decor'
+                : d.id.startsWith('essentials_')
+                ? 'essentials'
+                : 'lifestyle';
+            return { ...raw, id: raw.id || d.id, siteSlug: inferredSlug };
+          });
+          setAllBanners(loadedBanners);
+          safeStorageSet('omexo_banners_v2', loadedBanners);
         }
+      }
 
-        // 5. LAYOUT FLAGS
-        if (layoutResult.status === 'fulfilled' && layoutResult.value.exists()) {
-          const layoutData = layoutResult.value.data() as {
-            showCategoryBrands: boolean;
-            showFeaturedGrids: boolean;
-          };
-          setShowCategoryBrands(layoutData.showCategoryBrands ?? true);
-          setShowFeaturedGrids(layoutData.showFeaturedGrids ?? true);
-          safeStorageSet('omexo_show_category_brands', layoutData.showCategoryBrands ?? true);
-          safeStorageSet('omexo_show_featured_grids', layoutData.showFeaturedGrids ?? true);
-        }
+      // 5. LAYOUT FLAGS
+      if (layoutResult.status === 'fulfilled' && layoutResult.value.exists()) {
+        const layoutData = layoutResult.value.data() as {
+          showCategoryBrands: boolean;
+          showFeaturedGrids: boolean;
+        };
+        setShowCategoryBrands(layoutData.showCategoryBrands ?? true);
+        setShowFeaturedGrids(layoutData.showFeaturedGrids ?? true);
+        safeStorageSet('omexo_show_category_brands', layoutData.showCategoryBrands ?? true);
+        safeStorageSet('omexo_show_featured_grids', layoutData.showFeaturedGrids ?? true);
+      }
 
-        // 6. REVIEWS
-        if (revResult.status === 'fulfilled') {
-          const revSnap = revResult.value;
-          if (revSnap.empty) {
-            if (isAdminUser) {
-              Promise.allSettled(DEFAULT_REVIEWS.map((r) => setDoc(doc(db, 'reviews', r.id), r)));
-            }
+      // 6. REVIEWS
+      if (revResult.status === 'fulfilled') {
+        const revSnap = revResult.value;
+        if (revSnap.empty) {
+          if (!alreadySeeded && isGoogleAdmin) {
+            Promise.allSettled(DEFAULT_REVIEWS.map((r) => setDoc(doc(db, 'reviews', r.id), stripUndefined(r))));
             setAllReviews(DEFAULT_REVIEWS);
             safeStorageSet('omexo_reviews', DEFAULT_REVIEWS);
           } else {
-            const loadedRevs = revSnap.docs.map((d) => {
-              const raw = d.data() as CustomerReview;
-              return { ...raw, siteSlug: inferReviewSiteSlug(raw, loadedCatalog) };
-            });
-            setAllReviews(loadedRevs);
-            safeStorageSet('omexo_reviews', loadedRevs);
+            setAllReviews([]);
+            safeStorageSet('omexo_reviews', []);
           }
         } else {
-          logFirestoreError(revResult.reason, OperationType.LIST, 'reviews');
+          const loadedRevs = revSnap.docs.map((d) => {
+            const raw = { ...(d.data() as CustomerReview), id: d.id };
+            return { ...raw, siteSlug: inferReviewSiteSlug(raw, loadedCatalog) };
+          });
+          setAllReviews(loadedRevs);
+          safeStorageSet('omexo_reviews', loadedRevs);
         }
+      } else {
+        logFirestoreError(revResult.reason, OperationType.LIST, 'reviews');
+      }
 
-        // 7. COUPONS
-        if (coupResult.status === 'fulfilled') {
-          const coupSnap = coupResult.value;
-          if (coupSnap.empty) {
-            if (isAdminUser) {
-              Promise.allSettled(DEFAULT_COUPONS.map((c) => setDoc(doc(db, 'coupons', c.id), c)));
-            }
+      // 7. COUPONS
+      if (coupResult.status === 'fulfilled') {
+        const coupSnap = coupResult.value;
+        if (coupSnap.empty) {
+          if (!alreadySeeded && isGoogleAdmin) {
+            Promise.allSettled(DEFAULT_COUPONS.map((c) => setDoc(doc(db, 'coupons', c.id), stripUndefined(c))));
             setAllCoupons(DEFAULT_COUPONS);
             safeStorageSet('omexo_coupons_v2', DEFAULT_COUPONS);
           } else {
-            const loadedCoups = coupSnap.docs.map((d) => {
-              const raw = d.data() as Coupon;
-              const inferred: BrandCategorySlug =
-                raw.siteSlug === 'decor' || raw.siteSlug === 'essentials' || raw.siteSlug === 'lifestyle'
-                  ? raw.siteSlug
-                  : raw.code.includes('DECOR')
-                  ? 'decor'
-                  : raw.code.includes('ESSENTIAL')
-                  ? 'essentials'
-                  : 'lifestyle';
-              return { ...raw, siteSlug: inferred };
-            });
-            setAllCoupons(loadedCoups);
-            safeStorageSet('omexo_coupons_v2', loadedCoups);
+            setAllCoupons([]);
+            safeStorageSet('omexo_coupons_v2', []);
           }
         } else {
-          logFirestoreError(coupResult.reason, OperationType.LIST, 'coupons');
+          const loadedCoups = coupSnap.docs.map((d) => {
+            const raw = { ...(d.data() as Coupon), id: d.id };
+            const inferred: BrandCategorySlug =
+              raw.siteSlug === 'decor' || raw.siteSlug === 'essentials' || raw.siteSlug === 'lifestyle'
+                ? raw.siteSlug
+                : raw.code.includes('DECOR')
+                ? 'decor'
+                : raw.code.includes('ESSENTIAL')
+                ? 'essentials'
+                : 'lifestyle';
+            return { ...raw, siteSlug: inferred };
+          });
+          setAllCoupons(loadedCoups);
+          safeStorageSet('omexo_coupons_v2', loadedCoups);
         }
+      } else {
+        logFirestoreError(coupResult.reason, OperationType.LIST, 'coupons');
+      }
 
-        // 8. CMS PAGES
-        if (cmsResult.status === 'fulfilled') {
-          const cmsSnap = cmsResult.value;
-          if (cmsSnap.empty) {
-            if (isAdminUser) {
-              Promise.allSettled(DEFAULT_CMS_PAGES.map((page) => setDoc(doc(db, 'cmsPages', page.id), page)));
+      // 8. CMS PAGES
+      if (cmsResult.status === 'fulfilled') {
+        const cmsSnap = cmsResult.value;
+        if (cmsSnap.empty) {
+          if (!alreadySeeded) {
+            if (isGoogleAdmin) {
+              Promise.allSettled(
+                DEFAULT_CMS_PAGES.map((page) => setDoc(doc(db, 'cmsPages', page.id), stripUndefined(page)))
+              );
             }
             setAllCmsPages(DEFAULT_CMS_PAGES);
             safeStorageSet('omexo_cms_pages_v2', DEFAULT_CMS_PAGES);
           } else {
-            const loadedCms = cmsSnap.docs.map((d) => {
-              const raw = d.data() as CMSPage;
-              const inferred: BrandCategorySlug =
-                raw.siteSlug === 'decor' || raw.siteSlug === 'essentials' || raw.siteSlug === 'lifestyle'
-                  ? raw.siteSlug
-                  : raw.id.startsWith('decor_')
-                  ? 'decor'
-                  : raw.id.startsWith('essentials_')
-                  ? 'essentials'
-                  : 'lifestyle';
-              return { ...raw, siteSlug: inferred };
-            });
-            const missingDefaultCms = DEFAULT_CMS_PAGES.filter(
-              (def) => !loadedCms.some((p) => p.id === def.id)
-            );
-            if (isAdminUser && missingDefaultCms.length > 0) {
-              Promise.allSettled(
-                missingDefaultCms.map((page) => setDoc(doc(db, 'cmsPages', page.id), page))
-              );
-            }
-            const finalCms = [...loadedCms, ...missingDefaultCms];
-            setAllCmsPages(finalCms);
-            safeStorageSet('omexo_cms_pages_v2', finalCms);
+            setAllCmsPages([]);
+            safeStorageSet('omexo_cms_pages_v2', []);
           }
+        } else {
+          const loadedCms = cmsSnap.docs.map((d) => {
+            const raw = { ...(d.data() as CMSPage), id: d.id };
+            const inferred: BrandCategorySlug =
+              raw.siteSlug === 'decor' || raw.siteSlug === 'essentials' || raw.siteSlug === 'lifestyle'
+                ? raw.siteSlug
+                : raw.id.startsWith('decor_')
+                ? 'decor'
+                : raw.id.startsWith('essentials_')
+                ? 'essentials'
+                : 'lifestyle';
+            return { ...raw, siteSlug: inferred };
+          });
+          setAllCmsPages(loadedCms);
+          safeStorageSet('omexo_cms_pages_v2', loadedCms);
         }
+      }
 
-        // 9. PER-SITE SETTINGS, HERO, COMBO, OFFER BANNER (Parallelized across all 3 sites)
-        const siteDocsResults = await Promise.all(
-          BRAND_SITES.map(async (slug) => {
-            const [sSnap, hSnap, cSnap, obSnap, legGen, legHero, legCombo, legOb] =
-              await Promise.allSettled([
-                getDoc(doc(db, 'settings', `site_${slug}`)),
-                getDoc(doc(db, 'settings', `hero_${slug}`)),
-                getDoc(doc(db, 'settings', `combo_${slug}`)),
-                getDoc(doc(db, 'settings', `offerBanner_${slug}`)),
-                slug === 'lifestyle' ? getDoc(doc(db, 'settings', 'general')) : Promise.resolve(null),
-                slug === 'lifestyle' ? getDoc(doc(db, 'settings', 'heroConfig')) : Promise.resolve(null),
-                slug === 'lifestyle' ? getDoc(doc(db, 'settings', 'comboConfig')) : Promise.resolve(null),
-                slug === 'lifestyle' ? getDoc(doc(db, 'settings', 'offerBanner')) : Promise.resolve(null),
-              ]);
-            return { slug, sSnap, hSnap, cSnap, obSnap, legGen, legHero, legCombo, legOb };
-          })
-        );
-
-        if (isCancelled) return;
-
-        const nextSettings = createDefaultSiteSettingsMap();
-        const nextHero = createDefaultHeroMap();
-        const nextCombo = createDefaultComboMap();
-        const nextOfferBanner = createDefaultOfferBannerMap();
-
-        for (const item of siteDocsResults) {
-          const { slug, sSnap, hSnap, cSnap, obSnap, legGen, legHero, legCombo, legOb } = item;
-          const profile = getSiteBrandConfig(slug);
-
-          const primarySettings = sSnap.status === 'fulfilled' && sSnap.value.exists() ? sSnap.value : null;
-          const fallbackSettings =
-            !primarySettings && legGen.status === 'fulfilled' && legGen.value && legGen.value.exists()
-              ? legGen.value
-              : null;
-          const settingsSnap = primarySettings || fallbackSettings;
-
-          if (settingsSnap) {
-            const { merged, migrated } = normalizeStoreSettings(
-              settingsSnap.data() as Partial<StoreSettings>,
-              profile.defaultStoreSettings
-            );
-            if (slug !== 'lifestyle' && merged.storeName === 'Omexo India') {
-              merged.storeName = profile.defaultStoreSettings.storeName;
-            }
-            nextSettings[slug] = merged;
-            safeStorageSet(`omexo_store_settings_${slug}`, merged);
-            if (migrated && isAdminUser) {
-              setDoc(doc(db, 'settings', `site_${slug}`), merged, { merge: true }).catch(() => {});
-            }
-          } else if (isAdminUser) {
-            setDoc(doc(db, 'settings', `site_${slug}`), profile.defaultStoreSettings).catch(() => {});
-          }
-
-          const primaryHero = hSnap.status === 'fulfilled' && hSnap.value.exists() ? hSnap.value : null;
-          const fallbackHero =
-            !primaryHero && legHero.status === 'fulfilled' && legHero.value && legHero.value.exists()
-              ? legHero.value
-              : null;
-          const heroSnap = primaryHero || fallbackHero;
-
-          if (heroSnap) {
-            const rawHero = heroSnap.data() as HeroConfig;
-            nextHero[slug] = {
-              ...profile.defaultHeroConfig,
-              ...rawHero,
-              cardImage: isStaleDefaultAsset(rawHero.cardImage)
-                ? profile.defaultHeroConfig.cardImage
-                : rawHero.cardImage,
-            };
-            safeStorageSet(`omexo_hero_config_${slug}`, nextHero[slug]);
-          } else if (isAdminUser) {
-            setDoc(doc(db, 'settings', `hero_${slug}`), profile.defaultHeroConfig).catch(() => {});
-          }
-
-          const primaryCombo = cSnap.status === 'fulfilled' && cSnap.value.exists() ? cSnap.value : null;
-          const fallbackCombo =
-            !primaryCombo && legCombo.status === 'fulfilled' && legCombo.value && legCombo.value.exists()
-              ? legCombo.value
-              : null;
-          const comboSnap = primaryCombo || fallbackCombo;
-
-          if (comboSnap) {
-            const rawCombo = comboSnap.data() as ComboConfig;
-            nextCombo[slug] = {
-              ...profile.defaultComboConfig,
-              ...rawCombo,
-              card1Image: isStaleDefaultAsset(rawCombo.card1Image)
-                ? profile.defaultComboConfig.card1Image
-                : rawCombo.card1Image,
-              card2Image: isStaleDefaultAsset(rawCombo.card2Image)
-                ? profile.defaultComboConfig.card2Image
-                : rawCombo.card2Image,
-            };
-            safeStorageSet(`omexo_combo_config_${slug}`, nextCombo[slug]);
-          } else if (isAdminUser) {
-            setDoc(doc(db, 'settings', `combo_${slug}`), profile.defaultComboConfig).catch(() => {});
-          }
-
-          const primaryOb = obSnap.status === 'fulfilled' && obSnap.value.exists() ? obSnap.value : null;
-          const fallbackOb =
-            !primaryOb && legOb.status === 'fulfilled' && legOb.value && legOb.value.exists()
-              ? legOb.value
-              : null;
-          const obSnapFinal = primaryOb || fallbackOb;
-
-          if (obSnapFinal) {
-            const rawOb = obSnapFinal.data() as OfferBanner;
-            nextOfferBanner[slug] = {
-              ...profile.defaultOfferBanner,
-              ...rawOb,
-              siteSlug: slug,
-              imageUrl: isStaleDefaultAsset(rawOb.imageUrl)
-                ? profile.defaultOfferBanner.imageUrl
-                : rawOb.imageUrl,
-              backgroundImageUrl: isStaleDefaultAsset(rawOb.backgroundImageUrl)
-                ? profile.defaultOfferBanner.backgroundImageUrl
-                : rawOb.backgroundImageUrl,
-            };
-            safeStorageSet(`omexo_offer_banner_${slug}`, nextOfferBanner[slug]);
-          }
-        }
-
-        setSiteSettingsMap(nextSettings);
-        setHeroMap(nextHero);
-        setComboMap(nextCombo);
-        setOfferBannerMap(nextOfferBanner);
-
-        // 10. ADMIN-ONLY DATA (Orders + Per-Site Telegram in parallel)
-        if (isAdminUser) {
-          const [ordersRes, ...tgResList] = await Promise.allSettled([
-            getDocs(collection(db, 'orders')),
-            ...BRAND_SITES.map((slug) => getDoc(doc(db, 'settings', `telegram_${slug}`))),
-            getDoc(doc(db, 'settings', 'telegram')),
-          ]);
-
-          if (isCancelled) return;
-
-          if (ordersRes.status === 'fulfilled') {
-            const orderSnap = ordersRes.value;
-            if (!orderSnap.empty) {
-              const finalOrders = orderSnap.docs.map((d) => d.data() as Order);
-              finalOrders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-              setOrders(finalOrders);
+      // 9. PER-SITE PROMOS & CAMPAIGNS (Synced to both Admin and Storefront)
+      const defaultPromos = createDefaultPromosMap();
+      const promoResultsBySlug: Record<BrandCategorySlug, PromiseSettledResult<any>> = {
+        lifestyle: promoLifeResult,
+        decor: promoDecorResult,
+        essentials: promoEssResult,
+      };
+      const nextPromosMap: SiteRecord<PromoOffer[]> = { lifestyle: [], decor: [], essentials: [] };
+      for (const slug of BRAND_SITES) {
+        const pRes = promoResultsBySlug[slug];
+        if (pRes.status === 'fulfilled') {
+          const pSnap = pRes.value;
+          if (pSnap.empty) {
+            if (!alreadySeeded) {
+              if (isGoogleAdmin) {
+                Promise.allSettled(
+                  defaultPromos[slug].map((p) =>
+                    setDoc(doc(db, `promos_${slug}`, p.id), stripUndefined({ ...p, siteSlug: slug }))
+                  )
+                );
+              }
+              nextPromosMap[slug] = defaultPromos[slug];
             } else {
-              setOrders([]);
+              nextPromosMap[slug] = [];
             }
           } else {
-            logFirestoreError(ordersRes.reason, OperationType.LIST, 'orders');
+            nextPromosMap[slug] = pSnap.docs.map((d: any) => ({
+              ...(d.data() as PromoOffer),
+              id: d.id,
+              siteSlug: slug,
+            }));
           }
+          safeStorageSet(`omexo_promos_${slug}`, nextPromosMap[slug]);
+        }
+      }
+      setPromosMap(nextPromosMap);
 
-          const nextTelegram = createDefaultTelegramMap();
-          BRAND_SITES.forEach((slug, idx) => {
-            const res = tgResList[idx];
-            if (res && res.status === 'fulfilled' && res.value.exists()) {
-              nextTelegram[slug] = res.value.data() as TelegramConfig;
-            }
-          });
-          const legacyTgRes = tgResList[BRAND_SITES.length];
-          if (
-            !nextTelegram.lifestyle.botToken &&
-            legacyTgRes &&
-            legacyTgRes.status === 'fulfilled' &&
-            legacyTgRes.value.exists()
-          ) {
-            nextTelegram.lifestyle = legacyTgRes.value.data() as TelegramConfig;
+      // 10. PER-SITE SETTINGS, HERO, COMBO, OFFER BANNER
+      const siteDocsResults = await Promise.all(
+        BRAND_SITES.map(async (slug) => {
+          const [sSnap, hSnap, cSnap, obSnap, legGen, legHero, legCombo, legOb] =
+            await Promise.allSettled([
+              getDoc(doc(db, 'settings', `site_${slug}`)),
+              getDoc(doc(db, 'settings', `hero_${slug}`)),
+              getDoc(doc(db, 'settings', `combo_${slug}`)),
+              getDoc(doc(db, 'settings', `offerBanner_${slug}`)),
+              slug === 'lifestyle' ? getDoc(doc(db, 'settings', 'general')) : Promise.resolve(null),
+              slug === 'lifestyle' ? getDoc(doc(db, 'settings', 'heroConfig')) : Promise.resolve(null),
+              slug === 'lifestyle' ? getDoc(doc(db, 'settings', 'comboConfig')) : Promise.resolve(null),
+              slug === 'lifestyle' ? getDoc(doc(db, 'settings', 'offerBanner')) : Promise.resolve(null),
+            ]);
+          return { slug, sSnap, hSnap, cSnap, obSnap, legGen, legHero, legCombo, legOb };
+        })
+      );
+
+      const nextSettings = createDefaultSiteSettingsMap();
+      const nextHero = createDefaultHeroMap();
+      const nextCombo = createDefaultComboMap();
+      const nextOfferBanner = createDefaultOfferBannerMap();
+
+      for (const item of siteDocsResults) {
+        const { slug, sSnap, hSnap, cSnap, obSnap, legGen, legHero, legCombo, legOb } = item;
+        const profile = getSiteBrandConfig(slug);
+
+        const primarySettings = sSnap.status === 'fulfilled' && sSnap.value.exists() ? sSnap.value : null;
+        const fallbackSettings =
+          !primarySettings && legGen.status === 'fulfilled' && legGen.value && legGen.value.exists()
+            ? legGen.value
+            : null;
+        const settingsSnap = primarySettings || fallbackSettings;
+
+        if (settingsSnap) {
+          const { merged, migrated } = normalizeStoreSettings(
+            settingsSnap.data() as Partial<StoreSettings>,
+            profile.defaultStoreSettings
+          );
+          if (slug !== 'lifestyle' && merged.storeName === 'Omexo India') {
+            merged.storeName = profile.defaultStoreSettings.storeName;
           }
-          setTelegramMap(nextTelegram);
+          nextSettings[slug] = merged;
+          safeStorageSet(`omexo_store_settings_${slug}`, merged);
+          if (migrated && isGoogleAdmin) {
+            setDoc(doc(db, 'settings', `site_${slug}`), stripUndefined(merged), { merge: true }).catch(() => {});
+          }
+        } else if (isGoogleAdmin && !alreadySeeded) {
+          setDoc(doc(db, 'settings', `site_${slug}`), stripUndefined(profile.defaultStoreSettings)).catch(() => {});
+        }
+
+        const primaryHero = hSnap.status === 'fulfilled' && hSnap.value.exists() ? hSnap.value : null;
+        const fallbackHero =
+          !primaryHero && legHero.status === 'fulfilled' && legHero.value && legHero.value.exists()
+            ? legHero.value
+            : null;
+        const heroSnap = primaryHero || fallbackHero;
+
+        if (heroSnap) {
+          const rawHero = heroSnap.data() as HeroConfig;
+          nextHero[slug] = {
+            ...profile.defaultHeroConfig,
+            ...rawHero,
+            cardImage: isStaleDefaultAsset(rawHero.cardImage)
+              ? profile.defaultHeroConfig.cardImage
+              : rawHero.cardImage,
+          };
+          safeStorageSet(`omexo_hero_config_${slug}`, nextHero[slug]);
+        } else if (isGoogleAdmin && !alreadySeeded) {
+          setDoc(doc(db, 'settings', `hero_${slug}`), stripUndefined(profile.defaultHeroConfig)).catch(() => {});
+        }
+
+        const primaryCombo = cSnap.status === 'fulfilled' && cSnap.value.exists() ? cSnap.value : null;
+        const fallbackCombo =
+          !primaryCombo && legCombo.status === 'fulfilled' && legCombo.value && legCombo.value.exists()
+            ? legCombo.value
+            : null;
+        const comboSnap = primaryCombo || fallbackCombo;
+
+        if (comboSnap) {
+          const rawCombo = comboSnap.data() as ComboConfig;
+          nextCombo[slug] = {
+            ...profile.defaultComboConfig,
+            ...rawCombo,
+            card1Image: isStaleDefaultAsset(rawCombo.card1Image)
+              ? profile.defaultComboConfig.card1Image
+              : rawCombo.card1Image,
+            card2Image: isStaleDefaultAsset(rawCombo.card2Image)
+              ? profile.defaultComboConfig.card2Image
+              : rawCombo.card2Image,
+          };
+          safeStorageSet(`omexo_combo_config_${slug}`, nextCombo[slug]);
+        } else if (isGoogleAdmin && !alreadySeeded) {
+          setDoc(doc(db, 'settings', `combo_${slug}`), stripUndefined(profile.defaultComboConfig)).catch(() => {});
+        }
+
+        const primaryOb = obSnap.status === 'fulfilled' && obSnap.value.exists() ? obSnap.value : null;
+        const fallbackOb =
+          !primaryOb && legOb.status === 'fulfilled' && legOb.value && legOb.value.exists()
+            ? legOb.value
+            : null;
+        const obSnapFinal = primaryOb || fallbackOb;
+
+        if (obSnapFinal) {
+          const rawOb = obSnapFinal.data() as OfferBanner;
+          nextOfferBanner[slug] = {
+            ...profile.defaultOfferBanner,
+            ...rawOb,
+            siteSlug: slug,
+            imageUrl: isStaleDefaultAsset(rawOb.imageUrl)
+              ? profile.defaultOfferBanner.imageUrl
+              : rawOb.imageUrl,
+            backgroundImageUrl: isStaleDefaultAsset(rawOb.backgroundImageUrl)
+              ? profile.defaultOfferBanner.backgroundImageUrl
+              : rawOb.backgroundImageUrl,
+          };
+          safeStorageSet(`omexo_offer_banner_${slug}`, nextOfferBanner[slug]);
+        }
+      }
+
+      setSiteSettingsMap(nextSettings);
+      setHeroMap(nextHero);
+      setComboMap(nextCombo);
+      setOfferBannerMap(nextOfferBanner);
+
+      // 11. ADMIN-ONLY DATA (Orders + Per-Site Telegram requires Google Auth omexoofficial@gmail.com)
+      if (isGoogleAdmin) {
+        const [ordersRes, ...tgResList] = await Promise.allSettled([
+          getDocs(collection(db, 'orders')),
+          ...BRAND_SITES.map((slug) => getDoc(doc(db, 'settings', `telegram_${slug}`))),
+          getDoc(doc(db, 'settings', 'telegram')),
+        ]);
+
+        if (ordersRes.status === 'fulfilled') {
+          const orderSnap = ordersRes.value;
+          if (!orderSnap.empty) {
+            const finalOrders = orderSnap.docs.map((d) => d.data() as Order);
+            finalOrders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            setOrders(finalOrders);
+          } else {
+            setOrders([]);
+          }
         } else {
-          setOrders([]);
-          setTelegramMap(createDefaultTelegramMap());
+          logFirestoreError(ordersRes.reason, OperationType.LIST, 'orders');
         }
-      } catch (err) {
-        logFirestoreError(err, OperationType.GET, 'store-init');
-      } finally {
-        if (!isCancelled) {
-          setIsLoadingDb(false);
+
+        const nextTelegram = createDefaultTelegramMap();
+        BRAND_SITES.forEach((slug, idx) => {
+          const res = tgResList[idx];
+          if (res && res.status === 'fulfilled' && res.value.exists()) {
+            nextTelegram[slug] = res.value.data() as TelegramConfig;
+          }
+        });
+        const legacyTgRes = tgResList[BRAND_SITES.length];
+        if (
+          !nextTelegram.lifestyle.botToken &&
+          legacyTgRes &&
+          legacyTgRes.status === 'fulfilled' &&
+          legacyTgRes.value.exists()
+        ) {
+          nextTelegram.lifestyle = legacyTgRes.value.data() as TelegramConfig;
         }
+        setTelegramMap(nextTelegram);
+      } else {
+        setOrders([]);
+        setTelegramMap(createDefaultTelegramMap());
+      }
+    } catch (err) {
+      logFirestoreError(err, OperationType.GET, 'store-init');
+    } finally {
+      setIsLoadingDb(false);
+    }
+  }, [isAuthReady, isGoogleAdmin, safeStorageSet]);
+
+  useEffect(() => {
+    if (!isAuthReady) return;
+    syncFromFirestore();
+  }, [isAuthReady, syncFromFirestore]);
+
+  // Cross-tab & focus synchronization so Admin edits immediately appear on open Storefront tabs
+  useEffect(() => {
+    const handleStorageSync = (e: StorageEvent) => {
+      if (!e.key || e.newValue === null) return;
+      try {
+        const parsed = JSON.parse(e.newValue);
+        if (e.key === 'omexo_products' && Array.isArray(parsed)) {
+          setProducts(parsed.map(normalizeProductRecord));
+        } else if (e.key === 'omexo_categories' && Array.isArray(parsed)) {
+          setCategories(normalizeCategoryList(parsed));
+        } else if (e.key === 'omexo_brands' && Array.isArray(parsed)) {
+          setBrands(parsed);
+        } else if (e.key === 'omexo_banners_v2' && Array.isArray(parsed)) {
+          setAllBanners(parsed);
+        } else if (e.key === 'omexo_reviews' && Array.isArray(parsed)) {
+          setAllReviews(parsed);
+        } else if (e.key === 'omexo_coupons_v2' && Array.isArray(parsed)) {
+          setAllCoupons(parsed);
+        } else if (e.key === 'omexo_cms_pages_v2' && Array.isArray(parsed)) {
+          setAllCmsPages(parsed);
+        } else {
+          for (const slug of BRAND_SITES) {
+            if (e.key === `omexo_promos_${slug}` && Array.isArray(parsed)) {
+              setPromosMap((prev) => ({ ...prev, [slug]: parsed }));
+            } else if (e.key === `omexo_hero_config_${slug}`) {
+              setHeroMap((prev) => ({ ...prev, [slug]: parsed }));
+            } else if (e.key === `omexo_combo_config_${slug}`) {
+              setComboMap((prev) => ({ ...prev, [slug]: parsed }));
+            } else if (e.key === `omexo_store_settings_${slug}`) {
+              setSiteSettingsMap((prev) => ({ ...prev, [slug]: parsed }));
+            } else if (e.key === `omexo_offer_banner_${slug}`) {
+              setOfferBannerMap((prev) => ({ ...prev, [slug]: parsed }));
+            }
+          }
+        }
+      } catch {
+        // ignore storage parse failure
       }
     };
 
-    initDb();
-    return () => {
-      isCancelled = true;
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible' && Date.now() - lastSyncRef.current > 2000) {
+        syncFromFirestore();
+      }
     };
-  }, [isAuthReady, isAdminUser]);
+
+    window.addEventListener('storage', handleStorageSync);
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    return () => {
+      window.removeEventListener('storage', handleStorageSync);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+    };
+  }, [syncFromFirestore]);
 
   // Persist per-site carts to localStorage
   useEffect(() => {
@@ -1009,6 +1400,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     [allCmsPages, activeSite]
   );
 
+  const promos = useMemo(() => promosMap[activeSite] || [], [promosMap, activeSite]);
+
   const cart = cartsMap[activeSite] || [];
   const storeSettings = siteSettingsMap[activeSite];
   const heroConfig = heroMap[activeSite];
@@ -1019,32 +1412,52 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Category Actions
   const addCategory = async (newCat: Omit<Category, 'id'>) => {
     const id = 'cat-' + Date.now();
-    const payload = { ...newCat, id };
-    setCategories((prev) => {
-      const next = [...prev, payload];
-      localStorage.setItem('omexo_categories', JSON.stringify(next));
-      return next;
-    });
-    await setDoc(doc(db, 'categories', id), payload);
+    const payload = stripUndefined({ ...newCat, id });
+    markSeedInitialized();
+    try {
+      if (isGoogleAdmin) {
+        await setDoc(doc(db, 'categories', id), payload);
+      }
+      setCategories((prev) => {
+        const next = [...prev, payload];
+        safeStorageSet('omexo_categories', next);
+        return next;
+      });
+    } catch (err) {
+      logFirestoreError(err, OperationType.CREATE, `categories/${id}`);
+      throw err;
+    }
   };
 
   const updateCategory = async (updatedCat: Category) => {
-    setCategories((prev) => {
-      const next = prev.map((c) => (c.id === updatedCat.id ? updatedCat : c));
-      localStorage.setItem('omexo_categories', JSON.stringify(next));
-      return next;
-    });
-    await setDoc(doc(db, 'categories', updatedCat.id), updatedCat);
+    const payload = stripUndefined(updatedCat);
+    markSeedInitialized();
+    try {
+      if (isGoogleAdmin) {
+        await setDoc(doc(db, 'categories', payload.id), payload);
+      }
+      setCategories((prev) => {
+        const next = prev.map((c) => (c.id === payload.id ? payload : c));
+        safeStorageSet('omexo_categories', next);
+        return next;
+      });
+    } catch (err) {
+      logFirestoreError(err, OperationType.UPDATE, `categories/${payload.id}`);
+      throw err;
+    }
   };
 
   const deleteCategory = async (id: string) => {
-    setCategories((prev) => {
-      const next = prev.filter((c) => c.id !== id);
-      localStorage.setItem('omexo_categories', JSON.stringify(next));
-      return next;
-    });
+    markSeedInitialized();
     try {
-      await deleteDoc(doc(db, 'categories', id));
+      if (isGoogleAdmin) {
+        await deleteDoc(doc(db, 'categories', id));
+      }
+      setCategories((prev) => {
+        const next = prev.filter((c) => c.id !== id);
+        safeStorageSet('omexo_categories', next);
+        return next;
+      });
     } catch (err) {
       logFirestoreError(err, OperationType.DELETE, `categories/${id}`);
       throw err;
@@ -1054,23 +1467,34 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Brand Actions
   const addBrand = async (newBrand: Omit<Brand, 'id'>) => {
     const id = 'brand-' + Date.now();
-    const payload = { ...newBrand, id };
-    setBrands((prev) => {
-      const next = [...prev, payload];
-      localStorage.setItem('omexo_brands', JSON.stringify(next));
-      return next;
-    });
-    await setDoc(doc(db, 'brands', id), payload);
+    const payload = stripUndefined({ ...newBrand, id });
+    markSeedInitialized();
+    try {
+      if (isGoogleAdmin) {
+        await setDoc(doc(db, 'brands', id), payload);
+      }
+      setBrands((prev) => {
+        const next = [...prev, payload];
+        safeStorageSet('omexo_brands', next);
+        return next;
+      });
+    } catch (err) {
+      logFirestoreError(err, OperationType.CREATE, `brands/${id}`);
+      throw err;
+    }
   };
 
   const deleteBrand = async (id: string) => {
-    setBrands((prev) => {
-      const next = prev.filter((b) => b.id !== id);
-      localStorage.setItem('omexo_brands', JSON.stringify(next));
-      return next;
-    });
+    markSeedInitialized();
     try {
-      await deleteDoc(doc(db, 'brands', id));
+      if (isGoogleAdmin) {
+        await deleteDoc(doc(db, 'brands', id));
+      }
+      setBrands((prev) => {
+        const next = prev.filter((b) => b.id !== id);
+        safeStorageSet('omexo_brands', next);
+        return next;
+      });
     } catch (err) {
       logFirestoreError(err, OperationType.DELETE, `brands/${id}`);
       throw err;
@@ -1080,13 +1504,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Banner Actions (strictly scoped by siteSlug)
   const addBanner = async (newBanner: OfferBanner, targetSite: BrandCategorySlug = activeSite) => {
     const docId = sanitizeBannerDocId(newBanner.title, targetSite);
-    const payload: OfferBanner = { ...newBanner, id: docId, siteSlug: targetSite };
-    setAllBanners((prev) => {
-      const next = [...prev, payload];
-      localStorage.setItem('omexo_banners_v2', JSON.stringify(next));
-      return next;
-    });
-    await setDoc(doc(db, 'banners', docId), payload);
+    const payload = stripUndefined<OfferBanner>({ ...newBanner, id: docId, siteSlug: targetSite });
+    markSeedInitialized();
+    try {
+      if (isGoogleAdmin) {
+        await setDoc(doc(db, 'banners', docId), payload);
+      }
+      setAllBanners((prev) => {
+        const next = [...prev, payload];
+        safeStorageSet('omexo_banners_v2', next);
+        return next;
+      });
+    } catch (err) {
+      logFirestoreError(err, OperationType.CREATE, `banners/${docId}`);
+      throw err;
+    }
   };
 
   const updateBanner = async (
@@ -1101,14 +1533,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         : allBanners.find((b) => b.id === bannerIdOrIdx);
 
     const docId = targetObj?.id || sanitizeBannerDocId(updatedBanner.title, targetSite);
-    const payload: OfferBanner = { ...updatedBanner, id: docId, siteSlug: targetSite };
-
-    setAllBanners((prev) => {
-      const next = prev.map((b) => (b.id === targetObj?.id || b === targetObj ? payload : b));
-      localStorage.setItem('omexo_banners_v2', JSON.stringify(next));
-      return next;
-    });
-    await setDoc(doc(db, 'banners', docId), payload);
+    const payload = stripUndefined<OfferBanner>({ ...updatedBanner, id: docId, siteSlug: targetSite });
+    markSeedInitialized();
+    try {
+      if (isGoogleAdmin) {
+        await setDoc(doc(db, 'banners', docId), payload);
+      }
+      setAllBanners((prev) => {
+        const next = prev.map((b) => (b.id === targetObj?.id || b === targetObj ? payload : b));
+        safeStorageSet('omexo_banners_v2', next);
+        return next;
+      });
+    } catch (err) {
+      logFirestoreError(err, OperationType.UPDATE, `banners/${docId}`);
+      throw err;
+    }
   };
 
   const deleteBanner = async (
@@ -1123,13 +1562,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     if (targetObj) {
       const docId = targetObj.id || sanitizeBannerDocId(targetObj.title, targetSite);
-      setAllBanners((prev) => {
-        const next = prev.filter((b) => b !== targetObj && b.id !== targetObj.id);
-        localStorage.setItem('omexo_banners_v2', JSON.stringify(next));
-        return next;
-      });
+      markSeedInitialized();
       try {
-        await deleteDoc(doc(db, 'banners', docId));
+        if (isGoogleAdmin) {
+          await deleteDoc(doc(db, 'banners', docId));
+        }
+        setAllBanners((prev) => {
+          const next = prev.filter((b) => b !== targetObj && b.id !== targetObj.id);
+          safeStorageSet('omexo_banners_v2', next);
+          return next;
+        });
       } catch (err) {
         logFirestoreError(err, OperationType.DELETE, `banners/${docId}`);
         throw err;
@@ -1137,36 +1579,116 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  // Promo Campaign Actions (synced with promos_${siteSlug} + Storefront)
+  const addPromo = async (
+    newPromo: Omit<PromoOffer, 'id'> & { id?: string },
+    targetSite: BrandCategorySlug = activeSite
+  ) => {
+    const promoId = newPromo.id || `${targetSite}-promo-${Date.now()}`;
+    const payload = stripUndefined<PromoOffer>({ ...newPromo, id: promoId, siteSlug: targetSite });
+    markSeedInitialized();
+    try {
+      if (isGoogleAdmin) {
+        await setDoc(doc(db, `promos_${targetSite}`, promoId), payload);
+      }
+      setPromosMap((prev) => {
+        const nextList = [payload, ...(prev[targetSite] || []).filter((p) => p.id !== promoId)];
+        safeStorageSet(`omexo_promos_${targetSite}`, nextList);
+        return { ...prev, [targetSite]: nextList };
+      });
+    } catch (err) {
+      logFirestoreError(err, OperationType.CREATE, `promos_${targetSite}/${promoId}`);
+      throw err;
+    }
+  };
+
+  const updatePromo = async (
+    updatedPromo: PromoOffer,
+    targetSite: BrandCategorySlug = activeSite
+  ) => {
+    const payload = stripUndefined<PromoOffer>({ ...updatedPromo, siteSlug: targetSite });
+    markSeedInitialized();
+    try {
+      if (isGoogleAdmin) {
+        await setDoc(doc(db, `promos_${targetSite}`, payload.id), payload);
+      }
+      setPromosMap((prev) => {
+        const nextList = (prev[targetSite] || []).map((p) => (p.id === payload.id ? payload : p));
+        safeStorageSet(`omexo_promos_${targetSite}`, nextList);
+        return { ...prev, [targetSite]: nextList };
+      });
+    } catch (err) {
+      logFirestoreError(err, OperationType.UPDATE, `promos_${targetSite}/${payload.id}`);
+      throw err;
+    }
+  };
+
+  const deletePromo = async (id: string, targetSite: BrandCategorySlug = activeSite) => {
+    markSeedInitialized();
+    try {
+      if (isGoogleAdmin) {
+        await deleteDoc(doc(db, `promos_${targetSite}`, id));
+      }
+      setPromosMap((prev) => {
+        const nextList = (prev[targetSite] || []).filter((p) => p.id !== id);
+        safeStorageSet(`omexo_promos_${targetSite}`, nextList);
+        return { ...prev, [targetSite]: nextList };
+      });
+    } catch (err) {
+      logFirestoreError(err, OperationType.DELETE, `promos_${targetSite}/${id}`);
+      throw err;
+    }
+  };
+
   // Product Actions
   const addProduct = async (newProduct: Omit<Product, 'id'>) => {
     const id = 'product-' + Date.now();
-    const payload = normalizeProductRecord({ ...newProduct, id });
-    setProducts((prev) => {
-      const next = [...prev, payload];
-      localStorage.setItem('omexo_products', JSON.stringify(next));
-      return next;
-    });
-    await setDoc(doc(db, 'products', id), payload);
+    const payload = stripUndefined(normalizeProductRecord({ ...newProduct, id }));
+    markSeedInitialized();
+    try {
+      if (isGoogleAdmin) {
+        await setDoc(doc(db, 'products', id), payload);
+      }
+      setProducts((prev) => {
+        const next = [...prev, payload];
+        safeStorageSet('omexo_products', next);
+        return next;
+      });
+    } catch (err) {
+      logFirestoreError(err, OperationType.CREATE, `products/${id}`);
+      throw err;
+    }
   };
 
   const updateProduct = async (updatedProduct: Product) => {
-    const normalized = normalizeProductRecord(updatedProduct);
-    setProducts((prev) => {
-      const next = prev.map((p) => (p.id === normalized.id ? normalized : p));
-      localStorage.setItem('omexo_products', JSON.stringify(next));
-      return next;
-    });
-    await setDoc(doc(db, 'products', normalized.id), normalized);
+    const normalized = stripUndefined(normalizeProductRecord(updatedProduct));
+    markSeedInitialized();
+    try {
+      if (isGoogleAdmin) {
+        await setDoc(doc(db, 'products', normalized.id), normalized);
+      }
+      setProducts((prev) => {
+        const next = prev.map((p) => (p.id === normalized.id ? normalized : p));
+        safeStorageSet('omexo_products', next);
+        return next;
+      });
+    } catch (err) {
+      logFirestoreError(err, OperationType.UPDATE, `products/${normalized.id}`);
+      throw err;
+    }
   };
 
   const deleteProduct = async (id: string) => {
-    setProducts((prev) => {
-      const next = prev.filter((p) => p.id !== id);
-      localStorage.setItem('omexo_products', JSON.stringify(next));
-      return next;
-    });
+    markSeedInitialized();
     try {
-      await deleteDoc(doc(db, 'products', id));
+      if (isGoogleAdmin) {
+        await deleteDoc(doc(db, 'products', id));
+      }
+      setProducts((prev) => {
+        const next = prev.filter((p) => p.id !== id);
+        safeStorageSet('omexo_products', next);
+        return next;
+      });
     } catch (err) {
       logFirestoreError(err, OperationType.DELETE, `products/${id}`);
       throw err;
@@ -1176,13 +1698,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const deleteProductsBulk = async (ids: string[]) => {
     if (ids.length === 0) return;
     const idSet = new Set(ids);
-    setProducts((prev) => {
-      const next = prev.filter((p) => !idSet.has(p.id));
-      localStorage.setItem('omexo_products', JSON.stringify(next));
-      return next;
-    });
+    markSeedInitialized();
     try {
-      await Promise.all(ids.map((id) => deleteDoc(doc(db, 'products', id))));
+      if (isGoogleAdmin) {
+        await Promise.all(ids.map((id) => deleteDoc(doc(db, 'products', id))));
+      }
+      setProducts((prev) => {
+        const next = prev.filter((p) => !idSet.has(p.id));
+        safeStorageSet('omexo_products', next);
+        return next;
+      });
     } catch (err) {
       logFirestoreError(err, OperationType.DELETE, `products/bulk`);
       throw err;
@@ -1365,8 +1890,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       fieldsToUpdate.consignmentNumber = consignmentNumber;
     }
     try {
-      await updateDoc(doc(db, 'orders', orderId), fieldsToUpdate);
-      await setDoc(doc(db, 'orderTracking', orderId), fieldsToUpdate, { merge: true });
+      if (isGoogleAdmin) {
+        await updateDoc(doc(db, 'orders', orderId), fieldsToUpdate);
+        await setDoc(doc(db, 'orderTracking', orderId), fieldsToUpdate, { merge: true });
+      }
     } catch (err) {
       logFirestoreError(err, OperationType.UPDATE, `orders/${orderId}`);
       throw err;
@@ -1376,10 +1903,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const deleteOrder = async (orderId: string) => {
     setOrders((prev) => prev.filter((order) => order.id !== orderId));
     try {
-      await Promise.all([
-        deleteDoc(doc(db, 'orders', orderId)),
-        deleteDoc(doc(db, 'orderTracking', orderId)),
-      ]);
+      if (isGoogleAdmin) {
+        await Promise.all([
+          deleteDoc(doc(db, 'orders', orderId)),
+          deleteDoc(doc(db, 'orderTracking', orderId)),
+        ]);
+      }
     } catch (err) {
       logFirestoreError(err, OperationType.DELETE, `orders/${orderId}`);
       throw err;
@@ -1391,12 +1920,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const idSet = new Set(orderIds);
     setOrders((prev) => prev.filter((order) => !idSet.has(order.id)));
     try {
-      await Promise.all(
-        orderIds.flatMap((id) => [
-          deleteDoc(doc(db, 'orders', id)),
-          deleteDoc(doc(db, 'orderTracking', id)),
-        ])
-      );
+      if (isGoogleAdmin) {
+        await Promise.all(
+          orderIds.flatMap((id) => [
+            deleteDoc(doc(db, 'orders', id)),
+            deleteDoc(doc(db, 'orderTracking', id)),
+          ])
+        );
+      }
     } catch (err) {
       logFirestoreError(err, OperationType.DELETE, `orders/bulk`);
       throw err;
@@ -1410,7 +1941,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   ) => {
     setTelegramMap((prev) => ({ ...prev, [targetSite]: newConfig }));
     try {
-      await setDoc(doc(db, 'settings', `telegram_${targetSite}`), newConfig);
+      if (isGoogleAdmin) {
+        await setDoc(doc(db, 'settings', `telegram_${targetSite}`), newConfig);
+      }
     } catch (err) {
       logFirestoreError(err, OperationType.WRITE, `settings/telegram_${targetSite}`);
       throw err;
@@ -1421,28 +1954,54 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     newBanner: OfferBanner,
     targetSite: BrandCategorySlug = activeSite
   ) => {
-    const payload = { ...newBanner, siteSlug: targetSite };
-    setOfferBannerMap((prev) => ({ ...prev, [targetSite]: payload }));
-    localStorage.setItem(`omexo_offer_banner_${targetSite}`, JSON.stringify(payload));
-    await setDoc(doc(db, 'settings', `offerBanner_${targetSite}`), payload);
+    const payload = stripUndefined({ ...newBanner, siteSlug: targetSite });
+    markSeedInitialized();
+    try {
+      if (isGoogleAdmin) {
+        await setDoc(doc(db, 'settings', `offerBanner_${targetSite}`), payload);
+      }
+      setOfferBannerMap((prev) => ({ ...prev, [targetSite]: payload }));
+      safeStorageSet(`omexo_offer_banner_${targetSite}`, payload);
+    } catch (err) {
+      logFirestoreError(err, OperationType.WRITE, `settings/offerBanner_${targetSite}`);
+      throw err;
+    }
   };
 
   const updateHeroConfig = async (
     newHero: HeroConfig,
     targetSite: BrandCategorySlug = activeSite
   ) => {
-    setHeroMap((prev) => ({ ...prev, [targetSite]: newHero }));
-    localStorage.setItem(`omexo_hero_config_${targetSite}`, JSON.stringify(newHero));
-    await setDoc(doc(db, 'settings', `hero_${targetSite}`), newHero);
+    const payload = stripUndefined(newHero);
+    markSeedInitialized();
+    try {
+      if (isGoogleAdmin) {
+        await setDoc(doc(db, 'settings', `hero_${targetSite}`), payload);
+      }
+      setHeroMap((prev) => ({ ...prev, [targetSite]: payload }));
+      safeStorageSet(`omexo_hero_config_${targetSite}`, payload);
+    } catch (err) {
+      logFirestoreError(err, OperationType.WRITE, `settings/hero_${targetSite}`);
+      throw err;
+    }
   };
 
   const updateComboConfig = async (
     newCombo: ComboConfig,
     targetSite: BrandCategorySlug = activeSite
   ) => {
-    setComboMap((prev) => ({ ...prev, [targetSite]: newCombo }));
-    localStorage.setItem(`omexo_combo_config_${targetSite}`, JSON.stringify(newCombo));
-    await setDoc(doc(db, 'settings', `combo_${targetSite}`), newCombo);
+    const payload = stripUndefined(newCombo);
+    markSeedInitialized();
+    try {
+      if (isGoogleAdmin) {
+        await setDoc(doc(db, 'settings', `combo_${targetSite}`), payload);
+      }
+      setComboMap((prev) => ({ ...prev, [targetSite]: payload }));
+      safeStorageSet(`omexo_combo_config_${targetSite}`, payload);
+    } catch (err) {
+      logFirestoreError(err, OperationType.WRITE, `settings/combo_${targetSite}`);
+      throw err;
+    }
   };
 
   // Review Actions (public submissions tagged with siteSlug and Pending moderation)
@@ -1452,17 +2011,22 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   ) => {
     const id = 'rev-' + Date.now();
     const dateStr = new Date().toLocaleDateString('en-GB');
-    const payload: CustomerReview = {
+    const payload = stripUndefined<CustomerReview>({
       ...newRev,
       id,
       siteSlug: newRev.siteSlug || targetSite,
       date: dateStr,
-      status: isAdminUser ? newRev.status : 'Pending',
-    };
+      status: isGoogleAdmin ? newRev.status : 'Pending',
+    });
+    markSeedInitialized();
     try {
       await setDoc(doc(db, 'reviews', id), payload);
-      if (payload.status === 'Approved' || isAdminUser) {
-        setAllReviews((prev) => [payload, ...prev]);
+      if (payload.status === 'Approved' || isGoogleAdmin) {
+        setAllReviews((prev) => {
+          const next = [payload, ...prev];
+          safeStorageSet('omexo_reviews', next);
+          return next;
+        });
       }
     } catch (err) {
       logFirestoreError(err, OperationType.CREATE, `reviews/${id}`);
@@ -1471,22 +2035,33 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const updateReviewStatus = async (id: string, status: 'Approved' | 'Pending') => {
-    setAllReviews((prev) => {
-      const next = prev.map((r) => (r.id === id ? { ...r, status } : r));
-      localStorage.setItem('omexo_reviews', JSON.stringify(next));
-      return next;
-    });
-    await updateDoc(doc(db, 'reviews', id), { status });
+    markSeedInitialized();
+    try {
+      if (isGoogleAdmin) {
+        await updateDoc(doc(db, 'reviews', id), { status });
+      }
+      setAllReviews((prev) => {
+        const next = prev.map((r) => (r.id === id ? { ...r, status } : r));
+        safeStorageSet('omexo_reviews', next);
+        return next;
+      });
+    } catch (err) {
+      logFirestoreError(err, OperationType.UPDATE, `reviews/${id}`);
+      throw err;
+    }
   };
 
   const deleteReview = async (id: string) => {
-    setAllReviews((prev) => {
-      const next = prev.filter((r) => r.id !== id);
-      localStorage.setItem('omexo_reviews', JSON.stringify(next));
-      return next;
-    });
+    markSeedInitialized();
     try {
-      await deleteDoc(doc(db, 'reviews', id));
+      if (isGoogleAdmin) {
+        await deleteDoc(doc(db, 'reviews', id));
+      }
+      setAllReviews((prev) => {
+        const next = prev.filter((r) => r.id !== id);
+        safeStorageSet('omexo_reviews', next);
+        return next;
+      });
     } catch (err) {
       logFirestoreError(err, OperationType.DELETE, `reviews/${id}`);
       throw err;
@@ -1496,23 +2071,34 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Coupon Actions (scoped per siteSlug)
   const addCoupon = async (newCoup: Omit<Coupon, 'id'>, targetSite: BrandCategorySlug = activeSite) => {
     const id = 'coup-' + Date.now();
-    const payload: Coupon = { ...newCoup, siteSlug: newCoup.siteSlug || targetSite, id };
-    setAllCoupons((prev) => {
-      const next = [...prev, payload];
-      localStorage.setItem('omexo_coupons_v2', JSON.stringify(next));
-      return next;
-    });
-    await setDoc(doc(db, 'coupons', id), payload);
+    const payload = stripUndefined<Coupon>({ ...newCoup, siteSlug: newCoup.siteSlug || targetSite, id });
+    markSeedInitialized();
+    try {
+      if (isGoogleAdmin) {
+        await setDoc(doc(db, 'coupons', id), payload);
+      }
+      setAllCoupons((prev) => {
+        const next = [...prev, payload];
+        safeStorageSet('omexo_coupons_v2', next);
+        return next;
+      });
+    } catch (err) {
+      logFirestoreError(err, OperationType.CREATE, `coupons/${id}`);
+      throw err;
+    }
   };
 
   const deleteCoupon = async (id: string) => {
-    setAllCoupons((prev) => {
-      const next = prev.filter((c) => c.id !== id);
-      localStorage.setItem('omexo_coupons_v2', JSON.stringify(next));
-      return next;
-    });
+    markSeedInitialized();
     try {
-      await deleteDoc(doc(db, 'coupons', id));
+      if (isGoogleAdmin) {
+        await deleteDoc(doc(db, 'coupons', id));
+      }
+      setAllCoupons((prev) => {
+        const next = prev.filter((c) => c.id !== id);
+        safeStorageSet('omexo_coupons_v2', next);
+        return next;
+      });
     } catch (err) {
       logFirestoreError(err, OperationType.DELETE, `coupons/${id}`);
       throw err;
@@ -1521,12 +2107,24 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // CMS Page Actions
   const updateCMSPage = async (updatedPage: CMSPage) => {
-    setAllCmsPages((prev) => {
-      const next = prev.map((p) => (p.id === updatedPage.id ? updatedPage : p));
-      localStorage.setItem('omexo_cms_pages_v2', JSON.stringify(next));
-      return next;
-    });
-    await setDoc(doc(db, 'cmsPages', updatedPage.id), updatedPage);
+    const payload = stripUndefined(updatedPage);
+    markSeedInitialized();
+    try {
+      if (isGoogleAdmin) {
+        await setDoc(doc(db, 'cmsPages', payload.id), payload);
+      }
+      setAllCmsPages((prev) => {
+        const exists = prev.some((p) => p.id === payload.id);
+        const next = exists
+          ? prev.map((p) => (p.id === payload.id ? payload : p))
+          : [...prev, payload];
+        safeStorageSet('omexo_cms_pages_v2', next);
+        return next;
+      });
+    } catch (err) {
+      logFirestoreError(err, OperationType.UPDATE, `cmsPages/${payload.id}`);
+      throw err;
+    }
   };
 
   // Store Settings Actions (strictly per siteSlug!)
@@ -1535,11 +2133,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     targetSite: BrandCategorySlug = activeSite
   ) => {
     const defaults = getSiteBrandConfig(targetSite).defaultStoreSettings;
-    const merged: StoreSettings = { ...defaults, ...newSettings };
-    setSiteSettingsMap((prev) => ({ ...prev, [targetSite]: merged }));
-    localStorage.setItem(`omexo_store_settings_${targetSite}`, JSON.stringify(merged));
+    const merged: StoreSettings = stripUndefined({ ...defaults, ...newSettings });
+    markSeedInitialized();
     try {
-      await setDoc(doc(db, 'settings', `site_${targetSite}`), merged, { merge: true });
+      if (isGoogleAdmin) {
+        await setDoc(doc(db, 'settings', `site_${targetSite}`), merged, { merge: true });
+      }
+      setSiteSettingsMap((prev) => ({ ...prev, [targetSite]: merged }));
+      safeStorageSet(`omexo_store_settings_${targetSite}`, merged);
     } catch (err) {
       logFirestoreError(err, 'write', `settings/site_${targetSite}`);
       throw err;
@@ -1548,15 +2149,29 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Layout Controls
   const handleSetShowCategoryBrands = async (val: boolean) => {
-    setShowCategoryBrands(val);
-    localStorage.setItem('omexo_show_category_brands', JSON.stringify(val));
-    await setDoc(doc(db, 'settings', 'layout'), { showCategoryBrands: val, showFeaturedGrids }, { merge: true });
+    try {
+      if (isGoogleAdmin) {
+        await setDoc(doc(db, 'settings', 'layout'), { showCategoryBrands: val, showFeaturedGrids }, { merge: true });
+      }
+      setShowCategoryBrands(val);
+      safeStorageSet('omexo_show_category_brands', val);
+    } catch (err) {
+      logFirestoreError(err, OperationType.WRITE, 'settings/layout');
+      throw err;
+    }
   };
 
   const handleSetShowFeaturedGrids = async (val: boolean) => {
-    setShowFeaturedGrids(val);
-    localStorage.setItem('omexo_show_featured_grids', JSON.stringify(val));
-    await setDoc(doc(db, 'settings', 'layout'), { showCategoryBrands, showFeaturedGrids: val }, { merge: true });
+    try {
+      if (isGoogleAdmin) {
+        await setDoc(doc(db, 'settings', 'layout'), { showCategoryBrands, showFeaturedGrids: val }, { merge: true });
+      }
+      setShowFeaturedGrids(val);
+      safeStorageSet('omexo_show_featured_grids', val);
+    } catch (err) {
+      logFirestoreError(err, OperationType.WRITE, 'settings/layout');
+      throw err;
+    }
   };
 
   return (
@@ -1582,6 +2197,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         allCoupons,
         cmsPages,
         allCmsPages,
+        promos,
         storeSettings,
         getStoreSettingsForSite: (site) => siteSettingsMap[site],
         getHeroConfigForSite: (site) => heroMap[site],
@@ -1618,6 +2234,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         addBanner,
         updateBanner,
         deleteBanner,
+        addPromo,
+        updatePromo,
+        deletePromo,
         addReview,
         updateReviewStatus,
         deleteReview,
@@ -1625,15 +2244,22 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         deleteCoupon,
         updateCMSPage,
         updateStoreSettings,
+        refreshStore: syncFromFirestore,
         showCategoryBrands,
         setShowCategoryBrands: handleSetShowCategoryBrands,
         showFeaturedGrids,
         setShowFeaturedGrids: handleSetShowFeaturedGrids,
         isLoadingDb,
         authUser,
+        isGoogleAdmin,
+        isCredentialAdmin,
         isAdminUser,
         adminRole,
+        adminDisplayName,
+        serverAdminToken,
         isAuthReady,
+        loginWithAdminCredentials,
+        logoutAdmin,
       }}
     >
       {children}

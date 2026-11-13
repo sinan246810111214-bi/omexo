@@ -2,9 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '../hooks/useStore';
 import { useToast } from '../components/Toast';
-import { Order, Product, OrderStatus, Category, Brand, OfferBanner, BrandCategorySlug } from '../types';
-import { auth, db, googleProvider, signInWithPopup, signOut } from '../lib/firebase';
-import { collection, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { Order, Product, OrderStatus, Category, Brand, OfferBanner, BrandCategorySlug, PromoOffer } from '../types';
+import { auth, googleProvider, signInWithPopup, signOut } from '../lib/firebase';
 import { OMEXO_MEDIA } from '../config/media';
 import { escapeHtml, isAuthorizedAdminEmail, sanitizeSafeUrl } from '../lib/security';
 import {
@@ -23,10 +22,10 @@ import {
   Settings, LogIn, LogOut, LineChart, Package, ShoppingBag, 
   Plus, Trash2, Edit, Save, CheckCircle, FileText, Bot, Send, 
   ArrowRight, Printer, AlertTriangle, X, Sparkles, Users, Award, 
-  Eye, Search, SlidersHorizontal, ChevronDown, Check, Smartphone, 
+  Eye, EyeOff, Search, SlidersHorizontal, ChevronDown, Check, Smartphone, 
   Mail, MapPin, Tag, Percent, Image, HelpCircle, Layers, FileDown, 
   ShieldCheck, RefreshCw, BarChart2, Shield, Calendar, Info, Star, Menu,
-  MessageCircle, ExternalLink
+  MessageCircle, ExternalLink, Lock, KeyRound
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -40,16 +39,6 @@ interface Coupon {
   isActive: boolean;
   usageLimit: number;
   uses: number;
-}
-
-interface PromoOffer {
-  id: string;
-  title: string;
-  subheadline: string;
-  price: number;
-  ctaText: string;
-  bannerUrl: string;
-  isActive: boolean;
 }
 
 interface AdminUser {
@@ -118,6 +107,10 @@ export const Admin: React.FC<AdminProps> = ({ siteSlug: rawSiteSlug = 'lifestyle
     addBanner,
     updateBanner,
     deleteBanner,
+    promos,
+    addPromo,
+    updatePromo,
+    deletePromo,
     heroConfig,
     updateHeroConfig,
     comboConfig,
@@ -133,15 +126,26 @@ export const Admin: React.FC<AdminProps> = ({ siteSlug: rawSiteSlug = 'lifestyle
     storeSettings,
     updateStoreSettings,
     authUser,
+    isGoogleAdmin,
+    isCredentialAdmin,
     isAdminUser,
     adminRole,
-    isAuthReady
+    adminDisplayName,
+    serverAdminToken,
+    isAuthReady,
+    loginWithAdminCredentials,
+    logoutAdmin,
   } = useStore();
 
   const { toast } = useToast();
 
-  // Authentication & Session (Verified via Firebase Google Auth)
+  // Authentication & Session (Verified via Firebase Google Auth OR Secret Server Credentials)
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [credUsername, setCredUsername] = useState('');
+  const [credPassword, setCredPassword] = useState('');
+  const [showCredPassword, setShowCredPassword] = useState(false);
+  const [isCredSigningIn, setIsCredSigningIn] = useState(false);
+  const [credError, setCredError] = useState('');
 
   // Security & Alarm Siren states
   const [isAlarmActive, setIsAlarmActive] = useState(false);
@@ -220,12 +224,14 @@ export const Admin: React.FC<AdminProps> = ({ siteSlug: rawSiteSlug = 'lifestyle
   const [orderFilterStatus, setOrderFilterStatus] = useState('All');
 
   // Custom Admin Lists with per-website localStorage persistence
-  const [promos, setPromos] = useState<PromoOffer[]>(() => {
-    const saved = localStorage.getItem(`omexo_promos_${siteSlug}`);
-    return saved ? JSON.parse(saved) : [
-      { id: `${siteSlug}-combo-1`, title: activeBrand.defaultComboConfig.title, subheadline: activeBrand.defaultComboConfig.subheadline, price: activeBrand.defaultComboConfig.price, ctaText: activeBrand.defaultComboConfig.ctaText, bannerUrl: activeBrand.defaultComboConfig.card1Image, isActive: true }
-    ];
-  });
+  const [cmsDrafts, setCmsDrafts] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const next: Record<string, string> = {};
+    cmsPages.forEach((p) => {
+      next[p.id] = p.content;
+    });
+    setCmsDrafts(next);
+  }, [cmsPages]);
 
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => {
     const saved = localStorage.getItem(`omexo_audit_logs_${siteSlug}`);
@@ -391,82 +397,12 @@ export const Admin: React.FC<AdminProps> = ({ siteSlug: rawSiteSlug = 'lifestyle
     quantity: number;
   }>({ isOpen: false, product: null, mode: 'add', quantity: 10 });
 
-  const [comboModalConfig, setComboModalConfig] = useState<{
-    isOpen: boolean;
-    promo: PromoOffer | null;
-    price: number;
-  }>({ isOpen: false, promo: null, price: 350 });
-
-  const [bannerModalConfig, setBannerModalConfig] = useState<{
-    isOpen: boolean;
-    badge: string;
-    title: string;
-    description: string;
-    backgroundImageUrl: string;
-  }>({ isOpen: false, badge: '🔥 SPECIAL DROP', title: '', description: '', backgroundImageUrl: '' });
-
-  // Sync non-sensitive UI state helpers to localStorage scoped per standalone website
-  useEffect(() => {
-    localStorage.setItem(`omexo_promos_${siteSlug}`, JSON.stringify(promos));
-  }, [promos, siteSlug]);
-
   useEffect(() => {
     localStorage.setItem(`omexo_audit_logs_${siteSlug}`, JSON.stringify(auditLogs));
   }, [auditLogs, siteSlug]);
 
-  // Load promos from Firestore per standalone website when admin is verified or site changes
-  useEffect(() => {
-    if (!isAuthReady) return;
-    const savedLocal = localStorage.getItem(`omexo_promos_${siteSlug}`);
-    if (savedLocal) {
-      setPromos(JSON.parse(savedLocal));
-    } else {
-      setPromos([
-        {
-          id: `${siteSlug}-combo-1`,
-          title: activeBrand.defaultComboConfig.title,
-          subheadline: activeBrand.defaultComboConfig.subheadline,
-          price: activeBrand.defaultComboConfig.price,
-          ctaText: activeBrand.defaultComboConfig.ctaText,
-          bannerUrl: activeBrand.defaultComboConfig.card1Image,
-          isActive: true
-        }
-      ]);
-    }
-    const fetchPromos = async () => {
-      try {
-        const promoCollectionName = `promos_${siteSlug}`;
-        const snap = await getDocs(collection(db, promoCollectionName));
-        if (!snap.empty) {
-          const loadedPromos = snap.docs.map(d => d.data() as PromoOffer);
-          setPromos(loadedPromos);
-          localStorage.setItem(`omexo_promos_${siteSlug}`, JSON.stringify(loadedPromos));
-        } else if (isAdminUser) {
-          const defaultPromos: PromoOffer[] = [
-            {
-              id: `${siteSlug}-combo-1`,
-              title: activeBrand.defaultComboConfig.title,
-              subheadline: activeBrand.defaultComboConfig.subheadline,
-              price: activeBrand.defaultComboConfig.price,
-              ctaText: activeBrand.defaultComboConfig.ctaText,
-              bannerUrl: activeBrand.defaultComboConfig.card1Image,
-              isActive: true
-            }
-          ];
-          setPromos(defaultPromos);
-          for (const p of defaultPromos) {
-            await setDoc(doc(db, promoCollectionName, p.id), p);
-          }
-        }
-      } catch (err) {
-        console.error('Failed to load promos from Firestore:', err);
-      }
-    };
-    fetchPromos();
-  }, [isAuthReady, isAdminUser, siteSlug, activeBrand]);
-
   const addAuditLog = (action: string, module: string) => {
-    const activeAdmin = authUser?.displayName || authUser?.email || 'Verified Admin';
+    const activeAdmin = adminDisplayName || 'Verified Admin';
     const newLog: AuditLog = {
       id: 'log-' + Date.now(),
       admin: activeAdmin,
@@ -477,15 +413,16 @@ export const Admin: React.FC<AdminProps> = ({ siteSlug: rawSiteSlug = 'lifestyle
     setAuditLogs(prev => [newLog, ...prev]);
   };
 
-  // Auth Submit logic via Firebase Google Sign-In
+  // Auth Submit logic via Firebase Google Sign-In (strictly omexoofficial@gmail.com only)
   const handleGoogleAdminLogin = async () => {
     setIsSigningIn(true);
+    setCredError('');
     try {
       const cred = await signInWithPopup(auth, googleProvider);
       const email = cred.user.email?.trim().toLowerCase() || '';
       if (!cred.user.emailVerified || !isAuthorizedAdminEmail(email)) {
         await signOut(auth);
-        toast('Access Denied. Unauthorized administrator Google account.', 'error');
+        toast('Access Denied. Only omexoofficial@gmail.com is authorized for Google Admin Sign-In.', 'error');
         setIsAlarmActive(true);
         startSiren();
         return;
@@ -502,11 +439,39 @@ export const Admin: React.FC<AdminProps> = ({ siteSlug: rawSiteSlug = 'lifestyle
     }
   };
 
+  // Secret Server-Verified Username + Password Admin Login
+  const handleCredentialLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!credUsername.trim() || !credPassword.trim()) {
+      setCredError('Please enter both username and password.');
+      return;
+    }
+    setCredError('');
+    setIsCredSigningIn(true);
+    try {
+      const res = await loginWithAdminCredentials(credUsername, credPassword);
+      if (!res.ok) {
+        setCredError(res.error || 'Invalid admin username or password.');
+        toast(res.error || 'Invalid admin username or password.', 'error');
+        return;
+      }
+      setCredUsername('');
+      setCredPassword('');
+      setShowCredPassword(false);
+      toast('Secret admin credentials verified! Command console unlocked.', 'success');
+      addAuditLog('Verified Secret Admin Credential login', 'Access');
+    } finally {
+      setIsCredSigningIn(false);
+    }
+  };
+
   const handleLogout = async () => {
     addAuditLog('Safely logged out of console session', 'Access');
     setSelectedOrderIds([]);
     setActiveOrderDetails(null);
-    await signOut(auth);
+    setCredPassword('');
+    setCredError('');
+    await logoutAdmin();
     toast('Logged out from command console.', 'success');
   };
 
@@ -524,7 +489,7 @@ export const Admin: React.FC<AdminProps> = ({ siteSlug: rawSiteSlug = 'lifestyle
 
   const ALLOWED_IMAGE_MIME_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif'];
 
-  // Reusable authenticated upload helper
+  // Reusable authenticated upload helper (supports both Google ID token and Secret Server Admin Token)
   const uploadImageFile = async (file: File): Promise<string> => {
     if (!ALLOWED_IMAGE_MIME_TYPES.includes(file.type.toLowerCase())) {
       toast('Only PNG, JPG, WEBP, or GIF images are permitted.', 'error');
@@ -534,8 +499,8 @@ export const Admin: React.FC<AdminProps> = ({ siteSlug: rawSiteSlug = 'lifestyle
       toast('Selected image file is too large (Maximum size: 15MB).', 'error');
       throw new Error('File too large');
     }
-    const idToken = await auth.currentUser?.getIdToken();
-    if (!idToken) {
+    const idToken = (await auth.currentUser?.getIdToken()) || serverAdminToken;
+    if (!idToken && !isCredentialAdmin) {
       toast('Verified admin session required to upload images.', 'error');
       throw new Error('Missing admin token');
     }
@@ -546,9 +511,10 @@ export const Admin: React.FC<AdminProps> = ({ siteSlug: rawSiteSlug = 'lifestyle
         try {
           const response = await fetch('/api/upload', {
             method: 'POST',
+            credentials: 'include',
             headers: {
               'Content-Type': 'application/json',
-              Authorization: `Bearer ${idToken}`,
+              ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
             },
             body: JSON.stringify({ image: base64Data })
           });
@@ -633,6 +599,7 @@ export const Admin: React.FC<AdminProps> = ({ siteSlug: rawSiteSlug = 'lifestyle
 
     const payload: PromoOffer = {
       id: promoId,
+      siteSlug,
       title: promoTitle,
       subheadline: promoSubheadline,
       price: Number(promoPrice),
@@ -642,16 +609,12 @@ export const Admin: React.FC<AdminProps> = ({ siteSlug: rawSiteSlug = 'lifestyle
     };
 
     try {
-      // Sync with per-website Firestore collection
-      await setDoc(doc(db, `promos_${siteSlug}`, promoId), payload);
-
-      // Update local state
       if (isEdit) {
-        setPromos(prev => prev.map(p => p.id === promoId ? payload : p));
+        await updatePromo(payload, siteSlug);
         toast(`Successfully updated combo promo campaign: "${promoTitle}"`, 'success');
         addAuditLog(`Updated combo promotion: "${promoTitle}"`, 'Offers');
       } else {
-        setPromos(prev => [payload, ...prev]);
+        await addPromo(payload, siteSlug);
         toast(`Successfully created new combo promo campaign: "${promoTitle}"`, 'success');
         addAuditLog(`Created new combo promotion: "${promoTitle}"`, 'Offers');
       }
@@ -684,8 +647,7 @@ export const Admin: React.FC<AdminProps> = ({ siteSlug: rawSiteSlug = 'lifestyle
       confirmLabel: 'Delete Promo',
       onConfirm: async () => {
         try {
-          await deleteDoc(doc(db, `promos_${siteSlug}`, id));
-          setPromos((prev) => prev.filter((p) => p.id !== id));
+          await deletePromo(id, siteSlug);
           toast(`Removed promo campaign: "${title}"`, 'success');
           addAuditLog(`Deleted promo campaign: "${title}"`, 'Offers');
         } catch (err) {
@@ -912,46 +874,51 @@ export const Admin: React.FC<AdminProps> = ({ siteSlug: rawSiteSlug = 'lifestyle
     const normalizedSlug: BrandCategorySlug = siteSlug;
     const canonicalCategoryName = getCanonicalCategoryName(normalizedSlug);
 
-    if (editingProduct) {
-      const updated: Product = {
-        ...editingProduct,
-        title: prodTitle.trim(),
-        description: prodDescription.trim(),
-        category: canonicalCategoryName,
-        categorySlug: normalizedSlug,
-        salePrice: Number(prodSalePrice),
-        regularPrice: Number(prodRegularPrice),
-        stockCount: Number(prodStockCount),
-        images: [imgUrl, ...editingProduct.images.slice(1)]
-      };
-      await updateProduct(updated);
-      toast(`Successfully updated "${prodTitle}"!`, 'success');
-      addAuditLog(`Updated product information for "${prodTitle}" (${canonicalCategoryName})`, 'Products');
-      setEditingProduct(null);
-    } else {
-      const payload = {
-        title: prodTitle.trim(),
-        category: canonicalCategoryName,
-        categorySlug: normalizedSlug,
-        description: prodDescription.trim(),
-        salePrice: Number(prodSalePrice),
-        regularPrice: Number(prodRegularPrice),
-        stockCount: Number(prodStockCount),
-        images: [imgUrl],
-        specs: { 'Origin': activeBrand.name, 'Delivery': 'Cash on Delivery Available Across India' },
-        isTrending: true
-      };
-      await addProduct(payload);
-      toast(`Successfully created "${prodTitle}"!`, 'success');
-      addAuditLog(`Created new catalog product "${prodTitle}" (${canonicalCategoryName})`, 'Products');
-      setIsAddingProduct(false);
-    }
+    try {
+      if (editingProduct) {
+        const updated: Product = {
+          ...editingProduct,
+          title: prodTitle.trim(),
+          description: prodDescription.trim(),
+          category: canonicalCategoryName,
+          categorySlug: normalizedSlug,
+          salePrice: Number(prodSalePrice),
+          regularPrice: Number(prodRegularPrice),
+          stockCount: Math.max(0, Math.floor(Number(prodStockCount) || 0)),
+          images: [imgUrl, ...editingProduct.images.slice(1)]
+        };
+        await updateProduct(updated);
+        toast(`Successfully updated "${prodTitle}"!`, 'success');
+        addAuditLog(`Updated product information for "${prodTitle}" (${canonicalCategoryName})`, 'Products');
+        setEditingProduct(null);
+      } else {
+        const payload = {
+          title: prodTitle.trim(),
+          category: canonicalCategoryName,
+          categorySlug: normalizedSlug,
+          description: prodDescription.trim(),
+          salePrice: Number(prodSalePrice),
+          regularPrice: Number(prodRegularPrice),
+          stockCount: Math.max(0, Math.floor(Number(prodStockCount) || 0)),
+          images: [imgUrl],
+          specs: { 'Origin': activeBrand.name, 'Delivery': 'Cash on Delivery Available Across India' },
+          isTrending: true
+        };
+        await addProduct(payload);
+        toast(`Successfully created "${prodTitle}"!`, 'success');
+        addAuditLog(`Created new catalog product "${prodTitle}" (${canonicalCategoryName})`, 'Products');
+        setIsAddingProduct(false);
+      }
 
-    // Reset forms
-    setProdTitle('');
-    setProdDescription('');
-    setProdImageUrl('');
-    setProdCategory(siteSlug);
+      // Reset forms
+      setProdTitle('');
+      setProdDescription('');
+      setProdImageUrl('');
+      setProdCategory(siteSlug);
+    } catch (err) {
+      console.error('Failed to save product:', err);
+      toast('Failed to save product to Firestore database.', 'error');
+    }
   };
 
   // Delete product wrapper
@@ -1252,7 +1219,7 @@ export const Admin: React.FC<AdminProps> = ({ siteSlug: rawSiteSlug = 'lifestyle
 
                 <div className="space-y-3">
                   <p className="text-[10px] text-zinc-400 font-bold uppercase leading-snug">
-                    Access denied. Only allowlisted Omexo administrator Google accounts are permitted.
+                    Access denied. Only <strong>omexoofficial@gmail.com</strong> is permitted for Google Admin Sign-In.
                   </p>
                   
                   <button
@@ -1280,45 +1247,115 @@ export const Admin: React.FC<AdminProps> = ({ siteSlug: rawSiteSlug = 'lifestyle
               <div className="absolute top-1/4 left-1/4 w-[400px] h-[400px] bg-white/10 rounded-full blur-3xl pointer-events-none" />
               <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-[#E8E0D2]/10 rounded-full blur-3xl pointer-events-none" />
 
-              <div className="max-w-md w-full bg-white/10 backdrop-blur-md border border-white/20 p-8 rounded-[32px] text-center space-y-6 relative z-10 shadow-2xl">
+              <div className="max-w-md w-full bg-white/10 backdrop-blur-md border border-white/20 p-8 rounded-[32px] text-center space-y-5 relative z-10 shadow-2xl">
                 <div className="flex flex-col items-center gap-2">
-                  <div className="bg-white/95 px-5 py-3.5 rounded-2xl shadow-inner mb-2 flex flex-col items-center">
+                  <div className="bg-white/95 px-5 py-3.5 rounded-2xl shadow-inner mb-1 flex flex-col items-center">
                     <span className="text-xl font-black tracking-widest text-[#234F1E] font-display uppercase">{activeBrand.name}</span>
                     <span className="text-[9px] font-extrabold uppercase tracking-[0.2em] text-[#234F1E]/60 mt-0.5">Standalone Admin Panel</span>
                   </div>
                   <h1 className="text-xl font-extrabold uppercase tracking-widest text-white font-display">Secured Command Console</h1>
                   <p className="text-xs text-white/75 font-semibold tracking-wide">
-                    Independent admin workspace for <strong>{activeBrand.name}</strong> ({activeBrand.adminPath}). Sign in with an authorized administrator Google account.
+                    Independent workspace for <strong>{activeBrand.name}</strong> ({activeBrand.adminPath}). Sign in with <strong>omexoofficial@gmail.com</strong> or secret admin credentials.
                   </p>
                 </div>
 
-                {authUser && !isAdminUser && (
+                {authUser && !isGoogleAdmin && (
                   <div className="p-3 bg-red-500/20 border border-red-300/30 rounded-2xl text-xs text-red-100 font-bold">
-                    Signed in as {authUser.email}, which is not on the administrator allowlist.
+                    Signed in as {authUser.email}. Only omexoofficial@gmail.com is authorized for Google Sign-In.
                   </div>
                 )}
 
-                <div className="space-y-3 pt-2">
+                <div className="space-y-3">
                   <button
                     type="button"
-                    disabled={isSigningIn}
+                    disabled={isSigningIn || isCredSigningIn}
                     onClick={handleGoogleAdminLogin}
                     className="w-full py-3.5 px-5 bg-[#FAF9F4] hover:bg-[#E8E0D2] disabled:opacity-60 text-[#234F1E] font-black text-xs uppercase tracking-widest rounded-full transition-all cursor-pointer shadow-md flex items-center justify-center gap-2"
                     id="admin-google-signin-btn"
                   >
-                    <ShieldCheck className="w-4 h-4" />
-                    <span>{isSigningIn ? 'Verifying Google Session...' : 'Sign in with Authorized Google Account'}</span>
+                    <ShieldCheck className="w-4 h-4 shrink-0" />
+                    <span>{isSigningIn ? 'Verifying Google Session...' : 'Sign in with omexoofficial@gmail.com'}</span>
                   </button>
 
                   {authUser && (
                     <button
                       type="button"
                       onClick={() => signOut(auth)}
-                      className="w-full py-2.5 bg-white/10 hover:bg-white/20 text-white font-bold text-[11px] uppercase tracking-wider rounded-full transition-all cursor-pointer"
+                      className="w-full py-2 bg-white/10 hover:bg-white/20 text-white font-bold text-[11px] uppercase tracking-wider rounded-full transition-all cursor-pointer"
                     >
-                      Sign Out & Switch Account
+                      Sign Out & Switch Google Account
                     </button>
                   )}
+
+                  <div className="flex items-center gap-3 py-1">
+                    <div className="h-px flex-1 bg-white/15" />
+                    <span className="text-[9px] font-black uppercase tracking-[0.18em] text-white/55">Or Secret Credentials</span>
+                    <div className="h-px flex-1 bg-white/15" />
+                  </div>
+
+                  <form onSubmit={handleCredentialLogin} className="space-y-3 text-left" id="admin-credentials-login-form">
+                    <div className="space-y-1">
+                      <label htmlFor="admin-cred-username" className="text-[10px] font-extrabold uppercase tracking-wider text-white/75 block pl-1">
+                        Admin Username
+                      </label>
+                      <div className="relative">
+                        <KeyRound className="w-4 h-4 text-[#E8E0D2]/70 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <input
+                          id="admin-cred-username"
+                          type="text"
+                          autoComplete="username"
+                          value={credUsername}
+                          onChange={(e) => setCredUsername(e.target.value)}
+                          placeholder="Enter admin username"
+                          disabled={isCredSigningIn || isSigningIn}
+                          className="w-full pl-10 pr-4 py-3 bg-black/25 border border-white/20 focus:border-[#E8E0D2] rounded-xl text-sm text-white placeholder:text-white/35 focus:outline-none transition-colors"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label htmlFor="admin-cred-password" className="text-[10px] font-extrabold uppercase tracking-wider text-white/75 block pl-1">
+                        Secret Password
+                      </label>
+                      <div className="relative">
+                        <Lock className="w-4 h-4 text-[#E8E0D2]/70 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <input
+                          id="admin-cred-password"
+                          type={showCredPassword ? 'text' : 'password'}
+                          autoComplete="current-password"
+                          value={credPassword}
+                          onChange={(e) => setCredPassword(e.target.value)}
+                          placeholder="Enter secret password"
+                          disabled={isCredSigningIn || isSigningIn}
+                          className="w-full pl-10 pr-11 py-3 bg-black/25 border border-white/20 focus:border-[#E8E0D2] rounded-xl text-sm text-white placeholder:text-white/35 focus:outline-none transition-colors"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowCredPassword((prev) => !prev)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 hover:text-white p-1 cursor-pointer"
+                          aria-label={showCredPassword ? 'Hide password' : 'Show password'}
+                        >
+                          {showCredPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {credError && (
+                      <div role="alert" className="p-2.5 bg-red-500/25 border border-red-300/35 rounded-xl text-xs text-red-100 font-bold text-center">
+                        {credError}
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={isCredSigningIn || isSigningIn}
+                      className="w-full py-3.5 px-5 bg-[#E8E0D2] hover:bg-white disabled:opacity-60 text-[#234F1E] font-black text-xs uppercase tracking-widest rounded-full transition-all cursor-pointer shadow-md flex items-center justify-center gap-2"
+                      id="admin-cred-signin-btn"
+                    >
+                      <LogIn className="w-4 h-4 shrink-0" />
+                      <span>{isCredSigningIn ? 'Verifying Credentials...' : 'Unlock Admin Console'}</span>
+                    </button>
+                  </form>
 
                   <div className="pt-3 border-t border-white/10 space-y-2">
                     <span className="text-[9px] font-extrabold uppercase tracking-widest text-white/50 block">Switch Standalone Website Admin</span>
@@ -1586,18 +1623,36 @@ export const Admin: React.FC<AdminProps> = ({ siteSlug: rawSiteSlug = 'lifestyle
                   </button>
                   <div className="text-right hidden sm:block">
                     <div className="text-xs font-black text-[#234F1E]">
-                      {authUser?.displayName || authUser?.email || 'Verified Admin'}
+                      {adminDisplayName}
                     </div>
                     <div className="text-[9px] text-[#234F1E]/50 font-bold uppercase tracking-wider">Role: {adminRole}</div>
                   </div>
                   <div className="w-10 h-10 bg-[#234F1E] text-[#FAF9F4] font-black text-xs rounded-full flex items-center justify-center border border-white/20 uppercase">
-                    {(authUser?.displayName || authUser?.email || 'AD').slice(0, 2)}
+                    {(adminDisplayName || 'AD').slice(0, 2)}
                   </div>
                 </div>
               </header>
 
               {/* Scrollable layout contents */}
               <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-8 relative z-0">
+                {isCredentialAdmin && !isGoogleAdmin && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left shadow-xs" id="admin-cloud-sync-banner">
+                    <div className="flex items-start sm:items-center gap-2.5 text-amber-900">
+                      <ShieldCheck className="w-4 h-4 text-amber-700 shrink-0 mt-0.5 sm:mt-0" />
+                      <span className="text-xs font-semibold leading-snug">
+                        Logged in with Secret Admin Credentials. Connect <strong>omexoofficial@gmail.com</strong> to sync live Firestore orders and cloud catalog updates across all devices.
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={isSigningIn}
+                      onClick={handleGoogleAdminLogin}
+                      className="px-4 py-2 bg-[#234F1E] hover:bg-[#1C4018] text-white rounded-full text-[10px] font-black uppercase tracking-wider shrink-0 transition-colors cursor-pointer"
+                    >
+                      {isSigningIn ? 'Connecting...' : 'Connect omexoofficial@gmail.com'}
+                    </button>
+                  </div>
+                )}
                 
                 {/* 1. DASHBOARD TAB */}
                 {activeTab === 'dashboard' && (
@@ -2173,18 +2228,23 @@ export const Admin: React.FC<AdminProps> = ({ siteSlug: rawSiteSlug = 'lifestyle
                       </div>
 
                       <form
-                        onSubmit={(e) => {
+                        onSubmit={async (e) => {
                           e.preventDefault();
                           if (!newCategoryName.trim()) return;
-                          addCategory({
-                            name: newCategoryName.trim(),
-                            subcategories: [],
-                            image: newCategoryImageUrl.trim() || undefined
-                          });
-                          setNewCategoryName('');
-                          setNewCategoryImageUrl('');
-                          toast(`Created category "${newCategoryName}"`, 'success');
-                          addAuditLog(`Created product category "${newCategoryName}"`, 'Categories');
+                          const createdName = newCategoryName.trim();
+                          try {
+                            await addCategory({
+                              name: createdName,
+                              subcategories: [],
+                              ...(newCategoryImageUrl.trim() ? { image: newCategoryImageUrl.trim() } : {})
+                            });
+                            setNewCategoryName('');
+                            setNewCategoryImageUrl('');
+                            toast(`Created category "${createdName}"`, 'success');
+                            addAuditLog(`Created product category "${createdName}"`, 'Categories');
+                          } catch {
+                            toast('Failed to save category to Firestore.', 'error');
+                          }
                         }}
                         className="bg-[#234F1E]/5 p-4 rounded-2xl border border-[#234F1E]/10 space-y-3"
                       >
@@ -2311,13 +2371,18 @@ export const Admin: React.FC<AdminProps> = ({ siteSlug: rawSiteSlug = 'lifestyle
                       </div>
 
                       <form
-                        onSubmit={(e) => {
+                        onSubmit={async (e) => {
                           e.preventDefault();
                           if (!newBrandName.trim()) return;
-                          addBrand({ name: newBrandName.trim() });
-                          setNewBrandName('');
-                          toast(`Registered brand "${newBrandName}"`, 'success');
-                          addAuditLog(`Registered brand partner "${newBrandName}"`, 'Categories');
+                          const brandLabel = newBrandName.trim();
+                          try {
+                            await addBrand({ name: brandLabel });
+                            setNewBrandName('');
+                            toast(`Registered brand "${brandLabel}"`, 'success');
+                            addAuditLog(`Registered brand partner "${brandLabel}"`, 'Categories');
+                          } catch {
+                            toast('Failed to register brand to Firestore.', 'error');
+                          }
                         }}
                         className="bg-[#234F1E]/5 p-4 rounded-2xl border border-[#234F1E]/10 space-y-3"
                       >
@@ -2831,17 +2896,21 @@ export const Admin: React.FC<AdminProps> = ({ siteSlug: rawSiteSlug = 'lifestyle
                           e.preventDefault();
                           if (!newCouponCode.trim()) return;
                           const code = newCouponCode.trim().toUpperCase();
-                          await addCoupon({
-                            code,
-                            type: newCouponType,
-                            value: Number(newCouponValue),
-                            minOrder: Number(newCouponMinOrder),
-                            isActive: true,
-                            siteSlug
-                          }, siteSlug);
-                          setNewCouponCode('');
-                          toast(`Active coupon "${code}" generated successfully!`, 'success');
-                          addAuditLog(`Created new store coupon code: "${code}"`, 'Coupons');
+                          try {
+                            await addCoupon({
+                              code,
+                              type: newCouponType,
+                              value: Number(newCouponValue),
+                              minOrder: Number(newCouponMinOrder),
+                              isActive: true,
+                              siteSlug
+                            }, siteSlug);
+                            setNewCouponCode('');
+                            toast(`Active coupon "${code}" generated successfully!`, 'success');
+                            addAuditLog(`Created new store coupon code: "${code}"`, 'Coupons');
+                          } catch {
+                            toast('Failed to create coupon in Firestore.', 'error');
+                          }
                         }}
                         className="bg-[#234F1E]/5 p-4 border border-[#234F1E]/15 rounded-2xl space-y-3"
                       >
@@ -2969,9 +3038,13 @@ export const Admin: React.FC<AdminProps> = ({ siteSlug: rawSiteSlug = 'lifestyle
                       <form
                         onSubmit={async (e) => {
                           e.preventDefault();
-                          await updateComboConfig(comboForm, siteSlug);
-                          toast('Special Combo Promo section updated successfully!', 'success');
-                          addAuditLog(`Updated Special Combo promo banner content for ${activeBrand.name}`, 'Content');
+                          try {
+                            await updateComboConfig(comboForm, siteSlug);
+                            toast('Special Combo Promo section updated successfully!', 'success');
+                            addAuditLog(`Updated Special Combo promo banner content for ${activeBrand.name}`, 'Content');
+                          } catch {
+                            toast('Failed to save Special Combo settings.', 'error');
+                          }
                         }}
                         className="space-y-4 text-xs"
                       >
@@ -3398,9 +3471,13 @@ export const Admin: React.FC<AdminProps> = ({ siteSlug: rawSiteSlug = 'lifestyle
                       <form
                         onSubmit={async (e) => {
                           e.preventDefault();
-                          await updateHeroConfig(heroForm, siteSlug);
-                          toast('Main Homepage Hero Section updated successfully!', 'success');
-                          addAuditLog(`Updated homepage hero banner content for ${activeBrand.name}`, 'Content');
+                          try {
+                            await updateHeroConfig(heroForm, siteSlug);
+                            toast('Main Homepage Hero Section updated successfully!', 'success');
+                            addAuditLog(`Updated homepage hero banner content for ${activeBrand.name}`, 'Content');
+                          } catch {
+                            toast('Failed to save Hero Banner settings.', 'error');
+                          }
                         }}
                         className="space-y-4 text-xs"
                       >
@@ -3828,9 +3905,13 @@ export const Admin: React.FC<AdminProps> = ({ siteSlug: rawSiteSlug = 'lifestyle
                                 {rev.status === 'Pending' && (
                                   <button
                                     onClick={async () => {
-                                      await updateReviewStatus(rev.id, 'Approved');
-                                      toast('Review approved live on store website!', 'success');
-                                      addAuditLog(`Approved customer review by "${rev.customerName}"`, 'Reviews');
+                                      try {
+                                        await updateReviewStatus(rev.id, 'Approved');
+                                        toast('Review approved live on store website!', 'success');
+                                        addAuditLog(`Approved customer review by "${rev.customerName}"`, 'Reviews');
+                                      } catch {
+                                        toast('Failed to approve review.', 'error');
+                                      }
                                     }}
                                     className="px-2.5 py-1 bg-[#234F1E] text-white rounded-full text-[9px] font-bold uppercase cursor-pointer"
                                   >
@@ -3883,19 +3964,25 @@ export const Admin: React.FC<AdminProps> = ({ siteSlug: rawSiteSlug = 'lifestyle
                         <div key={page.id} className="p-4 bg-white border border-[#234F1E]/10 rounded-2xl space-y-3">
                           <h4 className="text-xs font-bold uppercase text-[#234F1E] tracking-wider font-display">{page.title}</h4>
                           <textarea
-                            value={page.content}
+                            value={cmsDrafts[page.id] ?? page.content}
                             onChange={(e) => {
                               const val = e.target.value;
-                              updateCMSPage({ ...page, content: val });
+                              setCmsDrafts((prev) => ({ ...prev, [page.id]: val }));
                             }}
                             rows={3}
                             className="w-full p-3 text-xs bg-[#FAF9F4] border border-[#234F1E]/10 rounded-xl text-[#234F1E] font-semibold resize-none focus:outline-none focus:border-[#234F1E]/20"
                           />
                           <button
+                            type="button"
                             onClick={async () => {
-                              await updateCMSPage(page);
-                              toast(`Successfully saved CMS copy edits for "${page.title}"!`, 'success');
-                              addAuditLog(`Updated CMS page copy content block: "${page.title}"`, 'Pages');
+                              try {
+                                const updatedContent = cmsDrafts[page.id] ?? page.content;
+                                await updateCMSPage({ ...page, content: updatedContent });
+                                toast(`Successfully saved CMS copy edits for "${page.title}"!`, 'success');
+                                addAuditLog(`Updated CMS page copy content block: "${page.title}"`, 'Pages');
+                              } catch {
+                                toast('Failed to save CMS copy updates.', 'error');
+                              }
                             }}
                             className="px-4 py-2 bg-[#234F1E] hover:bg-[#1C4018] text-white text-[9px] font-bold uppercase tracking-wider rounded-full cursor-pointer"
                           >
@@ -4042,22 +4129,26 @@ export const Admin: React.FC<AdminProps> = ({ siteSlug: rawSiteSlug = 'lifestyle
                               siteSlug === 'essentials'
                                 ? sanitizeWhatsappNumber(essentialsWhatsapp, WHATSAPP_NUMBERS.ESSENTIALS)
                                 : sanitizeWhatsappNumber(defaultWhatsapp, WHATSAPP_NUMBERS.DEFAULT);
-                            await updateStoreSettings(
-                              {
-                                storeName: storeName.trim() || activeBrand.name,
-                                supportNum: supportNum.trim() || activeBrand.defaultStoreSettings.supportNum,
-                                defaultWhatsapp: activeWaNumber,
-                                essentialsWhatsapp: activeWaNumber,
-                                supportMail: supportMail.trim() || activeBrand.defaultStoreSettings.supportMail,
-                                address: storeAddress.trim() || activeBrand.defaultStoreSettings.address,
-                                mapLocationUrl: sanitizeSafeUrl(mapLocationUrl, { allowDataImage: false, fallback: '' }),
-                                seoTitle: seoTitle.trim() || activeBrand.defaultStoreSettings.seoTitle,
-                                seoDescription: seoDescription.trim() || activeBrand.defaultStoreSettings.seoDescription
-                              },
-                              siteSlug
-                            );
-                            toast(`${activeBrand.name} settings saved live!`, 'success');
-                            addAuditLog(`Updated ${activeBrand.name} Store Address, Map Link & WhatsApp number`, 'Settings');
+                            try {
+                              await updateStoreSettings(
+                                {
+                                  storeName: storeName.trim() || activeBrand.name,
+                                  supportNum: supportNum.trim() || activeBrand.defaultStoreSettings.supportNum,
+                                  defaultWhatsapp: activeWaNumber,
+                                  essentialsWhatsapp: activeWaNumber,
+                                  supportMail: supportMail.trim() || activeBrand.defaultStoreSettings.supportMail,
+                                  address: storeAddress.trim() || activeBrand.defaultStoreSettings.address,
+                                  mapLocationUrl: sanitizeSafeUrl(mapLocationUrl, { allowDataImage: false, fallback: '' }),
+                                  seoTitle: seoTitle.trim() || activeBrand.defaultStoreSettings.seoTitle,
+                                  seoDescription: seoDescription.trim() || activeBrand.defaultStoreSettings.seoDescription
+                                },
+                                siteSlug
+                              );
+                              toast(`${activeBrand.name} settings saved live!`, 'success');
+                              addAuditLog(`Updated ${activeBrand.name} Store Address, Map Link & WhatsApp number`, 'Settings');
+                            } catch {
+                              toast('Failed to save store settings.', 'error');
+                            }
                           }}
                           className="px-5 py-2.5 bg-[#234F1E] hover:bg-[#1C4018] text-white font-extrabold text-[10px] uppercase tracking-widest rounded-full cursor-pointer"
                           id="settings-save-general-btn"
@@ -4436,18 +4527,22 @@ export const Admin: React.FC<AdminProps> = ({ siteSlug: rawSiteSlug = 'lifestyle
                     stockModalConfig.mode === 'add'
                       ? targetProduct.stockCount + qty
                       : Math.max(0, targetProduct.stockCount - qty);
-                  await updateProduct({ ...targetProduct, stockCount: nextStock });
-                  toast(
-                    stockModalConfig.mode === 'add'
-                      ? `Added +${qty} units to "${targetProduct.title}"`
-                      : `Reduced -${qty} units from "${targetProduct.title}"`,
-                    'success'
-                  );
-                  addAuditLog(
-                    `${stockModalConfig.mode === 'add' ? 'Added +' : 'Removed -'}${qty} stock count for product "${targetProduct.title}"`,
-                    'Inventory'
-                  );
-                  setStockModalConfig({ isOpen: false, product: null, mode: 'add', quantity: 10 });
+                  try {
+                    await updateProduct({ ...targetProduct, stockCount: nextStock });
+                    toast(
+                      stockModalConfig.mode === 'add'
+                        ? `Added +${qty} units to "${targetProduct.title}"`
+                        : `Reduced -${qty} units from "${targetProduct.title}"`,
+                      'success'
+                    );
+                    addAuditLog(
+                      `${stockModalConfig.mode === 'add' ? 'Added +' : 'Removed -'}${qty} stock count for product "${targetProduct.title}"`,
+                      'Inventory'
+                    );
+                    setStockModalConfig({ isOpen: false, product: null, mode: 'add', quantity: 10 });
+                  } catch {
+                    toast('Failed to update product stock in Firestore.', 'error');
+                  }
                 }}
                 className="px-5 py-2 bg-[#234F1E] hover:bg-[#1C4018] text-white rounded-full text-xs font-extrabold uppercase tracking-wider cursor-pointer"
               >
