@@ -1,0 +1,162 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "Catalog product item strictly scoped to a single Omexo brand category.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "category": { "type": "string", "enum": ["Omexo Decor", "Omexo Essentials", "Omexo Lifestyle"] },
+        "categorySlug": { "type": "string", "enum": ["decor", "essentials", "lifestyle"] },
+        "brand": { "type": "string", "maxLength": 80 },
+        "description": { "type": "string", "maxLength": 5000 },
+        "salePrice": { "type": "number" },
+        "regularPrice": { "type": "number" },
+        "stockCount": { "type": "integer" },
+        "images": { "type": "array" },
+        "specs": { "type": "object" },
+        "isTrending": { "type": "boolean" }
+      },
+      "required": ["id", "title", "category", "description", "salePrice", "regularPrice", "stockCount", "images", "specs"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Brand category card configuration.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "slug": { "type": "string", "enum": ["decor", "essentials", "lifestyle"] },
+        "description": { "type": "string", "maxLength": 1000 },
+        "image": { "type": "string", "maxLength": 500000 }
+      },
+      "required": ["id", "name", "image"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Private customer checkout order containing shipping PII, restricted strictly to admins for read/update.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "pattern": "^OMX-[0-9]{6}$", "maxLength": 32 },
+        "siteSlug": { "type": "string", "enum": ["decor", "essentials", "lifestyle"] },
+        "customerName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "customerPhone": { "type": "string", "minLength": 8, "maxLength": 20 },
+        "customerEmail": { "type": "string", "maxLength": 150 },
+        "address": { "type": "string", "minLength": 3, "maxLength": 500 },
+        "pincode": { "type": "string", "pattern": "^[0-9]{6}$" },
+        "items": { "type": "array" },
+        "totalAmount": { "type": "number" },
+        "paymentType": { "type": "string", "enum": ["COD", "Online"] },
+        "paymentStatus": { "type": "string", "enum": ["Pending", "Paid"] },
+        "orderStatus": { "type": "string", "enum": ["Pending", "Processing", "Shipped", "Delivered", "Cancelled"] },
+        "consignmentNumber": { "type": "string", "maxLength": 80 },
+        "createdAt": { "type": "string", "format": "date-time", "maxLength": 64 }
+      },
+      "required": ["id", "customerName", "customerPhone", "customerEmail", "address", "pincode", "items", "totalAmount", "paymentType", "paymentStatus", "orderStatus", "createdAt"]
+    },
+    "OrderTracking": {
+      "title": "OrderTracking",
+      "description": "PII-free public order tracking status projection keyed by Order ID.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "pattern": "^OMX-[0-9]{6}$", "maxLength": 32 },
+        "siteSlug": { "type": "string", "enum": ["decor", "essentials", "lifestyle"] },
+        "orderStatus": { "type": "string", "enum": ["Pending", "Processing", "Shipped", "Delivered", "Cancelled"] },
+        "paymentType": { "type": "string", "enum": ["COD", "Online"] },
+        "paymentStatus": { "type": "string", "enum": ["Pending", "Paid"] },
+        "totalAmount": { "type": "number" },
+        "itemCount": { "type": "integer" },
+        "consignmentNumber": { "type": "string", "maxLength": 80 },
+        "createdAt": { "type": "string", "format": "date-time", "maxLength": 64 }
+      },
+      "required": ["id", "orderStatus", "paymentType", "paymentStatus", "totalAmount", "itemCount", "createdAt"]
+    },
+    "CustomerReview": {
+      "title": "CustomerReview",
+      "description": "Customer product review moderated by store admins before appearing live.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "siteSlug": { "type": "string", "enum": ["decor", "essentials", "lifestyle"] },
+        "customerName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "productName": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "rating": { "type": "integer" },
+        "reviewText": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "date": { "type": "string", "maxLength": 32 },
+        "status": { "type": "string", "enum": ["Approved", "Pending", "Rejected"] }
+      },
+      "required": ["id", "customerName", "productName", "rating", "reviewText", "date", "status"]
+    },
+    "Coupon": {
+      "title": "Coupon",
+      "description": "Storefront discount coupon managed by admins.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "siteSlug": { "type": "string", "enum": ["decor", "essentials", "lifestyle"] },
+        "code": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "value": { "type": "number" },
+        "type": { "type": "string", "enum": ["Percentage", "Fixed"] },
+        "minOrder": { "type": "number" },
+        "isActive": { "type": "boolean" }
+      },
+      "required": ["id", "code", "value", "type", "minOrder", "isActive"]
+    },
+    "StoreSettings": {
+      "title": "StoreSettings",
+      "description": "Public storefront configuration per brand site including dynamic WhatsApp numbers, store address, and map link.",
+      "type": "object",
+      "properties": {
+        "storeName": { "type": "string", "maxLength": 120 },
+        "supportNum": { "type": "string", "maxLength": 30 },
+        "defaultWhatsapp": { "type": "string", "maxLength": 20 },
+        "essentialsWhatsapp": { "type": "string", "maxLength": 20 },
+        "supportMail": { "type": "string", "maxLength": 150 },
+        "address": { "type": "string", "maxLength": 500 },
+        "mapLocationUrl": { "type": "string", "maxLength": 500 },
+        "seoTitle": { "type": "string", "maxLength": 200 },
+        "seoDescription": { "type": "string", "maxLength": 500 }
+      }
+    },
+    "TelegramConfig": {
+      "title": "TelegramConfig",
+      "description": "Private bot configuration per brand site accessible strictly to verified admins.",
+      "type": "object",
+      "properties": {
+        "botToken": { "type": "string", "maxLength": 200 },
+        "chatId": { "type": "string", "maxLength": 64 }
+      }
+    }
+  },
+  "firestore": {
+    "/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Public catalog items; only verified admins can edit product details, checkout can strictly decrement stockCount."
+    },
+    "/categories/{categoryId}": {
+      "schema": { "$ref": "#/entities/Category" },
+      "description": "Storefront sub-categories."
+    },
+    "/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "Customer orders with PII; write-only create at checkout, admin-only read/update/delete."
+    },
+    "/orderTracking/{orderId}": {
+      "schema": { "$ref": "#/entities/OrderTracking" },
+      "description": "PII-free order tracking records readable only by exact Order ID."
+    },
+    "/reviews/{reviewId}": {
+      "schema": { "$ref": "#/entities/CustomerReview" },
+      "description": "Moderated customer reviews; public reads only Approved reviews."
+    },
+    "/coupons/{couponId}": {
+      "schema": { "$ref": "#/entities/Coupon" },
+      "description": "Active checkout coupons; admin-managed."
+    },
+    "/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/StoreSettings" },
+      "description": "Per-site store config docs (site_lifestyle, site_decor, site_essentials, hero_*, combo_*, offerBanner_*); telegram* is admin-only."
+    }
+  }
+}

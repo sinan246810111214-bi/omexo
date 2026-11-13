@@ -3,6 +3,7 @@
 @theme {
   --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   --font-display: 'Outfit', system-ui, -apple-system, sans-serif;
+  --font-logo: 'Chakra Petch', sans-serif;
 
   /* Premium Brand Palette Mapping */
   --color-pine-green: #234F1E;
@@ -28,6 +29,28 @@ body {
   font-family: var(--font-sans);
   background-color: #FAF9F4; /* Warm White default background */
   color: #1C4018; /* Dark Pine Green text */
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  touch-action: manipulation;
+}
+
+:focus-visible {
+  outline: 2px solid #234F1E;
+  outline-offset: 2px;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 h1, h2, h3, h4, h5, h6, .display-font {
@@ -35,41 +58,43 @@ h1, h2, h3, h4, h5, h6, .display-font {
   letter-spacing: -0.01em;
 }
 
-/* Premium Glassmorphism Classes */
+/* Crisp Single-Elevation Cards (Zero GPU backdrop-blur scroll lag on mobile) */
 .glass-card {
-  background: rgba(255, 255, 255, 0.55);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.45);
-  box-shadow: 0 8px 32px 0 rgba(35, 79, 30, 0.04);
+  background: #FFFFFF;
+  border: 1px solid rgba(35, 79, 30, 0.1);
+  box-shadow: 0 2px 12px 0 rgba(35, 79, 30, 0.04);
 }
 
 .glass-card-beige {
-  background: rgba(232, 224, 210, 0.45);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  box-shadow: 0 8px 24px 0 rgba(35, 79, 30, 0.03);
+  background: #F4EFE6;
+  border: 1px solid rgba(35, 79, 30, 0.1);
+  box-shadow: 0 2px 10px 0 rgba(35, 79, 30, 0.03);
 }
 
 .glass-card-green {
-  background: rgba(35, 79, 30, 0.82);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: #234F1E;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 12px 40px 0 rgba(18, 36, 16, 0.25);
+  box-shadow: 0 8px 24px 0 rgba(18, 36, 16, 0.2);
 }
 
-/* Custom transitions and interactive classes for micro-interactions */
+/* Compositor-friendly micro-interactions */
 .interactive-action {
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.18s ease-out;
 }
 .interactive-action:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 30px -4px rgba(35, 79, 30, 0.12);
+  transform: translateY(-1px);
 }
 .interactive-action:active {
   transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* 🖨️ Professional A4 PDF Printing Stylesheet */

@@ -1,152 +1,187 @@
 import React from 'react';
 import { useHashRouter, AppRoute } from '../hooks/useHashRouter';
-import { Mail, Phone, MapPin, Shield, Truck, RefreshCw, Settings, Info } from 'lucide-react';
-import { useToast } from './Toast';
+import { useStore } from '../hooks/useStore';
+import { Mail, MapPin, MessageCircle, Instagram, ExternalLink, ArrowUpRight, Phone } from 'lucide-react';
+import {
+  BRAND_SITES,
+  ORDER_LABEL_SENDER,
+  formatWhatsappDisplay,
+  getSiteBrandConfig,
+  getSitePathPrefix,
+  getWhatsAppNumberForCategory,
+} from '../config/categories';
+import { BrandCategorySlug } from '../types';
+import { sanitizeSafeUrl } from '../lib/security';
 
 export const Footer: React.FC = () => {
-  const { navigate } = useHashRouter();
-  const { toast } = useToast();
+  const { route, siteSlug, navigate } = useHashRouter();
+  const { storeSettings, setSelectedCategory, setSelectedBrand, setSearchQuery } = useStore();
 
-  const legalRoutes: { label: string; route: AppRoute }[] = [
-    { label: 'Privacy Policy', route: 'privacy-policy' },
-    { label: 'Terms & Conditions', route: 'terms' },
-    { label: 'Shipping Policy', route: 'shipping-policy' },
-    { label: 'Refund & Return Policy', route: 'refund-policy' },
-    { label: 'Contact Us', route: 'contact-us' },
-  ];
+  // Keep Admin dashboard clean and unobstructed
+  if (route === 'admin') {
+    return null;
+  }
 
-  const handleSubscribe = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const email = new FormData(e.currentTarget).get('email') as string;
-    if (email) {
-      toast('Welcome to the Omexo Elite club! Watch your inbox for VIP drops.', 'success');
-      e.currentTarget.reset();
-    }
+  const activeBrand = getSiteBrandConfig(siteSlug);
+  const storeDisplayName = storeSettings?.storeName || activeBrand.name;
+  const activeWhatsapp = getWhatsAppNumberForCategory(siteSlug, storeSettings);
+  const supportPhone = storeSettings?.supportNum || ORDER_LABEL_SENDER.phone;
+  const supportEmail = storeSettings?.supportMail || 'omexoofficial@gmail.com';
+  const storeAddress = storeSettings?.address || ORDER_LABEL_SENDER.fullAddress;
+  const mapUrl = sanitizeSafeUrl(storeSettings?.mapLocationUrl);
+
+  const handleSwitchStore = (targetSlug: BrandCategorySlug) => {
+    setSelectedCategory('All');
+    setSelectedBrand('All');
+    setSearchQuery('');
+    navigate('home', undefined, targetSlug);
   };
 
+  const pageLinks: { label: string; route: AppRoute }[] = [
+    { label: 'Track Order', route: 'track-order' },
+    { label: 'Contact', route: 'contact-us' },
+    { label: 'Shipping', route: 'shipping-policy' },
+    { label: 'Returns', route: 'refund-policy' },
+    { label: 'Privacy', route: 'privacy-policy' },
+    { label: 'Terms', route: 'terms' },
+  ];
+
   return (
-    <footer className="bg-pine-green text-warm-white/80 mt-auto border-t border-white/10 relative z-10" id="footer-container">
-      {/* Upper Certifications Deck with subtle translucent border */}
-      <div className="max-w-7xl mx-auto px-4 py-8 border-b border-white/10 grid grid-cols-1 md:grid-cols-2 gap-8 text-center md:text-left">
-        <div className="flex items-start gap-4">
-          <div className="p-3 bg-white/10 text-warm-white rounded-2xl shrink-0 border border-white/10 backdrop-blur-md">
-            <Truck className="w-5 h-5" />
+    <footer
+      className="bg-pine-green text-warm-white/85 mt-auto border-t border-white/10"
+      id="footer-container"
+    >
+      <div className="max-w-7xl mx-auto px-4 py-6 space-y-4 text-left">
+        {/* Top Compact Row: Active Store Details Only */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-white/10 pb-4">
+          <div className="space-y-1">
+            <div className="text-sm font-extrabold text-warm-white tracking-tight">
+              {storeDisplayName}
+            </div>
+            <p className="text-xs text-warm-white/65 max-w-lg leading-relaxed">
+              {activeBrand.tagline} · Cash on Delivery across India
+            </p>
           </div>
-          <div className="text-left">
-            <h4 className="text-sm font-bold font-display uppercase tracking-wider text-warm-white mb-1">ALL INDIA FREE DELIVERY</h4>
-            <p className="text-xs text-warm-white/60">Fast, insured delivery to over 19,000 pincodes across India at no extra cost.</p>
-          </div>
-        </div>
-        <div className="flex items-start gap-4">
-          <div className="p-3 bg-white/10 text-warm-white rounded-2xl shrink-0 border border-white/10 backdrop-blur-md">
-            <RefreshCw className="w-5 h-5" />
-          </div>
-          <div className="text-left">
-            <h4 className="text-sm font-bold font-display uppercase tracking-wider text-warm-white mb-1">COD AVAILABLE & QUALITY PRODUCTS</h4>
-            <p className="text-xs text-warm-white/60">Hassle-free cash payment upon arrival with 7-day premium replacement check.</p>
-          </div>
-        </div>
-      </div>
 
-      {/* Main Content grid */}
-      <div className="max-w-7xl mx-auto px-4 py-12 grid grid-cols-1 md:grid-cols-4 gap-10">
-        {/* Brand Desk */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 select-none cursor-pointer" onClick={() => navigate('home')}>
-            <img 
-              src="https://i.ibb.co/qY8X8qv1/Chat-GPT-Image-Sep-10-2026-11-28-10-AM.png" 
-              alt="OMEXO Logo" 
-              className="h-16 w-auto object-contain brightness-0 invert"
-              referrerPolicy="no-referrer"
-            />
-          </div>
-          <p className="text-xs leading-relaxed text-warm-white/60">
-            We engineer high-performance mobile accessories and premium smart gadgets designed to integrate flawlessly into your modern digital lifestyle. Minimal, luxury, everyday tools.
-          </p>
-          <div className="text-xs text-warm-white/40 pt-2">
-            © {new Date().getFullYear()} Omexo India. All rights reserved.
-          </div>
-        </div>
-
-        {/* Legal links */}
-        <div>
-          <h5 className="text-xs font-bold tracking-widest text-warm-white uppercase mb-4 font-display">Support & Legal</h5>
-          <ul className="space-y-2 text-xs">
-            {legalRoutes.map((link) => (
-              <li key={link.route}>
-                <button
-                  onClick={() => navigate(link.route)}
-                  className="text-warm-white/60 hover:text-warm-white transition-colors text-left font-medium"
-                  id={`footer-link-${link.route}`}
-                >
-                  {link.label}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Contact info */}
-        <div>
-          <h5 className="text-xs font-bold tracking-widest text-warm-white uppercase mb-4 font-display">Omexo Support</h5>
-          <ul className="space-y-3 text-xs text-warm-white/60">
-            <li className="flex items-center gap-2">
-              <Phone className="w-4 h-4 text-soft-beige shrink-0" />
-              <span>+91 99465 97201</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <Mail className="w-4 h-4 text-soft-beige shrink-0" />
-              <span>omexoofficial@gmail.com</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <MapPin className="w-4 h-4 text-soft-beige shrink-0 mt-0.5" />
-              <span>Muhammed Sinan vk (Omexo), ozhukour, palekod, kondotty, Malappuram, Kerala - 673642</span>
-            </li>
-          </ul>
-        </div>
-
-        {/* Newsletter Signup */}
-        <div>
-          <h5 className="text-xs font-bold tracking-widest text-warm-white uppercase mb-4 font-display">Stay Synchronized</h5>
-          <p className="text-xs text-warm-white/60 mb-3 leading-relaxed">
-            Subscribe to receive priority notifications on premium flash sales and limited edition product drops.
-          </p>
-          <form onSubmit={handleSubscribe} className="flex gap-2">
-            <input
-              type="email"
-              name="email"
-              required
-              placeholder="Enter your email"
-              className="flex-1 px-3 py-2 text-xs bg-white/10 border border-white/10 rounded-xl text-warm-white placeholder-warm-white/40 focus:outline-none focus:border-white/30 transition-colors"
-              id="footer-newsletter-email"
-            />
-            <button
-              type="submit"
-              className="px-4 py-2 bg-soft-beige hover:bg-soft-beige-dark text-pine-green font-bold text-xs rounded-xl transition-colors shrink-0"
-              id="footer-newsletter-submit"
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs">
+            <a
+              href={`tel:${supportPhone.replace(/\s+/g, '')}`}
+              className="inline-flex items-center gap-1.5 text-warm-white hover:text-soft-beige font-semibold transition-colors"
+              id="footer-support-phone"
             >
-              Join
-            </button>
-          </form>
-        </div>
-      </div>
+              <Phone className="w-3.5 h-3.5 text-soft-beige shrink-0" />
+              <span>Support team: {supportPhone}</span>
+            </a>
 
-      {/* Admin control bar with copyright */}
-      <div className="border-t border-white/10 bg-black/10 py-6">
-        <div className="max-w-7xl mx-auto px-4 flex items-center justify-between text-xs text-warm-white/40">
-          <div className="flex items-center gap-3">
-            <span>Designed for the Modern Workspace</span>
-            <span>·</span>
-            <span>All India Free Delivery & COD</span>
+            <a
+              href={`https://wa.me/${activeWhatsapp}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-warm-white hover:text-soft-beige font-semibold transition-colors"
+            >
+              <MessageCircle className="w-3.5 h-3.5 text-soft-beige shrink-0" />
+              <span>{formatWhatsappDisplay(activeWhatsapp)}</span>
+            </a>
+
+            <a
+              href={`mailto:${supportEmail}`}
+              className="inline-flex items-center gap-1.5 text-warm-white/80 hover:text-warm-white transition-colors"
+            >
+              <Mail className="w-3.5 h-3.5 text-soft-beige shrink-0" />
+              <span>{supportEmail}</span>
+            </a>
+
+            <a
+              href={activeBrand.instagramUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-warm-white/80 hover:text-soft-beige transition-colors"
+              id={`footer-ig-${activeBrand.instagramHandle.replace(/^@/, '').replace(/[^a-z0-9]/gi, '-')}`}
+            >
+              <Instagram className="w-3.5 h-3.5 text-soft-beige shrink-0" />
+              <span>{activeBrand.instagramHandle}</span>
+            </a>
           </div>
-          <button
-            onClick={() => navigate('admin')}
-            className="p-1.5 text-warm-white/30 hover:text-warm-white hover:bg-white/5 transition-all rounded-lg cursor-pointer"
-            title="Admin Control"
-            id="btn-footer-admin-gear"
-          >
-            <Settings className="w-4 h-4" />
-          </button>
+        </div>
+
+        {/* Store Address (only for this active site, synced with Admin) */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-[11px] text-warm-white/65">
+          <div className="flex items-start sm:items-center gap-1.5 min-w-0">
+            <MapPin className="w-3.5 h-3.5 text-soft-beige shrink-0 mt-0.5 sm:mt-0" />
+            <span className="leading-snug break-words">{storeAddress}</span>
+          </div>
+          {mapUrl && (
+            <a
+              href={mapUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-soft-beige hover:underline font-semibold shrink-0"
+            >
+              <span>Google Maps</span>
+              <ExternalLink className="w-3 h-3" />
+            </a>
+          )}
+        </div>
+
+        {/* Interconnected Omexo Storefronts (3-way navigation across Lifestyle, Decor & Essentials) */}
+        <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-white/10 text-xs">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-warm-white/60 mr-1">
+            Our Stores:
+          </span>
+          {BRAND_SITES.map((slug) => {
+            const brand = getSiteBrandConfig(slug);
+            const prefix = getSitePathPrefix(slug) || '/';
+            const isCurrent = siteSlug === slug;
+            return (
+              <a
+                key={slug}
+                href={prefix}
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleSwitchStore(slug);
+                }}
+                aria-current={isCurrent ? 'page' : undefined}
+                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
+                  isCurrent
+                    ? 'bg-warm-white text-pine-green font-extrabold'
+                    : 'bg-white/10 text-warm-white hover:bg-white/20 font-semibold'
+                }`}
+                id={`footer-store-link-${slug}`}
+              >
+                <span>{brand.name}</span>
+                {!isCurrent && <ArrowUpRight className="w-3.5 h-3.5 opacity-80" />}
+              </a>
+            );
+          })}
+        </div>
+
+        {/* Bottom Single Links & Copyright Row */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2 border-t border-white/10 text-[11px] text-warm-white/65">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+            {pageLinks.map((link) => (
+              <button
+                key={link.route}
+                type="button"
+                onClick={() => navigate(link.route, undefined, siteSlug)}
+                className="hover:text-warm-white transition-colors cursor-pointer font-medium"
+                id={`footer-link-${link.route}`}
+              >
+                {link.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => navigate('admin', undefined, siteSlug)}
+              className="text-soft-beige/90 hover:text-soft-beige font-semibold cursor-pointer"
+              id="btn-footer-admin-gear"
+            >
+              {activeBrand.shortLabel} Admin
+            </button>
+          </div>
+
+          <span className="text-warm-white/50">
+            © {new Date().getFullYear()} {storeDisplayName}
+          </span>
         </div>
       </div>
     </footer>

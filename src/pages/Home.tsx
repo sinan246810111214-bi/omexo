@@ -1,36 +1,48 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from '../hooks/useStore';
 import { useHashRouter } from '../hooks/useHashRouter';
 import { useToast } from '../components/Toast';
-import { 
-  ShoppingCart, Flame, Star, Award, Zap, 
-  ShieldCheck, Search, SlidersHorizontal, Check, RefreshCw, 
-  Truck, Eye, ArrowRight, Sparkles, Filter, MessageSquare, Plus, X, CheckCircle2, ThumbsUp
+import {
+  ShoppingCart,
+  Star,
+  Zap,
+  Search,
+  MessageCircle,
+  Plus,
+  X,
+  CheckCircle2,
+  ArrowRight,
 } from 'lucide-react';
 import { Product } from '../types';
+import {
+  buildProductWhatsAppUrl,
+  getSiteBrandConfig,
+} from '../config/categories';
 
 export const Home: React.FC = () => {
-  const { 
-    products, 
-    addToCart, 
-    categories, 
-    brands, 
+  const {
+    activeSite,
+    siteProducts,
+    addToCart,
     searchQuery,
     setSearchQuery,
-    selectedCategory,
-    setSelectedCategory,
-    selectedBrand,
-    setSelectedBrand,
-    showCategoryBrands,
     heroConfig,
     comboConfig,
+    banners,
     reviews,
     addReview,
-    storeSettings
+    storeSettings,
   } = useStore();
-  
-  const { navigate } = useHashRouter();
+
+  const { siteSlug, navigate } = useHashRouter();
   const { toast } = useToast();
+  const activeBrand = getSiteBrandConfig(siteSlug || activeSite);
+  const storeDisplayName = storeSettings?.storeName || activeBrand.name;
+
+  // Subcategory filter strictly within THIS standalone website
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string>('All');
+  const [onlyInStock, setOnlyInStock] = useState<boolean>(false);
+  const [sortBy, setSortBy] = useState<string>('featured');
 
   // Write Review Modal state
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
@@ -39,11 +51,11 @@ export const Home: React.FC = () => {
   const [revRating, setRevRating] = useState(5);
   const [revText, setRevText] = useState('');
 
-  // Local sorting/filtering controls
-  const [localPriceLimit, setLocalPriceLimit] = useState<number>(30000);
-  const [onlyInStock, setOnlyInStock] = useState<boolean>(false);
-  const [sortBy, setSortBy] = useState<string>('featured');
-  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState<boolean>(false);
+  useEffect(() => {
+    setSelectedSubcategory('All');
+    setOnlyInStock(false);
+    setSortBy('featured');
+  }, [siteSlug]);
 
   const handleAddToCart = (product: Product, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -51,8 +63,8 @@ export const Home: React.FC = () => {
       toast(`${product.title} is currently out of stock!`, 'error');
       return;
     }
-    addToCart(product, 1);
-    toast(`Added "${product.title}" to your cart!`, 'success');
+    addToCart(product, 1, siteSlug);
+    toast(`Added "${product.title}" to bag`, 'success');
   };
 
   const handleBuyNow = (product: Product, e: React.MouseEvent) => {
@@ -61,562 +73,366 @@ export const Home: React.FC = () => {
       toast(`${product.title} is currently out of stock!`, 'error');
       return;
     }
-    addToCart(product, 1);
-    navigate('checkout');
+    addToCart(product, 1, siteSlug);
+    navigate('checkout', undefined, siteSlug);
   };
 
-  // Add Special Combo directly to cart & proceed
   const handleGetCombo = () => {
-    const comboProduct = products.find(p => p.id === 'omexo-special-combo');
+    const comboProduct = siteProducts.find((p) => p.id === 'omexo-special-combo');
     if (comboProduct && comboProduct.stockCount > 0) {
-      addToCart(comboProduct, 1);
-      toast('Omexo Special Combo added to cart!', 'success');
-      navigate('checkout');
-    } else {
-      // Fallback if not loaded yet or combo item is out of stock: add keychain & stand individually
-      const keychain = products.find(p => p.id === 'mechanical-switch-keychain');
-      const stand = products.find(p => p.id === 'foldable-phone-stand');
-      
-      const keychainOk = keychain && keychain.stockCount > 0;
-      const standOk = stand && stand.stockCount > 0;
+      addToCart(comboProduct, 1, siteSlug);
+      navigate('checkout', undefined, siteSlug);
+      return;
+    }
 
-      if (keychainOk && standOk) {
-        addToCart(keychain!, 1);
-        addToCart(stand!, 1);
-        toast('Added Mechanical Switch Keychain & Foldable Phone Stand Combo!', 'success');
-        navigate('checkout');
-      } else {
-        toast('Sorry, the Omexo Special Combo is currently out of stock!', 'error');
-      }
+    const inStockItems = siteProducts.filter((p) => p.id !== 'omexo-special-combo' && p.stockCount > 0);
+    if (inStockItems.length >= 2) {
+      addToCart(inStockItems[0], 1, siteSlug);
+      addToCart(inStockItems[1], 1, siteSlug);
+      navigate('checkout', undefined, siteSlug);
+    } else if (inStockItems.length === 1) {
+      addToCart(inStockItems[0], 1, siteSlug);
+      navigate('checkout', undefined, siteSlug);
+    } else {
+      toast(`Sorry, the ${storeDisplayName} bundle is currently out of stock!`, 'error');
     }
   };
 
-  // CATALOG GRID: Filtering and sorting
-  const filteredProducts = products.filter((p) => {
-    // Hide the special combo item from the normal grid so it only appears in its custom section
-    if (p.id === 'omexo-special-combo') return false;
+  const catalogProducts = siteProducts.filter((p) => p.id !== 'omexo-special-combo');
 
-    const matchesCategory = selectedCategory === 'All' || p.category === selectedCategory;
-    const matchesBrand = selectedBrand === 'All' || p.brand === selectedBrand;
-    const matchesSearch = p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          p.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          p.category.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesPrice = p.salePrice <= localPriceLimit;
+  const filteredProducts = catalogProducts.filter((p) => {
+    const subLower = selectedSubcategory.toLowerCase();
+    const matchesSubcategory =
+      selectedSubcategory === 'All' ||
+      p.title.toLowerCase().includes(subLower.replace(/s$/, '')) ||
+      p.description.toLowerCase().includes(subLower.replace(/s$/, '')) ||
+      Object.values(p.specs || {}).some((val) =>
+        String(val).toLowerCase().includes(subLower.replace(/s$/, ''))
+      );
+
+    const matchesSearch =
+      !searchQuery.trim() ||
+      p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.brand && p.brand.toLowerCase().includes(searchQuery.toLowerCase()));
+
     const matchesStock = !onlyInStock || p.stockCount > 0;
-    
-    return matchesCategory && matchesBrand && matchesSearch && matchesPrice && matchesStock;
+
+    return matchesSubcategory && matchesSearch && matchesStock;
   });
 
-  // Apply sorting
   const sortedProducts = [...filteredProducts].sort((a, b) => {
     if (sortBy === 'price-low') return a.salePrice - b.salePrice;
     if (sortBy === 'price-high') return b.salePrice - a.salePrice;
-    if (sortBy === 'rating') return b.salePrice - a.salePrice; // Simulated rating sort
     if (sortBy === 'alphabetical') return a.title.localeCompare(b.title);
-    return 0; // default featured
+    return 0;
   });
 
-  // Max price for dynamic range
-  const maxProductPrice = Math.max(...products.map(p => p.salePrice), 15000);
+  const featuredPromoBanner = banners[0];
+  const approvedReviews = reviews.filter((r) => r.status === 'Approved');
 
   return (
-    <div className="space-y-16 pb-24 animate-in fade-in duration-300" id="homepage-container">
-      
-      {/* 2. HERO SECTION: Premium D2C Instagram Poster-Inspired */}
-      <section className="relative overflow-hidden rounded-[32px] bg-pine-green text-warm-white min-h-[500px] flex items-center shadow-lg" id="hero-banner">
-        {/* Abstract Soft Light Glow Element */}
-        <div className="absolute top-0 right-0 w-[450px] h-[450px] bg-[radial-gradient(circle,rgba(232,224,210,0.12),transparent_70%)] pointer-events-none z-0" />
-        <div className="absolute bottom-[-100px] left-[-100px] w-[350px] h-[350px] bg-[radial-gradient(circle,rgba(255,255,255,0.05),transparent_60%)] pointer-events-none z-0" />
-        
-        {/* Subtle grid mesh overlay */}
-        <div className="absolute inset-0 opacity-5 bg-[linear-gradient(to_right,#FAF9F4_1px,transparent_1px),linear-gradient(to_bottom,#FAF9F4_1px,transparent_1px)] [background-size:24px_24px] z-0" />
-
-        <div className="relative z-10 w-full px-6 md:px-16 py-12 md:py-16 grid grid-cols-1 md:grid-cols-12 gap-10 items-center">
-          {/* Hero text */}
-          <div className="md:col-span-6 space-y-6 text-left">
-            <span className="inline-flex items-center gap-1.5 bg-white/10 border border-white/20 px-3 py-1 rounded-full text-[10px] font-bold tracking-widest text-soft-beige uppercase backdrop-blur-md">
-              <Sparkles className="w-3 h-3 text-soft-beige animate-pulse" />
-              {heroConfig.badge}
-            </span>
-            
-            <div className="space-y-2">
-              <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight leading-tight text-warm-white text-balance whitespace-pre-line">
-                {heroConfig.title}
-              </h1>
-              <p className="text-sm md:text-base text-warm-white/80 max-w-md leading-relaxed font-normal">
-                {heroConfig.description}
-              </p>
+    <div className="space-y-10 pb-8 text-left" id="homepage-container">
+      {/* 1. COMPACT HERO BANNER (Admin-Editable per store) */}
+      <section
+        className="rounded-3xl bg-pine-green text-warm-white p-6 sm:p-8 md:p-12 shadow-md"
+        id="hero-banner"
+      >
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-10 items-center">
+          <div className="md:col-span-7 space-y-4">
+            <div className="text-[11px] font-bold tracking-widest text-soft-beige uppercase">
+              {heroConfig.badge} · Cash on Delivery Across India
             </div>
 
-            <div className="flex flex-wrap gap-3 pt-2">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight leading-[1.1] text-warm-white whitespace-pre-line text-balance">
+              {heroConfig.title}
+            </h1>
+
+            <p className="text-xs sm:text-sm md:text-base text-warm-white/80 max-w-lg leading-relaxed">
+              {heroConfig.description}
+            </p>
+
+            <div className="flex flex-wrap gap-3 pt-1">
               <button
+                type="button"
                 onClick={() => {
-                  const el = document.getElementById('catalog-deck');
-                  el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  document.getElementById('catalog-deck')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }}
-                className="px-6 py-3 bg-warm-white hover:bg-soft-beige text-pine-green font-extrabold rounded-full text-xs uppercase tracking-widest transition-all duration-200 hover:scale-[1.02] active:scale-100 shadow-md cursor-pointer"
+                className="px-6 py-3 min-h-[44px] bg-warm-white hover:bg-soft-beige text-pine-green font-extrabold rounded-full text-xs uppercase tracking-widest transition-colors cursor-pointer whitespace-nowrap"
               >
                 {heroConfig.primaryCtaText}
               </button>
               <button
+                type="button"
                 onClick={() => {
-                  const el = document.getElementById('categories-section');
-                  el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  if (heroConfig.secondaryCtaText.toLowerCase().includes('track')) {
+                    navigate('track-order', undefined, siteSlug);
+                  } else {
+                    document.getElementById('catalog-deck')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }
                 }}
-                className="px-6 py-3 bg-white/10 hover:bg-white/20 text-warm-white border border-white/20 font-extrabold rounded-full text-xs uppercase tracking-widest transition-all duration-200 cursor-pointer"
+                className="px-5 py-3 min-h-[44px] bg-white/10 hover:bg-white/20 text-warm-white border border-white/20 font-bold rounded-full text-xs uppercase tracking-widest transition-colors cursor-pointer whitespace-nowrap"
               >
                 {heroConfig.secondaryCtaText}
               </button>
             </div>
           </div>
 
-          {/* Clean product-hero composition on the right */}
-          <div className="md:col-span-6 flex justify-center relative">
-            <div className="relative p-6 bg-white/10 backdrop-blur-md border border-white/20 rounded-[32px] shadow-2xl max-w-sm w-full group overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-tr from-white/10 via-transparent to-white/5 pointer-events-none" />
-              <img 
-                src={heroConfig.cardImage} 
-                alt={heroConfig.cardTitle} 
-                className="max-h-[260px] w-full object-cover rounded-2xl drop-shadow-[0_15px_30px_rgba(0,0,0,0.2)] transition-transform duration-500 group-hover:scale-102"
+          <div className="hidden md:flex md:col-span-5 justify-end">
+            <div className="bg-white/10 border border-white/15 rounded-2xl p-4 w-full max-w-xs space-y-3">
+              <img
+                src={heroConfig.cardImage}
+                alt={heroConfig.cardTitle}
+                className="h-48 w-full object-cover rounded-xl"
                 referrerPolicy="no-referrer"
               />
-              <div className="mt-4 flex items-center justify-between text-left">
-                <div>
-                  <h4 className="text-sm font-bold tracking-wide text-warm-white">{heroConfig.cardTitle}</h4>
-                  <p className="text-[10px] text-warm-white/60">{heroConfig.cardSubtitle}</p>
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <h4 className="text-sm font-bold text-warm-white truncate">{heroConfig.cardTitle}</h4>
+                  <p className="text-[11px] text-warm-white/70 truncate">{heroConfig.cardSubtitle}</p>
                 </div>
-                <div className="text-right">
-                  <div className="text-sm font-black text-soft-beige">₹{heroConfig.cardPrice}</div>
-                  {heroConfig.cardRegularPrice > 0 && (
-                    <div className="text-[9px] line-through text-warm-white/40">₹{heroConfig.cardRegularPrice}</div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 3. TRUST / BENEFITS BAR: Glassmorphism Cards */}
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-4" id="premium-trust-badges">
-        {[
-          { title: 'ALL INDIA FREE DELIVERY', desc: 'Guaranteed air express dispatch.', icon: Truck },
-          { title: 'COD AVAILABLE', desc: 'Zero advance payment required.', icon: ShieldCheck },
-          { title: 'QUALITY PRODUCTS', desc: 'Handpicked and carefully tested.', icon: Award },
-          { title: 'EASY SHOPPING', desc: 'WhatsApp support & quick replace.', icon: RefreshCw }
-        ].map((badge, idx) => {
-          const Icon = badge.icon;
-          return (
-            <div 
-              key={idx} 
-              className="p-5 glass-card rounded-[20px] flex flex-col items-center text-center gap-3 transition-all duration-300 hover:border-pine-green/35"
-            >
-              <div className="w-10 h-10 bg-pine-green/5 rounded-full flex items-center justify-center text-pine-green border border-pine-green/10 shrink-0">
-                <Icon className="w-4 h-4" />
-              </div>
-              <div className="space-y-1">
-                <h4 className="text-[10px] font-extrabold text-pine-green uppercase tracking-widest">{badge.title}</h4>
-                <p className="text-[9px] text-pine-green/60 font-semibold">{badge.desc}</p>
-              </div>
-            </div>
-          );
-        })}
-      </section>
-
-      {/* 6. PRODUCT CATEGORY SECTION: Minimal Glass Cards */}
-      <section className="space-y-6 pt-4" id="categories-section">
-        <div className="text-center space-y-1">
-          <h2 className="text-xs font-bold uppercase tracking-widest text-pine-green/50">CURATED SPACES</h2>
-          <p className="text-xl font-extrabold text-pine-green font-display">Shop by Curated Collections</p>
-        </div>
-
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {categories.map((cat, idx) => {
-            const isSelected = selectedCategory === cat.name;
-            const fallbackImages = [
-              'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?auto=format&fit=crop&w=400&q=80',
-              'https://images.unsplash.com/photo-1595225476474-87563907a212?auto=format&fit=crop&w=400&q=80',
-              'https://images.unsplash.com/photo-1542496658-e33a6d0d50f6?auto=format&fit=crop&w=400&q=80',
-              'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=400&q=80'
-            ];
-            const catImage = cat.image || fallbackImages[idx % fallbackImages.length];
-
-            return (
-              <div
-                key={cat.id || idx}
-                onClick={() => {
-                  setSelectedCategory(cat.name);
-                  setSelectedBrand('All');
-                  const el = document.getElementById('catalog-deck');
-                  el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }}
-                className={`group relative aspect-[4/3] rounded-[24px] overflow-hidden cursor-pointer transition-all duration-300 border ${
-                  isSelected ? 'border-pine-green ring-1 ring-pine-green shadow-md' : 'border-pine-green/10 shadow-sm'
-                }`}
-              >
-                <img 
-                  src={catImage} 
-                  alt={cat.name} 
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
-                  referrerPolicy="no-referrer"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-pine-green via-pine-green/30 to-transparent opacity-85 group-hover:opacity-90 transition-opacity" />
-                
-                <div className="absolute bottom-4 left-4 text-left">
-                  <span className="text-[8px] font-bold uppercase tracking-widest text-soft-beige block mb-0.5">COLLECTION</span>
-                  <h4 className="text-sm font-bold tracking-wide uppercase text-warm-white">{cat.name}</h4>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* 5. SPECIAL COMBO SECTION: Gorgeous Frosted Glass Composition */}
-      {comboConfig.isActive && (
-        <section className="pt-4" id="combo-promo">
-          <div className="relative rounded-[32px] overflow-hidden border border-pine-green/15 bg-soft-beige/50 p-8 md:p-12 shadow-lg text-left">
-            {/* Subtle grid mesh and radial backlight */}
-            <div className="absolute top-[-50px] left-[-50px] w-80 h-80 bg-[radial-gradient(circle,rgba(35,79,30,0.06),transparent_70%)] pointer-events-none" />
-            
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center relative z-10">
-              {/* Combo info */}
-              <div className="lg:col-span-6 space-y-6">
-                <span className="inline-flex items-center gap-1 bg-pine-green/10 border border-pine-green/10 px-3 py-1 rounded-full text-[9px] font-bold tracking-widest text-pine-green uppercase">
-                  {comboConfig.badge}
-                </span>
-                <div className="space-y-2">
-                  <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight text-pine-green font-display">
-                    {comboConfig.title}
-                  </h2>
-                  <p className="text-sm font-bold text-pine-green/70">
-                    {comboConfig.subheadline}
-                  </p>
-                  <p className="text-xs text-pine-green/60 leading-relaxed max-w-md">
-                    {comboConfig.description}
-                  </p>
-                </div>
-
-                {/* Combo Pricing and Button */}
-                <div className="flex items-center gap-4">
-                  <div>
-                    <div className="text-3xl font-black text-pine-green">₹{comboConfig.price}</div>
-                    {comboConfig.valuePrice > 0 && (
-                      <div className="text-xs text-pine-green/40 line-through">Value ₹{comboConfig.valuePrice}</div>
+                {heroConfig.cardPrice > 0 && (
+                  <div className="text-right shrink-0">
+                    <div className="text-sm font-black text-soft-beige tabular-nums">
+                      ₹{heroConfig.cardPrice}
+                    </div>
+                    {heroConfig.cardRegularPrice > 0 && (
+                      <div className="text-[10px] line-through text-warm-white/50 tabular-nums">
+                        ₹{heroConfig.cardRegularPrice}
+                      </div>
                     )}
                   </div>
-                  <button
-                    onClick={handleGetCombo}
-                    className="px-6 py-3 bg-pine-green hover:bg-pine-green-hover text-warm-white font-extrabold rounded-full text-xs uppercase tracking-widest transition-all duration-200 hover:scale-[1.02] shadow-md cursor-pointer"
-                  >
-                    {comboConfig.ctaText}
-                  </button>
-                </div>
-              </div>
-
-              {/* Premium glassmorphism composition show off */}
-              <div className="lg:col-span-6 grid grid-cols-2 gap-4">
-                <div className="glass-card rounded-[24px] p-4 text-center">
-                  <img 
-                    src={comboConfig.card1Image} 
-                    alt={comboConfig.card1Title} 
-                    className="w-full aspect-square object-cover rounded-2xl mb-2"
-                    referrerPolicy="no-referrer"
-                  />
-                  <h5 className="text-[10px] font-bold uppercase tracking-wider text-pine-green">{comboConfig.card1Title}</h5>
-                </div>
-                <div className="glass-card rounded-[24px] p-4 text-center">
-                  <img 
-                    src={comboConfig.card2Image} 
-                    alt={comboConfig.card2Title} 
-                    className="w-full aspect-square object-cover rounded-2xl mb-2"
-                    referrerPolicy="no-referrer"
-                  />
-                  <h5 className="text-[10px] font-bold uppercase tracking-wider text-pine-green">{comboConfig.card2Title}</h5>
-                </div>
+                )}
               </div>
             </div>
           </div>
-        </section>
-      )}
+        </div>
+      </section>
 
-      {/* 4. FEATURED PRODUCTS: Responsive Glassmorphism Grid */}
-      <section className="space-y-8 pt-4 border-t border-pine-green/10" id="catalog-deck">
-        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 text-left">
-          <div className="space-y-1">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-pine-green/50">OMX CATALOG</h2>
-            <p className="text-2xl font-extrabold text-pine-green font-display">Featured Products</p>
+      {/* 2. FAST PRODUCT CATALOG (2-column mobile grid for quick shopping) */}
+      <section className="space-y-4" id="catalog-deck">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h2 className="text-xl sm:text-2xl font-extrabold text-pine-green font-display">
+              {selectedSubcategory === 'All'
+                ? `${storeDisplayName} Products`
+                : `${selectedSubcategory}`}
+            </h2>
+            {searchQuery && (
+              <div className="mt-1 inline-flex items-center gap-2 text-xs text-pine-green/70 font-semibold">
+                <span>Search: &ldquo;{searchQuery}&rdquo;</span>
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="text-pine-green underline cursor-pointer"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
           </div>
 
-          {/* Filtering and Search Controls */}
-          <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
-            {/* Search filter state info */}
-            {searchQuery && (
-              <span className="text-xs font-semibold text-pine-green/60 bg-pine-green/5 px-2.5 py-1.5 rounded-full border border-pine-green/10">
-                Search: "{searchQuery}"
-                <button onClick={() => setSearchQuery('')} className="ml-1.5 hover:text-pine-green font-bold text-[10px]">✕</button>
-              </span>
-            )}
-            
-            {/* Filter Toggle Button */}
+          <div className="flex items-center gap-2 self-start sm:self-auto">
             <button
-              onClick={() => setIsFilterPanelOpen(!isFilterPanelOpen)}
-              className="flex items-center gap-1.5 px-4 py-2 bg-white hover:bg-pine-green/5 text-pine-green border border-pine-green/15 text-xs font-bold rounded-full transition-all cursor-pointer shadow-sm"
+              type="button"
+              onClick={() => setOnlyInStock(!onlyInStock)}
+              className={`min-h-[40px] px-3.5 py-2 rounded-lg text-xs font-bold border transition-colors cursor-pointer whitespace-nowrap ${
+                onlyInStock
+                  ? 'bg-pine-green text-warm-white border-pine-green'
+                  : 'bg-white text-pine-green border-pine-green/15 hover:border-pine-green/35'
+              }`}
               id="catalog-filter-toggle"
             >
-              <SlidersHorizontal className="w-3.5 h-3.5" />
-              <span>Filters</span>
-              {((selectedCategory !== 'All' ? 1 : 0) + (selectedBrand !== 'All' ? 1 : 0) + (onlyInStock ? 1 : 0)) > 0 && (
-                <span className="bg-pine-green text-warm-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center ml-1">
-                  {((selectedCategory !== 'All' ? 1 : 0) + (selectedBrand !== 'All' ? 1 : 0) + (onlyInStock ? 1 : 0))}
-                </span>
-              )}
+              In Stock Only
             </button>
 
-            {/* Sorting Select */}
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="px-4 py-2 text-xs font-bold text-pine-green bg-white rounded-full border border-pine-green/15 focus:outline-none focus:border-pine-green cursor-pointer shadow-sm"
+              className="min-h-[40px] px-3.5 py-2 text-xs font-bold text-pine-green bg-white rounded-lg border border-pine-green/15 focus:outline-none focus:border-pine-green cursor-pointer"
               id="catalog-sort-select"
+              aria-label="Sort products"
             >
-              <option value="featured">Featured First</option>
+              <option value="featured">Featured</option>
               <option value="price-low">Price: Low to High</option>
               <option value="price-high">Price: High to Low</option>
-              <option value="alphabetical">Alphabetical</option>
+              <option value="alphabetical">A to Z</option>
             </select>
           </div>
         </div>
 
-        {/* Collapsible Filters Sheet */}
-        {isFilterPanelOpen && (
-          <div 
-            className="p-6 bg-white/70 backdrop-blur-md border border-pine-green/10 rounded-[24px] space-y-4 animate-in slide-in-from-top-1 duration-150 text-left shadow-sm" 
-            id="filter-panel"
+        {/* Clean Single-Row Scrollable Subcategory Tabs */}
+        <div
+          className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1"
+          role="tablist"
+          aria-label={`${storeDisplayName} Categories`}
+          id="category-filter-tabs"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={selectedSubcategory === 'All'}
+            onClick={() => setSelectedSubcategory('All')}
+            className={`min-h-[40px] px-4 py-2 text-xs font-bold rounded-lg border transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+              selectedSubcategory === 'All'
+                ? 'bg-pine-green text-warm-white border-pine-green'
+                : 'bg-white text-pine-green/80 border-pine-green/15 hover:border-pine-green/40'
+            }`}
+            id="tab-filter-all"
           >
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 items-end">
-              
-              {/* Category Filter */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase text-pine-green/45 tracking-wider">Select Category</label>
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => {
-                    setSelectedCategory(e.target.value);
-                    setSelectedBrand('All');
-                  }}
-                  className="w-full px-3 py-2 border border-pine-green/10 bg-white rounded-xl text-xs font-bold text-pine-green focus:outline-none focus:border-pine-green"
-                >
-                  <option value="All">All Categories</option>
-                  {categories.map(c => (
-                    <option key={c.id} value={c.name}>{c.name}</option>
-                  ))}
-                </select>
-              </div>
+            All ({catalogProducts.length})
+          </button>
 
-              {/* Brand Filter */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase text-pine-green/45 tracking-wider">Select Brand</label>
-                <select
-                  value={selectedBrand}
-                  onChange={(e) => setSelectedBrand(e.target.value)}
-                  className="w-full px-3 py-2 border border-pine-green/10 bg-white rounded-xl text-xs font-bold text-pine-green focus:outline-none focus:border-pine-green"
-                >
-                  <option value="All">All Brands</option>
-                  {brands.map(b => (
-                    <option key={b.id} value={b.name}>{b.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Price Range Slider */}
-              <div className="space-y-1.5">
-                <div className="flex justify-between items-center text-[10px] font-bold uppercase text-pine-green/45 tracking-wider">
-                  <span>Price Constraint</span>
-                  <span className="text-pine-green font-bold">≤ ₹{localPriceLimit}</span>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max={maxProductPrice}
-                  step="50"
-                  value={localPriceLimit}
-                  onChange={(e) => setLocalPriceLimit(Number(e.target.value))}
-                  className="w-full h-1 bg-pine-green/10 rounded appearance-none cursor-pointer accent-pine-green"
-                />
-              </div>
-
-              {/* In stock check */}
-              <div className="flex items-center h-10">
-                <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-bold text-pine-green/70 hover:text-pine-green">
-                  <input
-                    type="checkbox"
-                    checked={onlyInStock}
-                    onChange={(e) => setOnlyInStock(e.target.checked)}
-                    className="w-4 h-4 rounded border-pine-green/25 text-pine-green focus:ring-pine-green"
-                  />
-                  <span>Exclude Out of Stock</span>
-                </label>
-              </div>
-
-            </div>
-
-            {/* Clear button */}
-            <div className="flex items-center justify-between pt-3 border-t border-pine-green/5">
-              <span className="text-[10px] font-semibold text-pine-green/40">
-                Found {sortedProducts.length} premium results matching filters.
-              </span>
+          {activeBrand.subcategories.map((sub) => {
+            const active = selectedSubcategory === sub;
+            return (
               <button
-                onClick={() => {
-                  setSelectedCategory('All');
-                  setSelectedBrand('All');
-                  setSearchQuery('');
-                  setLocalPriceLimit(30000);
-                  setOnlyInStock(false);
-                  setSortBy('featured');
-                }}
-                className="px-3 py-1 bg-pine-green/5 hover:bg-pine-green/10 text-[9px] font-bold uppercase tracking-widest text-pine-green rounded-full transition-colors"
+                key={sub}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setSelectedSubcategory(active ? 'All' : sub)}
+                className={`min-h-[40px] px-4 py-2 text-xs font-bold rounded-lg border transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                  active
+                    ? 'bg-pine-green text-warm-white border-pine-green'
+                    : 'bg-white text-pine-green/80 border-pine-green/15 hover:border-pine-green/40'
+                }`}
               >
-                Reset Filters
+                {sub}
               </button>
-            </div>
-          </div>
-        )}
+            );
+          })}
+        </div>
 
-        {/* Dynamic Catalog Grid */}
+        {/* Product Grid: 2 Columns Mobile, 3 Tablet, 4 Desktop */}
         {sortedProducts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 px-4 text-center glass-card rounded-[32px] space-y-4" id="empty-search-state">
-            <div className="p-4 bg-pine-green/5 border border-pine-green/5 text-pine-green/40 rounded-full">
-              <Search className="w-6 h-6" />
-            </div>
-            <div className="space-y-1">
-              <h3 className="text-sm font-bold text-pine-green uppercase tracking-wider">No matching products found</h3>
-              <p className="text-xs text-pine-green/60 max-w-sm leading-relaxed">
-                We couldn't locate any products matching the selected criteria. Try resetting active filters.
-              </p>
-            </div>
+          <div
+            className="flex flex-col items-center justify-center py-12 px-4 text-center bg-white border border-pine-green/10 rounded-3xl space-y-3"
+            id="empty-search-state"
+          >
+            <Search className="w-6 h-6 text-pine-green/40" />
+            <h3 className="text-sm font-bold text-pine-green">No matching products found</h3>
             <button
+              type="button"
               onClick={() => {
                 setSearchQuery('');
-                setSelectedCategory('All');
-                setSelectedBrand('All');
-                setLocalPriceLimit(30000);
+                setSelectedSubcategory('All');
                 setOnlyInStock(false);
               }}
-              className="px-5 py-2.5 bg-pine-green hover:bg-pine-green-hover text-warm-white text-xs font-bold rounded-full transition-all cursor-pointer uppercase tracking-wider"
+              className="px-5 py-2.5 bg-pine-green text-warm-white text-xs font-bold rounded-full cursor-pointer"
             >
-              Clear Filters
+              Show All Products
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6" id="products-grid">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5" id="products-grid">
             {sortedProducts.map((prod) => {
               const isSoldOut = prod.stockCount <= 0;
-              const discountPercentage = Math.round(((prod.regularPrice - prod.salePrice) / prod.regularPrice) * 100);
-              
+              const discountPercentage =
+                prod.regularPrice > prod.salePrice
+                  ? Math.round(((prod.regularPrice - prod.salePrice) / prod.regularPrice) * 100)
+                  : 0;
+              const whatsappOrderUrl = buildProductWhatsAppUrl(prod, storeSettings);
+
               return (
                 <div
                   key={prod.id}
-                  onClick={() => navigate('product', { id: prod.id })}
-                  className="group flex flex-col justify-between rounded-[28px] glass-card overflow-hidden hover:border-pine-green/35 transition-all duration-300 p-4 relative cursor-pointer"
+                  onClick={() => navigate('product', { id: prod.id }, siteSlug)}
+                  className="group flex flex-col justify-between rounded-2xl bg-white border border-pine-green/10 hover:border-pine-green/35 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 p-2.5 sm:p-4 cursor-pointer shadow-sm"
                   id={`product-card-${prod.id}`}
                 >
-                  {/* Media Aspect block */}
-                  <div className="relative aspect-square rounded-[20px] overflow-hidden bg-white/40 mb-4 border border-white/30">
-                    <img
-                      src={prod.images[0]}
-                      alt={prod.title}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-104"
-                      referrerPolicy="no-referrer"
-                    />
-                    
-                    {/* Floating Labels */}
-                    <div className="absolute top-2.5 left-2.5 flex flex-col gap-1 z-10">
-                      {prod.isTrending && (
-                        <span className="text-[8px] font-bold uppercase bg-pine-green text-warm-white px-2 py-0.5 rounded-full tracking-wider flex items-center gap-0.5">
-                          <Flame className="w-2.5 h-2.5 fill-warm-white text-warm-white" /> Trending
-                        </span>
-                      )}
-                      {discountPercentage > 0 && (
-                        <span className="text-[8px] font-bold uppercase bg-soft-beige text-pine-green px-2 py-0.5 rounded-full tracking-wider">
-                          Save {discountPercentage}%
-                        </span>
+                  {/* Image */}
+                  <div>
+                    <div className="relative aspect-square rounded-xl overflow-hidden bg-soft-beige/40 mb-2.5 sm:mb-3">
+                      <img
+                        src={prod.images[0]}
+                        alt={prod.title}
+                        loading="lazy"
+                        decoding="async"
+                        onError={(e) => {
+                          e.currentTarget.style.opacity = '0';
+                        }}
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                        referrerPolicy="no-referrer"
+                      />
+                      {isSoldOut && (
+                        <div className="absolute inset-0 bg-warm-white/85 flex items-center justify-center">
+                          <span className="bg-pine-green text-warm-white text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full">
+                            Out of Stock
+                          </span>
+                        </div>
                       )}
                     </div>
 
-                    {/* Stock Overlays */}
-                    {isSoldOut ? (
-                      <div className="absolute inset-0 bg-warm-white/80 backdrop-blur-sm flex items-center justify-center z-10">
-                        <span className="bg-pine-green text-warm-white text-[8px] font-bold uppercase tracking-widest px-2.5 py-1.5 rounded-full">
-                          Out of Stock
-                        </span>
-                      </div>
-                    ) : prod.stockCount < 5 ? (
-                      <div className="absolute bottom-2 left-2 z-10">
-                        <span className="bg-white/90 backdrop-blur-sm text-pine-green text-[8px] font-bold uppercase px-2 py-0.5 rounded-full border border-pine-green/10">
-                          Only {prod.stockCount} left
-                        </span>
-                      </div>
-                    ) : null}
+                    {/* Unboxed Metadata Line */}
+                    <div className="text-[10px] sm:text-[11px] font-semibold text-pine-green/60 mb-1 truncate">
+                      {discountPercentage > 0 ? (
+                        <span className="text-pine-green font-bold">Save {discountPercentage}%</span>
+                      ) : (
+                        <span>{activeBrand.shortLabel}</span>
+                      )}
+                      {prod.stockCount > 0 && prod.stockCount < 5 && (
+                        <span> · Only {prod.stockCount} left</span>
+                      )}
+                    </div>
+
+                    <h3 className="text-xs sm:text-sm font-bold text-pine-green line-clamp-2 leading-snug mb-1.5">
+                      {prod.title}
+                    </h3>
                   </div>
 
-                  {/* Meta details */}
-                  <div className="flex-1 flex flex-col justify-between text-left">
-                    <div>
-                      <span className="text-[9px] font-bold text-pine-green/40 tracking-wider uppercase mb-1 block">
-                        {prod.category} {prod.brand ? `· ${prod.brand}` : ''}
-                      </span>
-                      <h4 className="text-xs font-bold text-pine-green line-clamp-2 leading-snug transition-colors mb-1.5 group-hover:text-pine-green-hover">
-                        {prod.title}
-                      </h4>
-                      
-                      {/* Short Description */}
-                      <p className="text-[10px] text-pine-green/60 line-clamp-1 mb-2 font-medium">
-                        {prod.description}
-                      </p>
-                      
-                      {/* Rating */}
-                      <div className="flex items-center gap-1 text-[10px] text-pine-green/60 mb-3">
-                        <Star className="w-3 h-3 text-pine-green fill-pine-green" />
-                        <span className="font-extrabold text-pine-green">4.9</span>
-                        <span>· Verified</span>
-                      </div>
-                    </div>
-
-                    {/* Prices and dynamic action buttons */}
-                    <div className="space-y-3 pt-2 border-t border-pine-green/5">
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-xs font-extrabold text-pine-green">
+                  {/* Price & Fast Actions */}
+                  <div className="space-y-2 pt-2 border-t border-pine-green/10 mt-auto">
+                    <div className="flex items-baseline justify-between gap-1">
+                      <div className="flex items-baseline gap-1.5 flex-wrap">
+                        <span className="text-sm sm:text-base font-extrabold text-pine-green tabular-nums">
                           ₹{prod.salePrice.toLocaleString('en-IN')}
                         </span>
                         {prod.regularPrice > prod.salePrice && (
-                          <span className="text-[10px] text-pine-green/40 line-through">
+                          <span className="text-[11px] text-pine-green/45 line-through tabular-nums">
                             ₹{prod.regularPrice.toLocaleString('en-IN')}
                           </span>
                         )}
                       </div>
+                    </div>
 
-                      {/* Buttons */}
-                      <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1.5">
+                      <div className="flex gap-1.5">
                         <button
-                          onClick={(e) => handleAddToCart(prod, e)}
-                          disabled={isSoldOut}
-                          className="py-2.5 bg-white/50 hover:bg-white text-pine-green border border-pine-green/10 hover:border-pine-green/25 disabled:opacity-50 disabled:cursor-not-allowed font-bold rounded-xl text-[9px] uppercase tracking-wider transition-all duration-150 flex items-center justify-center gap-1"
-                          id={`card-add-to-cart-${prod.id}`}
-                        >
-                          <ShoppingCart className="w-3 h-3 text-pine-green/60" />
-                          Cart
-                        </button>
-                        <button
+                          type="button"
                           onClick={(e) => handleBuyNow(prod, e)}
                           disabled={isSoldOut}
-                          className="py-2.5 bg-pine-green hover:bg-pine-green-hover text-warm-white disabled:opacity-50 disabled:cursor-not-allowed font-bold rounded-xl text-[9px] uppercase tracking-wider transition-all duration-150 flex items-center justify-center gap-1"
+                          className="flex-1 min-h-[38px] sm:min-h-[40px] bg-pine-green hover:bg-pine-green-hover text-warm-white disabled:opacity-50 disabled:cursor-not-allowed font-bold rounded-xl text-[11px] uppercase tracking-wider transition-colors flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap px-2"
                           id={`card-buy-now-${prod.id}`}
                         >
-                          <Zap className="w-3 h-3 fill-warm-white" />
-                          Buy
+                          <Zap className="w-3 h-3 fill-warm-white shrink-0" />
+                          <span>Buy Now</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={(e) => handleAddToCart(prod, e)}
+                          disabled={isSoldOut}
+                          className="w-10 min-h-[38px] sm:min-h-[40px] bg-soft-beige/60 hover:bg-soft-beige text-pine-green border border-pine-green/15 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl flex items-center justify-center cursor-pointer shrink-0 transition-colors"
+                          id={`card-add-to-cart-${prod.id}`}
+                          aria-label={`Add ${prod.title} to bag`}
+                          title="Add to Bag"
+                        >
+                          <ShoppingCart className="w-4 h-4" />
                         </button>
                       </div>
+
+                      <a
+                        href={whatsappOrderUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-full min-h-[38px] sm:min-h-[40px] px-2 bg-[#1E8E3E] hover:bg-[#167330] text-white font-bold rounded-xl text-[11px] uppercase tracking-wider transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap"
+                        id={`card-whatsapp-order-${prod.id}`}
+                      >
+                        <MessageCircle className="w-3.5 h-3.5 shrink-0" />
+                        <span>WhatsApp</span>
+                      </a>
                     </div>
                   </div>
                 </div>
@@ -626,66 +442,160 @@ export const Home: React.FC = () => {
         )}
       </section>
 
-      {/* 5. CUSTOMER REVIEWS & WALL OF LOVE SECTION */}
-      <section className="space-y-8 pt-12 border-t border-pine-green/10" id="customer-reviews-section">
-        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 text-left">
-          <div className="space-y-1">
-            <div className="inline-flex items-center gap-1.5 bg-pine-green/10 px-3 py-1 rounded-full text-[9.5px] font-bold tracking-widest text-pine-green uppercase">
-              <Star className="w-3 h-3 fill-pine-green text-pine-green" />
-              <span>4.9 / 5.0 RATING OVER 1,200+ DELIVERIES</span>
+      {/* 3. SPECIAL COMBO (Only rendered if enabled in THIS store's Admin Panel) */}
+      {comboConfig.isActive && (
+        <section id="combo-promo">
+          <div className="rounded-3xl border border-pine-green/15 bg-soft-beige/65 p-5 sm:p-8 shadow-sm">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+              <div className="md:col-span-7 space-y-3">
+                <span className="text-[11px] font-bold tracking-widest text-pine-green uppercase">
+                  {comboConfig.badge}
+                </span>
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-pine-green font-display">
+                  {comboConfig.title}
+                </h2>
+                <p className="text-xs sm:text-sm text-pine-green/75 leading-relaxed max-w-lg">
+                  {comboConfig.description}
+                </p>
+
+                <div className="flex flex-wrap items-center gap-4 pt-1">
+                  <div>
+                    <div className="text-2xl sm:text-3xl font-black text-pine-green tabular-nums">
+                      ₹{comboConfig.price}
+                    </div>
+                    {comboConfig.valuePrice > 0 && (
+                      <div className="text-xs text-pine-green/50 line-through tabular-nums">
+                        Value ₹{comboConfig.valuePrice}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleGetCombo}
+                    className="px-6 py-3 min-h-[44px] bg-pine-green hover:bg-pine-green-hover text-warm-white font-extrabold rounded-full text-xs uppercase tracking-widest transition-colors cursor-pointer"
+                  >
+                    {comboConfig.ctaText}
+                  </button>
+                </div>
+              </div>
+
+              <div className="md:col-span-5 grid grid-cols-2 gap-3">
+                <div className="bg-white rounded-2xl p-3 border border-pine-green/10 text-center">
+                  <img
+                    src={comboConfig.card1Image}
+                    alt={comboConfig.card1Title}
+                    loading="lazy"
+                    decoding="async"
+                    className="w-full aspect-square object-cover rounded-xl mb-2"
+                    referrerPolicy="no-referrer"
+                  />
+                  <h5 className="text-[11px] font-bold text-pine-green truncate">
+                    {comboConfig.card1Title}
+                  </h5>
+                </div>
+                <div className="bg-white rounded-2xl p-3 border border-pine-green/10 text-center">
+                  <img
+                    src={comboConfig.card2Image}
+                    alt={comboConfig.card2Title}
+                    loading="lazy"
+                    decoding="async"
+                    className="w-full aspect-square object-cover rounded-xl mb-2"
+                    referrerPolicy="no-referrer"
+                  />
+                  <h5 className="text-[11px] font-bold text-pine-green truncate">
+                    {comboConfig.card2Title}
+                  </h5>
+                </div>
+              </div>
             </div>
-            <h2 className="text-2xl md:text-3xl font-extrabold text-pine-green font-display tracking-tight">
-              What Our Customers Say
+          </div>
+        </section>
+      )}
+
+      {/* Optional Compact Admin Banner (if configured cleanly in Admin -> Slide Banners) */}
+      {featuredPromoBanner && (
+        <section className="rounded-2xl bg-white border border-pine-green/10 p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+          <div className="space-y-1 max-w-2xl">
+            <div className="text-[10px] font-extrabold uppercase tracking-widest text-pine-green/60">
+              {featuredPromoBanner.badge}
+            </div>
+            <h3 className="text-base sm:text-lg font-extrabold text-pine-green font-display">
+              {featuredPromoBanner.title}
+            </h3>
+            <p className="text-xs text-pine-green/70">{featuredPromoBanner.description}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              document.getElementById('catalog-deck')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
+            className="inline-flex items-center gap-1.5 px-5 py-2.5 min-h-[42px] bg-pine-green hover:bg-pine-green-hover text-warm-white font-bold rounded-full text-xs uppercase tracking-wider transition-colors shrink-0 self-start sm:self-center cursor-pointer"
+          >
+            <span>{featuredPromoBanner.primaryCta || `Shop ${activeBrand.shortLabel}`}</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </section>
+      )}
+
+      {/* 4. COMPACT CUSTOMER REVIEWS (Strictly scoped to active store) */}
+      <section className="space-y-4 pt-6 border-t border-pine-green/10" id="customer-reviews-section">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-1.5 text-xs font-bold text-pine-green/70">
+              <Star className="w-3.5 h-3.5 fill-pine-green text-pine-green" />
+              <span>4.9 / 5.0 Verified {storeDisplayName} Buyers</span>
+            </div>
+            <h2 className="text-xl font-extrabold text-pine-green font-display">
+              Customer Feedback
             </h2>
-            <p className="text-xs font-bold text-pine-green/60 max-w-xl">
-              Real feedback from verified buyers across India. Managed and moderated live from our admin panel.
-            </p>
           </div>
 
           <button
+            type="button"
             onClick={() => {
               setIsReviewModalOpen(true);
               setRevRating(5);
               setRevCustomerName('');
-              setRevProductName(products[0]?.title || '');
+              setRevProductName(catalogProducts[0]?.title || '');
               setRevText('');
             }}
-            className="px-5 py-2.5 bg-pine-green hover:bg-pine-green-hover text-warm-white font-extrabold rounded-full text-xs uppercase tracking-widest shadow-md transition-all cursor-pointer flex items-center gap-2 self-start md:self-auto"
+            className="px-4 py-2 min-h-[40px] bg-pine-green hover:bg-pine-green-hover text-warm-white font-bold rounded-full text-xs uppercase tracking-wider transition-colors cursor-pointer inline-flex items-center gap-1.5"
           >
-            <Plus className="w-4 h-4" />
-            <span>Write a Review</span>
+            <Plus className="w-3.5 h-3.5" />
+            <span>Write Review</span>
           </button>
         </div>
 
-        {/* Reviews Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-left">
-          {reviews.filter(r => r.status === 'Approved').map((rev) => (
-            <div key={rev.id} className="glass-card rounded-[24px] p-6 border border-pine-green/10 bg-soft-beige/40 flex flex-col justify-between space-y-4 hover:shadow-md transition-shadow">
-              <div className="space-y-3">
-                {/* Stars Rating */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {approvedReviews.map((rev) => (
+            <div
+              key={rev.id}
+              className="rounded-2xl p-4 sm:p-5 border border-pine-green/10 bg-white flex flex-col justify-between space-y-3 shadow-sm"
+            >
+              <div className="space-y-2">
                 <div className="flex items-center gap-1">
                   {[...Array(5)].map((_, i) => (
-                    <Star 
-                      key={i} 
-                      className={`w-4 h-4 ${i < rev.rating ? 'fill-amber-500 text-amber-500' : 'text-zinc-300'}`} 
+                    <Star
+                      key={i}
+                      className={`w-3.5 h-3.5 ${
+                        i < rev.rating ? 'fill-amber-500 text-amber-500' : 'text-zinc-300'
+                      }`}
                     />
                   ))}
-                  <span className="ml-2 text-xs font-black text-pine-green font-mono">{rev.rating}.0</span>
                 </div>
-
-                <p className="text-xs font-bold text-pine-green leading-relaxed italic">
-                  "{rev.reviewText}"
+                <p className="text-xs font-medium text-pine-green/85 leading-relaxed">
+                  &ldquo;{rev.reviewText}&rdquo;
                 </p>
               </div>
 
-              <div className="pt-3 border-t border-pine-green/10 flex items-center justify-between">
-                <div>
-                  <h4 className="text-xs font-extrabold text-pine-green uppercase font-display">{rev.customerName}</h4>
-                  <p className="text-[10px] font-semibold text-pine-green/60">{rev.productName}</p>
+              <div className="pt-2.5 border-t border-pine-green/10 flex items-center justify-between gap-2 text-xs">
+                <div className="min-w-0">
+                  <div className="font-extrabold text-pine-green truncate">{rev.customerName}</div>
+                  <div className="text-[11px] text-pine-green/55 truncate">{rev.productName}</div>
                 </div>
-                <div className="flex items-center gap-1 text-[9px] font-extrabold text-pine-green bg-pine-green/10 px-2 py-0.5 rounded-full">
-                  <CheckCircle2 className="w-3 h-3 text-pine-green" />
-                  <span>Verified Buyer</span>
+                <div className="flex items-center gap-1 text-[10px] font-bold text-pine-green shrink-0">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-pine-green" />
+                  <span>Verified</span>
                 </div>
               </div>
             </div>
@@ -695,16 +605,19 @@ export const Home: React.FC = () => {
 
       {/* WRITE A REVIEW MODAL */}
       {isReviewModalOpen && (
-        <div className="fixed inset-0 bg-pine-green/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-warm-white border border-pine-green/20 rounded-[32px] max-w-md w-full p-6 text-left space-y-5 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 bg-pine-green/55 z-50 flex items-center justify-center p-4">
+          <div className="bg-warm-white border border-pine-green/20 rounded-3xl max-w-md w-full p-5 sm:p-6 text-left space-y-4 shadow-2xl">
             <div className="flex items-center justify-between border-b border-pine-green/10 pb-3">
               <div>
-                <h3 className="text-sm font-extrabold uppercase tracking-wider text-pine-green font-display">Write a Product Review</h3>
-                <p className="text-[10px] font-bold text-pine-green/50 uppercase mt-0.5">Share your feedback with the Omexo community</p>
+                <h3 className="text-sm font-extrabold uppercase tracking-wider text-pine-green font-display">
+                  Review {storeDisplayName}
+                </h3>
               </div>
-              <button 
+              <button
+                type="button"
                 onClick={() => setIsReviewModalOpen(false)}
-                className="text-pine-green/40 hover:text-pine-green p-1"
+                className="text-pine-green/50 hover:text-pine-green p-1.5 cursor-pointer"
+                aria-label="Close review modal"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -714,88 +627,104 @@ export const Home: React.FC = () => {
               onSubmit={async (e) => {
                 e.preventDefault();
                 if (!revCustomerName.trim() || !revText.trim()) {
-                  toast('Please enter your name and review feedback text.', 'error');
+                  toast('Please enter your name and review text.', 'error');
                   return;
                 }
-                await addReview({
-                  customerName: revCustomerName,
-                  productName: revProductName || (products[0]?.title || 'Omexo Product'),
-                  rating: revRating,
-                  reviewText: revText,
-                  status: 'Approved'
-                });
-                toast('Thank you! Your product review was published live!', 'success');
+                await addReview(
+                  {
+                    customerName: revCustomerName.trim(),
+                    productName: revProductName || catalogProducts[0]?.title || storeDisplayName,
+                    rating: revRating,
+                    reviewText: revText.trim(),
+                    status: 'Pending',
+                  },
+                  siteSlug
+                );
+                toast(`Thank you! Your review will appear once verified.`, 'success');
                 setIsReviewModalOpen(false);
               }}
-              className="space-y-4 text-xs font-bold text-pine-green"
+              className="space-y-3 text-xs font-bold text-pine-green"
             >
               <div className="space-y-1">
-                <label className="text-[9px] font-bold uppercase text-pine-green/60 tracking-wider">Your Full Name</label>
+                <label className="text-[10px] font-bold uppercase text-pine-green/60 tracking-wider">
+                  Your Name
+                </label>
                 <input
                   type="text"
                   required
                   value={revCustomerName}
                   onChange={(e) => setRevCustomerName(e.target.value)}
                   placeholder="e.g. Rahul Varma"
-                  className="w-full px-3.5 py-2 bg-white border border-pine-green/15 rounded-xl font-bold text-pine-green focus:outline-none"
+                  className="w-full px-3.5 py-2.5 bg-white border border-pine-green/15 rounded-xl font-bold text-pine-green focus:outline-none focus:border-pine-green"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-[9px] font-bold uppercase text-pine-green/60 tracking-wider">Select Product Purchased</label>
+                <label className="text-[10px] font-bold uppercase text-pine-green/60 tracking-wider">
+                  Product
+                </label>
                 <select
                   value={revProductName}
                   onChange={(e) => setRevProductName(e.target.value)}
-                  className="w-full px-3.5 py-2 bg-white border border-pine-green/15 rounded-xl font-bold text-pine-green focus:outline-none"
+                  className="w-full px-3.5 py-2.5 bg-white border border-pine-green/15 rounded-xl font-bold text-pine-green focus:outline-none focus:border-pine-green"
                 >
-                  {products.map((p) => (
-                    <option key={p.id} value={p.title}>{p.title}</option>
+                  {catalogProducts.map((p) => (
+                    <option key={p.id} value={p.title}>
+                      {p.title}
+                    </option>
                   ))}
                 </select>
               </div>
 
               <div className="space-y-1">
-                <label className="text-[9px] font-bold uppercase text-pine-green/60 tracking-wider">Star Rating</label>
-                <div className="flex items-center gap-2 pt-1">
+                <label className="text-[10px] font-bold uppercase text-pine-green/60 tracking-wider">
+                  Rating
+                </label>
+                <div className="flex items-center gap-1.5">
                   {[1, 2, 3, 4, 5].map((star) => (
                     <button
                       key={star}
                       type="button"
                       onClick={() => setRevRating(star)}
-                      className={`p-2 rounded-xl transition-all cursor-pointer ${
-                        revRating >= star ? 'bg-amber-100 text-amber-600 border border-amber-300' : 'bg-zinc-100 text-zinc-400'
+                      className={`p-2 rounded-xl cursor-pointer ${
+                        revRating >= star
+                          ? 'bg-amber-100 text-amber-600 border border-amber-300'
+                          : 'bg-zinc-100 text-zinc-400'
                       }`}
                     >
-                      <Star className={`w-5 h-5 ${revRating >= star ? 'fill-amber-500 text-amber-500' : ''}`} />
+                      <Star
+                        className={`w-4 h-4 ${revRating >= star ? 'fill-amber-500 text-amber-500' : ''}`}
+                      />
                     </button>
                   ))}
-                  <span className="text-xs font-black ml-2">{revRating} / 5 Stars</span>
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="text-[9px] font-bold uppercase text-pine-green/60 tracking-wider">Your Honest Feedback / Review</label>
+                <label className="text-[10px] font-bold uppercase text-pine-green/60 tracking-wider">
+                  Your Feedback
+                </label>
                 <textarea
                   required
                   rows={3}
                   value={revText}
                   onChange={(e) => setRevText(e.target.value)}
-                  placeholder="Describe product quality, design satisfaction, and delivery..."
-                  className="w-full px-3.5 py-2 bg-white border border-pine-green/15 rounded-xl font-bold text-pine-green focus:outline-none resize-none"
+                  placeholder="Share your experience..."
+                  className="w-full px-3.5 py-2.5 bg-white border border-pine-green/15 rounded-xl font-bold text-pine-green focus:outline-none focus:border-pine-green resize-none"
                 />
               </div>
 
-              <div className="flex gap-2 pt-2">
+              <div className="flex gap-2 pt-1">
                 <button
                   type="submit"
-                  className="flex-1 py-3 bg-pine-green hover:bg-pine-green-hover text-warm-white font-extrabold uppercase tracking-widest text-xs rounded-full shadow-md transition-all cursor-pointer"
+                  className="flex-1 py-3 bg-pine-green hover:bg-pine-green-hover text-warm-white font-extrabold uppercase tracking-wider text-xs rounded-full cursor-pointer"
                 >
-                  Submit Product Review
+                  Submit Review
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsReviewModalOpen(false)}
-                  className="px-5 py-3 bg-pine-green/10 text-pine-green font-extrabold uppercase tracking-widest text-xs rounded-full cursor-pointer"
+                  className="px-5 py-3 bg-pine-green/10 text-pine-green font-extrabold uppercase tracking-wider text-xs rounded-full cursor-pointer"
                 >
                   Cancel
                 </button>

@@ -1,8 +1,269 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // 0. Global Default-Deny Safety Net
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if false;
+    }
+
+    // Core Authentication & Validation Primitives
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidOrderId(orderId) {
+      return orderId is string && orderId.size() <= 32 && orderId.matches('^OMX-[0-9]{6}$');
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isVerified() && (
+        request.auth.token.email in [
+          'dm8115589@gmail.com',
+          'omexoofficial@gmail.com',
+          'albin@omexo.in',
+          'fida@omexo.in'
+        ] ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidProduct(data) {
+      return data.keys().hasAll([
+          'id', 'title', 'category', 'description',
+          'salePrice', 'regularPrice', 'stockCount', 'images', 'specs'
+        ])
+        && data.keys().hasOnly([
+          'id', 'title', 'category', 'categorySlug', 'brand', 'description',
+          'salePrice', 'regularPrice', 'stockCount', 'images', 'specs', 'isTrending'
+        ])
+        && data.id is string && data.id.size() >= 1 && data.id.size() <= 128
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
+        && data.category is string && data.category.size() >= 1 && data.category.size() <= 80
+        && (!('categorySlug' in data) || (data.categorySlug is string && data.categorySlug in ['decor', 'essentials', 'lifestyle']))
+        && (!('brand' in data) || (data.brand is string && data.brand.size() <= 80))
+        && data.description is string && data.description.size() <= 5000
+        && data.salePrice is number && data.salePrice >= 0 && data.salePrice <= 1000000
+        && data.regularPrice is number && data.regularPrice >= 0 && data.regularPrice <= 1000000
+        && data.stockCount is int && data.stockCount >= 0 && data.stockCount <= 1000000
+        && data.images is list && data.images.size() >= 1 && data.images.size() <= 10
+        && data.images[0] is string && data.images[0].size() <= 500000
+        && data.specs is map
+        && (!('isTrending' in data) || data.isTrending is bool);
+    }
+
+    function isValidOrderCreate(orderId, data) {
+      return data.keys().hasAll([
+          'id', 'customerName', 'customerPhone', 'customerEmail',
+          'address', 'pincode', 'items', 'totalAmount',
+          'paymentType', 'paymentStatus', 'orderStatus', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'siteSlug', 'customerName', 'customerPhone', 'customerEmail',
+          'address', 'pincode', 'items', 'totalAmount',
+          'paymentType', 'paymentStatus', 'orderStatus', 'createdAt', 'consignmentNumber'
+        ])
+        && data.id == orderId
+        && (!('siteSlug' in data) || (data.siteSlug is string && data.siteSlug in ['decor', 'essentials', 'lifestyle']))
+        && data.customerName is string && data.customerName.size() >= 1 && data.customerName.size() <= 120
+        && data.customerPhone is string && data.customerPhone.size() >= 8 && data.customerPhone.size() <= 25
+        && data.customerEmail is string && data.customerEmail.size() <= 150
+        && data.address is string && data.address.size() >= 3 && data.address.size() <= 500
+        && data.pincode is string && data.pincode.matches('^[0-9]{6}$')
+        && data.items is list && data.items.size() >= 1 && data.items.size() <= 50
+        && data.totalAmount is number && data.totalAmount >= 0 && data.totalAmount <= 10000000
+        && data.paymentType in ['COD', 'Online']
+        && data.paymentStatus in ['Pending', 'Paid']
+        && data.orderStatus == 'Pending'
+        && data.createdAt is string && data.createdAt.size() <= 64;
+    }
+
+    function isValidOrderTrackingCreate(orderId, data) {
+      return data.keys().hasAll([
+          'id', 'orderStatus', 'paymentType', 'paymentStatus',
+          'totalAmount', 'createdAt', 'itemCount'
+        ])
+        && data.keys().hasOnly([
+          'id', 'siteSlug', 'orderStatus', 'paymentType', 'paymentStatus',
+          'totalAmount', 'createdAt', 'itemCount', 'consignmentNumber'
+        ])
+        && data.id == orderId
+        && (!('siteSlug' in data) || (data.siteSlug is string && data.siteSlug in ['decor', 'essentials', 'lifestyle']))
+        && data.orderStatus == 'Pending'
+        && data.paymentType in ['COD', 'Online']
+        && data.paymentStatus in ['Pending', 'Paid']
+        && data.totalAmount is number && data.totalAmount >= 0
+        && data.createdAt is string && data.createdAt.size() <= 64
+        && data.itemCount is int && data.itemCount >= 1 && data.itemCount <= 1000;
+    }
+
+    function isValidReviewCreate(reviewId, data) {
+      return data.keys().hasAll(['id', 'customerName', 'productName', 'rating', 'reviewText', 'date', 'status'])
+        && data.keys().hasOnly(['id', 'siteSlug', 'customerName', 'productName', 'rating', 'reviewText', 'date', 'status'])
+        && data.id == reviewId
+        && (!('siteSlug' in data) || (data.siteSlug is string && data.siteSlug in ['decor', 'essentials', 'lifestyle']))
+        && data.customerName is string && data.customerName.size() >= 1 && data.customerName.size() <= 100
+        && data.productName is string && data.productName.size() >= 1 && data.productName.size() <= 200
+        && data.rating is int && data.rating >= 1 && data.rating <= 5
+        && data.reviewText is string && data.reviewText.size() >= 1 && data.reviewText.size() <= 1000
+        && data.date is string && data.date.size() >= 4 && data.date.size() <= 32
+        && data.status == 'Pending';
+    }
+
+    // 1. Connection Health Check
+    match /test/connection {
+      allow get: if true;
+    }
+
+    // 2. Products Catalog (Strict Admin Write for Details; Checkout can ONLY decrement stockCount)
+    match /products/{productId} {
+      allow get: if isValidId(productId);
+      allow list: if true;
+      allow create: if isValidId(productId) && isAdmin() && isValidProduct(incoming()) && incoming().id == productId;
+      allow update: if isValidId(productId) && (
+        (isAdmin() && isValidProduct(incoming()) && incoming().id == existing().id) ||
+        (
+          incoming().diff(existing()).affectedKeys().hasOnly(['stockCount']) &&
+          incoming().stockCount is int &&
+          incoming().stockCount >= 0 &&
+          incoming().stockCount <= existing().stockCount
+        )
+      );
+      allow delete: if isValidId(productId) && isAdmin();
+    }
+
+    // 3. Categories, Brands, Banners, CMS Pages, Promos (Public Read, Admin Write)
+    match /categories/{categoryId} {
+      allow get: if isValidId(categoryId);
+      allow list: if true;
+      allow create, update, delete: if isValidId(categoryId) && isAdmin();
+    }
+
+    match /brands/{brandId} {
+      allow get: if isValidId(brandId);
+      allow list: if true;
+      allow create, update, delete: if isValidId(brandId) && isAdmin();
+    }
+
+    match /banners/{bannerId} {
+      allow get: if isValidId(bannerId);
+      allow list: if true;
+      allow create, update, delete: if isValidId(bannerId) && isAdmin();
+    }
+
+    match /cmsPages/{pageId} {
+      allow get: if isValidId(pageId);
+      allow list: if true;
+      allow create, update, delete: if isValidId(pageId) && isAdmin();
+    }
+
+    match /promos/{promoId} {
+      allow get: if isValidId(promoId);
+      allow list: if true;
+      allow create, update, delete: if isValidId(promoId) && isAdmin();
+    }
+
+    match /promos_lifestyle/{promoId} {
+      allow get: if isValidId(promoId);
+      allow list: if true;
+      allow create, update, delete: if isValidId(promoId) && isAdmin();
+    }
+
+    match /promos_decor/{promoId} {
+      allow get: if isValidId(promoId);
+      allow list: if true;
+      allow create, update, delete: if isValidId(promoId) && isAdmin();
+    }
+
+    match /promos_essentials/{promoId} {
+      allow get: if isValidId(promoId);
+      allow list: if true;
+      allow create, update, delete: if isValidId(promoId) && isAdmin();
+    }
+
+    // 4. Customer Orders (Strict PII Protection: Admin-Only Read/List/Update/Delete)
+    match /orders/{orderId} {
+      allow get, list: if isAdmin();
+      allow create: if isValidOrderId(orderId) && isValidOrderCreate(orderId, incoming());
+      allow update: if isValidOrderId(orderId)
+        && isAdmin()
+        && incoming().id == existing().id
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['orderStatus', 'paymentStatus', 'consignmentNumber'])
+        && incoming().orderStatus in ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'];
+      allow delete: if isValidOrderId(orderId) && isAdmin();
+    }
+
+    // 5. Public PII-Free Order Tracking Split Collection
+    match /orderTracking/{orderId} {
+      allow get: if isValidOrderId(orderId);
+      allow list: if isAdmin();
+      allow create: if isValidOrderId(orderId) && isValidOrderTrackingCreate(orderId, incoming());
+      allow update, delete: if isValidOrderId(orderId) && isAdmin();
+    }
+
+    // 6. Customer Reviews (Moderated Queue)
+    match /reviews/{reviewId} {
+      allow get: if isValidId(reviewId) && (existing().status == 'Approved' || isAdmin());
+      allow list: if resource.data.status == 'Approved' || isAdmin();
+      allow create: if isValidId(reviewId) && isValidReviewCreate(reviewId, incoming());
+      allow update: if isValidId(reviewId)
+        && isAdmin()
+        && incoming().id == existing().id
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status'])
+        && incoming().status in ['Approved', 'Pending', 'Rejected'];
+      allow delete: if isValidId(reviewId) && isAdmin();
+    }
+
+    // 7. Discount Coupons
+    match /coupons/{couponId} {
+      allow get: if isValidId(couponId) && (existing().isActive == true || isAdmin());
+      allow list: if resource.data.isActive == true || isAdmin();
+      allow create, update, delete: if isValidId(couponId) && isAdmin();
+    }
+
+    // 8. Store Settings & Secret Telegram Credentials (Global + Per-Website)
+    match /settings/{settingId} {
+      allow get: if isValidId(settingId) && settingId != 'telegram' && !settingId.matches('^telegram_.*');
+      allow list: if isAdmin();
+      allow create, update, delete: if isValidId(settingId) && isAdmin();
+    }
+
+    match /settings/telegram {
+      allow read, write: if isAdmin();
+    }
+
+    match /settings/telegram_lifestyle {
+      allow read, write: if isAdmin();
+    }
+
+    match /settings/telegram_decor {
+      allow read, write: if isAdmin();
+    }
+
+    match /settings/telegram_essentials {
+      allow read, write: if isAdmin();
+    }
+
+    // 9. Admin RBAC Directory
+    match /admins/{uid} {
+      allow get: if isAdmin() || (isSignedIn() && request.auth.uid == uid);
+      allow list, write: if false;
     }
   }
 }

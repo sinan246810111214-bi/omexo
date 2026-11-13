@@ -1,11 +1,23 @@
 # https://www.robotstxt.org/robotstxt.html
-
 User-agent: *
 Allow: /
+Allow: /decor
+Allow: /essentials
+Allow: /product/
+Allow: /decor/product/
+Allow: /essentials/product/
+Allow: /track-order
+Allow: /contact-us
 
-# Exclude sensitive admin directories from search indexation
-Disallow: /#/admin
+# Exclude admin panels, checkout flows, and internal APIs
 Disallow: /admin
+Disallow: /admin/
+Disallow: /lifestyle/admin
+Disallow: /decor/admin
+Disallow: /essentials/admin
+Disallow: /checkout
+Disallow: /decor/checkout
+Disallow: /essentials/checkout
+Disallow: /api/
 
-# Sitemap link
 Sitemap: https://omexo.in/sitemap.xml

@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
 import { CheckCircle, AlertCircle, Info, X } from 'lucide-react';
 
 export type ToastType = 'success' | 'error' | 'info';
@@ -20,10 +19,9 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const toast = useCallback((message: string, type: ToastType = 'success') => {
-    const id = Date.now().toString();
-    setToasts((prev) => [...prev, { id, message, type }]);
-    
-    // Auto remove after 3 seconds
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    setToasts((prev) => [...prev.slice(-2), { id, message, type }]);
+
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 3000);
@@ -36,33 +34,30 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   return (
     <ToastContext.Provider value={{ toast }}>
       {children}
-      <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none">
-        <AnimatePresence>
-          {toasts.map((t) => (
-            <motion.div
-              key={t.id}
-              initial={{ opacity: 0, y: -20, scale: 0.9 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.85, transition: { duration: 0.15 } }}
-              className="pointer-events-auto flex items-center justify-between gap-3 p-4 rounded-xl shadow-lg border border-slate-100 bg-white/95 backdrop-blur"
-              id={`toast-${t.id}`}
+      <div className="fixed top-4 right-4 left-4 sm:left-auto z-[60] flex flex-col gap-2 sm:max-w-sm pointer-events-none">
+        {toasts.map((t) => (
+          <div
+            key={t.id}
+            className="pointer-events-auto flex items-center justify-between gap-3 p-3.5 rounded-xl shadow-lg border border-pine-green/10 bg-white transition-opacity duration-150"
+            id={`toast-${t.id}`}
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              {t.type === 'success' && <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />}
+              {t.type === 'error' && <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />}
+              {t.type === 'info' && <Info className="w-4 h-4 text-pine-green shrink-0" />}
+              <p className="text-xs font-semibold text-pine-green leading-snug">{t.message}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => removeToast(t.id)}
+              className="text-pine-green/40 hover:text-pine-green p-1 rounded-full transition-colors shrink-0 cursor-pointer"
+              id={`toast-close-${t.id}`}
+              aria-label="Close notification"
             >
-              <div className="flex items-center gap-3">
-                {t.type === 'success' && <CheckCircle className="w-5 h-5 text-emerald-500 shrink-0" />}
-                {t.type === 'error' && <AlertCircle className="w-5 h-5 text-rose-500 shrink-0" />}
-                {t.type === 'info' && <Info className="w-5 h-5 text-teal-600 shrink-0" />}
-                <p className="text-sm font-medium text-slate-800">{t.message}</p>
-              </div>
-              <button
-                onClick={() => removeToast(t.id)}
-                className="text-slate-400 hover:text-slate-600 p-0.5 rounded-full hover:bg-slate-50 transition-colors"
-                id={`toast-close-${t.id}`}
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </motion.div>
-          ))}
-        </AnimatePresence>
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        ))}
       </div>
     </ToastContext.Provider>
   );

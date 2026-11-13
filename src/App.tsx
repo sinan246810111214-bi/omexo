@@ -3,24 +3,42 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { StoreProvider } from './hooks/useStore';
 import { ToastProvider } from './components/Toast';
 import { useHashRouter } from './hooks/useHashRouter';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
-
-// Page Views
+import { SeoHead } from './components/SeoHead';
+import { WhatsAppFloatingButton } from './components/WhatsAppFloatingButton';
 import { Home } from './pages/Home';
-import { ProductDetails } from './pages/ProductDetails';
-import { Checkout } from './pages/Checkout';
-import { TrackOrder } from './pages/TrackOrder';
-import { Admin } from './pages/Admin';
-import { Legal } from './pages/Legal';
-import { AIAssistant } from './components/AIAssistant';
+
+const ProductDetails = lazy(() =>
+  import('./pages/ProductDetails').then((m) => ({ default: m.ProductDetails }))
+);
+const Checkout = lazy(() =>
+  import('./pages/Checkout').then((m) => ({ default: m.Checkout }))
+);
+const TrackOrder = lazy(() =>
+  import('./pages/TrackOrder').then((m) => ({ default: m.TrackOrder }))
+);
+const Admin = lazy(() =>
+  import('./pages/Admin').then((m) => ({ default: m.Admin }))
+);
+const Legal = lazy(() =>
+  import('./pages/Legal').then((m) => ({ default: m.Legal }))
+);
+
+function RouteLoadingFallback() {
+  return (
+    <div className="py-16 flex items-center justify-center">
+      <div className="w-7 h-7 border-2 border-pine-green/20 border-t-pine-green rounded-full animate-spin" />
+    </div>
+  );
+}
 
 function MainAppContent() {
-  const { route, params, navigate } = useHashRouter();
+  const { route, params, siteSlug } = useHashRouter();
 
   const renderActivePage = () => {
     switch (route) {
@@ -31,7 +49,7 @@ function MainAppContent() {
       case 'track-order':
         return <TrackOrder />;
       case 'admin':
-        return <Admin />;
+        return <Admin siteSlug={siteSlug} />;
       case 'privacy-policy':
       case 'terms':
       case 'shipping-policy':
@@ -45,21 +63,28 @@ function MainAppContent() {
   };
 
   return (
-    <div className="min-h-screen bg-warm-white flex flex-col text-pine-green antialiased font-sans relative overflow-hidden" id="omexo-app-layout">
-      {/* Premium Minimalist Subtle Light Gradients */}
-      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[radial-gradient(circle_at_top_right,rgba(35,79,30,0.03),transparent_70%)] pointer-events-none z-0" />
+    <div
+      className="min-h-screen bg-warm-white flex flex-col text-pine-green antialiased font-sans"
+      id="omexo-app-layout"
+    >
+      <SeoHead />
 
       {/* Brand Header */}
       <Navbar />
 
       {/* Main Responsive Canvas container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-8 md:py-12 z-10 relative animate-in fade-in duration-300" id="omexo-app-main">
-        {renderActivePage()}
+      <main
+        className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-4 py-4 sm:py-6 md:py-8"
+        id="omexo-app-main"
+      >
+        <Suspense fallback={<RouteLoadingFallback />}>
+          {renderActivePage()}
+        </Suspense>
       </main>
 
-      {/* Elegant, modular, custom-styled multi-column footer */}
+      {/* Compact Site-Scoped Footer */}
       <Footer />
-      <AIAssistant />
+      <WhatsAppFloatingButton />
     </div>
   );
 }
@@ -73,4 +98,3 @@ export default function App() {
     </ToastProvider>
   );
 }
-

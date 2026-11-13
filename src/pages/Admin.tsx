@@ -2,16 +2,31 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '../hooks/useStore';
 import { useToast } from '../components/Toast';
-import { Order, Product, OrderStatus, Category, Brand, OfferBanner } from '../types';
-import { db } from '../lib/firebase';
+import { Order, Product, OrderStatus, Category, Brand, OfferBanner, BrandCategorySlug } from '../types';
+import { auth, db, googleProvider, signInWithPopup, signOut } from '../lib/firebase';
 import { collection, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { OMEXO_MEDIA } from '../config/media';
+import { escapeHtml, isAuthorizedAdminEmail, sanitizeSafeUrl } from '../lib/security';
+import {
+  BRAND_SITES,
+  ORDER_LABEL_SENDER,
+  WHATSAPP_NUMBERS,
+  buildCustomerOrderWhatsAppUrl,
+  getCanonicalCategoryName,
+  getCategoryBadgeStyle,
+  getSiteBrandConfig,
+  getSitePathPrefix,
+  sanitizeWhatsappNumber,
+} from '../config/categories';
+import { useHashRouter } from '../hooks/useHashRouter';
 import { 
   Settings, LogIn, LogOut, LineChart, Package, ShoppingBag, 
   Plus, Trash2, Edit, Save, CheckCircle, FileText, Bot, Send, 
   ArrowRight, Printer, AlertTriangle, X, Sparkles, Users, Award, 
   Eye, Search, SlidersHorizontal, ChevronDown, Check, Smartphone, 
   Mail, MapPin, Tag, Percent, Image, HelpCircle, Layers, FileDown, 
-  ShieldCheck, RefreshCw, BarChart2, Shield, Calendar, Info, Star, Menu
+  ShieldCheck, RefreshCw, BarChart2, Shield, Calendar, Info, Star, Menu,
+  MessageCircle, ExternalLink
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -70,18 +85,28 @@ interface CustomerReview {
   status: 'Approved' | 'Pending' | 'Rejected';
 }
 
-export const Admin: React.FC = () => {
+interface AdminProps {
+  siteSlug?: BrandCategorySlug;
+}
+
+export const Admin: React.FC<AdminProps> = ({ siteSlug: rawSiteSlug = 'lifestyle' }) => {
+  const siteSlug: BrandCategorySlug =
+    rawSiteSlug === 'decor' || rawSiteSlug === 'essentials' ? rawSiteSlug : 'lifestyle';
+  const { navigate } = useHashRouter();
+  const activeBrand = getSiteBrandConfig(siteSlug);
+
   const {
-    products,
-    orders,
+    siteProducts: products,
+    siteOrders: orders,
     telegramConfig,
-    offerBanner,
     addProduct,
     updateProduct,
     deleteProduct,
+    deleteProductsBulk,
     updateOrderStatus,
+    deleteOrder,
+    deleteOrdersBulk,
     updateTelegramConfig,
-    updateOfferBanner,
     categories,
     brands,
     addCategory,
@@ -107,21 +132,16 @@ export const Admin: React.FC = () => {
     updateCMSPage,
     storeSettings,
     updateStoreSettings,
-    isLoadingDb
+    authUser,
+    isAdminUser,
+    adminRole,
+    isAuthReady
   } = useStore();
 
   const { toast } = useToast();
 
-  // Authentication & Session
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return localStorage.getItem('omexo_admin_logged_in') === 'true';
-  });
-  const [adminRole, setAdminRole] = useState<'Super Admin' | 'Admin' | 'Staff'>(() => {
-    return (localStorage.getItem('omexo_admin_role') as any) || 'Super Admin';
-  });
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(true);
+  // Authentication & Session (Verified via Firebase Google Auth)
+  const [isSigningIn, setIsSigningIn] = useState(false);
 
   // Security & Alarm Siren states
   const [isAlarmActive, setIsAlarmActive] = useState(false);
@@ -195,70 +215,82 @@ export const Admin: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
-  // Unified Filtering & Searching
+  // Unified Filtering & Searching (strictly inside this standalone admin panel)
   const [productSearch, setProdSearch] = useState('');
-  const [orderSearch, setOrderSearch] = useState('');
-  const [customerSearch, setCustomerSearch] = useState('');
   const [orderFilterStatus, setOrderFilterStatus] = useState('All');
 
-  // Custom Admin Lists with localStorage persistence
+  // Custom Admin Lists with per-website localStorage persistence
   const [promos, setPromos] = useState<PromoOffer[]>(() => {
-    const saved = localStorage.getItem('omexo_promos');
+    const saved = localStorage.getItem(`omexo_promos_${siteSlug}`);
     return saved ? JSON.parse(saved) : [
-      { id: 'combo-1', title: 'Special Desk Combo', subheadline: 'Two useful picks. One special price.', price: 350, ctaText: 'GET THE COMBO', bannerUrl: 'https://images.unsplash.com/photo-1541807084-5c52b6b3adef?auto=format&fit=crop&w=600&q=80', isActive: true }
-    ];
-  });
-
-  const [adminUsers, setAdminUsers] = useState<AdminUser[]>(() => {
-    const saved = localStorage.getItem('omexo_admin_users');
-    return saved ? JSON.parse(saved) : [
-      { id: 'usr-1', name: 'Muhammed Sinan vk', email: 'omexoofficial@gmail.com', role: 'Super Admin', permissions: ['all'], isActive: true },
-      { id: 'usr-2', name: 'Albin Joseph', email: 'albin@omexo.in', role: 'Admin', permissions: ['products', 'orders', 'inventory'], isActive: true },
-      { id: 'usr-3', name: 'Fida Sherin', email: 'fida@omexo.in', role: 'Staff', permissions: ['orders'], isActive: true }
+      { id: `${siteSlug}-combo-1`, title: activeBrand.defaultComboConfig.title, subheadline: activeBrand.defaultComboConfig.subheadline, price: activeBrand.defaultComboConfig.price, ctaText: activeBrand.defaultComboConfig.ctaText, bannerUrl: activeBrand.defaultComboConfig.card1Image, isActive: true }
     ];
   });
 
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => {
-    const saved = localStorage.getItem('omexo_audit_logs');
+    const saved = localStorage.getItem(`omexo_audit_logs_${siteSlug}`);
     return saved ? JSON.parse(saved) : [
-      { id: 'log-1', admin: 'Muhammed Sinan vk', action: 'Created Special Combo promotion offer', module: 'Offers', timestamp: '02-10-2026, 09:12 AM' },
-      { id: 'log-2', admin: 'Albin Joseph', action: 'Adjusted mechanical keyboard switch stock quantity to +50', module: 'Inventory', timestamp: '02-10-2026, 08:34 AM' },
-      { id: 'log-3', admin: 'Fida Sherin', action: 'Dispatched order OMX-749204 to India Post', module: 'Orders', timestamp: '01-10-2026, 04:15 PM' }
+      { id: `log-${siteSlug}-1`, admin: 'Store Admin', action: `Initialized ${activeBrand.name} standalone console`, module: 'System', timestamp: new Date().toLocaleString('en-IN', { hour12: true }) }
     ];
   });
 
-  const [mediaLibrary, setMediaLibrary] = useState<string[]>(() => {
-    const saved = localStorage.getItem('omexo_media_library');
-    return saved ? JSON.parse(saved) : [
-      'https://images.unsplash.com/photo-1595225476474-87563907a212?auto=format&fit=crop&w=600&q=80',
-      'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?auto=format&fit=crop&w=600&q=80',
-      'https://images.unsplash.com/photo-1541807084-5c52b6b3adef?auto=format&fit=crop&w=600&q=80',
-      'https://images.unsplash.com/photo-1542496658-e33a6d0d50f6?auto=format&fit=crop&w=600&q=80',
-      'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80'
-    ];
-  });
+  // Global settings control (scoped to THIS standalone website)
+  const [storeName, setStoreName] = useState(storeSettings?.storeName || activeBrand.name);
+  const [supportNum, setStorePhone] = useState(storeSettings?.supportNum || activeBrand.defaultStoreSettings.supportNum);
+  const [defaultWhatsapp, setDefaultWhatsapp] = useState(storeSettings?.defaultWhatsapp || activeBrand.defaultStoreSettings.defaultWhatsapp);
+  const [essentialsWhatsapp, setEssentialsWhatsapp] = useState(storeSettings?.essentialsWhatsapp || activeBrand.defaultStoreSettings.essentialsWhatsapp);
+  const [supportMail, setStoreEmail] = useState(storeSettings?.supportMail || activeBrand.defaultStoreSettings.supportMail);
+  const [storeAddress, setStoreAddress] = useState(
+    storeSettings?.address || activeBrand.defaultStoreSettings.address
+  );
+  const [mapLocationUrl, setMapLocationUrl] = useState(
+    storeSettings?.mapLocationUrl || activeBrand.defaultStoreSettings.mapLocationUrl
+  );
+  const [seoTitle, setSeoTitle] = useState(storeSettings?.seoTitle || activeBrand.defaultStoreSettings.seoTitle);
+  const [seoDescription, setSeoDescription] = useState(storeSettings?.seoDescription || activeBrand.defaultStoreSettings.seoDescription);
 
-  const [newMediaUrl, setNewMediaUrl] = useState('');
-
-  // Global settings control
-  const [storeName, setStoreName] = useState('Omexo');
-  const [supportNum, setStorePhone] = useState('+91 99465 97201');
-  const [supportMail, setStoreEmail] = useState('omexoofficial@gmail.com');
-  const [seoTitle, setSeoTitle] = useState('Omexo | Small Things. Big Joy.');
-  const [seoDescription, setSeoDescription] = useState('Premium clicky keychains, workspace tools, and everyday desk accessories designed with minimal luxury.');
+  useEffect(() => {
+    if (storeSettings) {
+      setStoreName(storeSettings.storeName);
+      setStorePhone(storeSettings.supportNum);
+      setDefaultWhatsapp(storeSettings.defaultWhatsapp || activeBrand.defaultStoreSettings.defaultWhatsapp);
+      setEssentialsWhatsapp(storeSettings.essentialsWhatsapp || activeBrand.defaultStoreSettings.essentialsWhatsapp);
+      setStoreEmail(storeSettings.supportMail);
+      setStoreAddress(storeSettings.address);
+      setMapLocationUrl(storeSettings.mapLocationUrl || '');
+      setSeoTitle(storeSettings.seoTitle);
+      setSeoDescription(storeSettings.seoDescription);
+    }
+  }, [storeSettings, activeBrand]);
 
   // Forms state
   const [isAddingProduct, setIsAddingProduct] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
-  // Product Fields
+  // Product Fields (locked to THIS standalone website's category)
   const [prodTitle, setProdTitle] = useState('');
   const [prodDescription, setProdDescription] = useState('');
-  const [prodCategory, setProdCategory] = useState('');
+  const [prodCategory, setProdCategory] = useState<BrandCategorySlug>(siteSlug);
   const [prodSalePrice, setProdSalePrice] = useState(199);
   const [prodRegularPrice, setProdRegularPrice] = useState(250);
   const [prodStockCount, setProdStockCount] = useState(100);
   const [prodImageUrl, setProdImageUrl] = useState('');
+
+  useEffect(() => {
+    setProdCategory(siteSlug);
+    setIsAddingProduct(false);
+    setEditingProduct(null);
+    setActiveOrderDetails(null);
+    setSelectedOrderIds([]);
+    const savedLogs = localStorage.getItem(`omexo_audit_logs_${siteSlug}`);
+    if (savedLogs) {
+      setAuditLogs(JSON.parse(savedLogs));
+    } else {
+      setAuditLogs([
+        { id: `log-${siteSlug}-1`, admin: 'Store Admin', action: `Initialized ${activeBrand.name} standalone console`, module: 'System', timestamp: new Date().toLocaleString('en-IN', { hour12: true }) }
+      ]);
+    }
+  }, [siteSlug, activeBrand.name]);
 
   // Drawer / Modals
   const [activeOrderDetails, setActiveOrderDetails] = useState<Order | null>(null);
@@ -291,10 +323,33 @@ export const Admin: React.FC = () => {
   const [newCouponType, setNewCouponType] = useState<'Percentage' | 'Fixed'>('Percentage');
   const [newCouponMinOrder, setNewCouponMinOrder] = useState(500);
 
-  // Bulk Labels Printing
+  // Bulk Labels Printing & Bulk Selection
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [isBulkPrinting, setIsBulkPrinting] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+
+  // Unified Delete Confirmation Modal (avoids window.confirm blocks inside iframes)
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmLabel: string;
+    onConfirm: (() => Promise<void> | void) | null;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmLabel: 'Delete Permanently',
+    onConfirm: null,
+  });
+  const [isConfirmDeleting, setIsConfirmDeleting] = useState(false);
+
+  useEffect(() => {
+    setSelectedOrderIds([]);
+    setSelectedProductIds([]);
+    setActiveOrderDetails(null);
+  }, [siteSlug]);
 
   // Promo / Offers editing states
   const [isEditingPromo, setIsEditingPromo] = useState(false);
@@ -350,51 +405,57 @@ export const Admin: React.FC = () => {
     backgroundImageUrl: string;
   }>({ isOpen: false, badge: '🔥 SPECIAL DROP', title: '', description: '', backgroundImageUrl: '' });
 
-  // Sync state helpers to localStorage
+  // Sync non-sensitive UI state helpers to localStorage scoped per standalone website
   useEffect(() => {
-    localStorage.setItem('omexo_coupons', JSON.stringify(coupons));
-  }, [coupons]);
+    localStorage.setItem(`omexo_promos_${siteSlug}`, JSON.stringify(promos));
+  }, [promos, siteSlug]);
 
   useEffect(() => {
-    localStorage.setItem('omexo_promos', JSON.stringify(promos));
-  }, [promos]);
+    localStorage.setItem(`omexo_audit_logs_${siteSlug}`, JSON.stringify(auditLogs));
+  }, [auditLogs, siteSlug]);
 
+  // Load promos from Firestore per standalone website when admin is verified or site changes
   useEffect(() => {
-    localStorage.setItem('omexo_admin_users', JSON.stringify(adminUsers));
-  }, [adminUsers]);
-
-  useEffect(() => {
-    localStorage.setItem('omexo_audit_logs', JSON.stringify(auditLogs));
-  }, [auditLogs]);
-
-  useEffect(() => {
-    localStorage.setItem('omexo_cms_pages', JSON.stringify(cmsPages));
-  }, [cmsPages]);
-
-  useEffect(() => {
-    localStorage.setItem('omexo_reviews', JSON.stringify(reviews));
-  }, [reviews]);
-
-  useEffect(() => {
-    localStorage.setItem('omexo_media_library', JSON.stringify(mediaLibrary));
-  }, [mediaLibrary]);
-
-  // Load promos from Firestore on mount
-  useEffect(() => {
+    if (!isAuthReady) return;
+    const savedLocal = localStorage.getItem(`omexo_promos_${siteSlug}`);
+    if (savedLocal) {
+      setPromos(JSON.parse(savedLocal));
+    } else {
+      setPromos([
+        {
+          id: `${siteSlug}-combo-1`,
+          title: activeBrand.defaultComboConfig.title,
+          subheadline: activeBrand.defaultComboConfig.subheadline,
+          price: activeBrand.defaultComboConfig.price,
+          ctaText: activeBrand.defaultComboConfig.ctaText,
+          bannerUrl: activeBrand.defaultComboConfig.card1Image,
+          isActive: true
+        }
+      ]);
+    }
     const fetchPromos = async () => {
       try {
-        const snap = await getDocs(collection(db, 'promos'));
+        const promoCollectionName = `promos_${siteSlug}`;
+        const snap = await getDocs(collection(db, promoCollectionName));
         if (!snap.empty) {
           const loadedPromos = snap.docs.map(d => d.data() as PromoOffer);
           setPromos(loadedPromos);
-          localStorage.setItem('omexo_promos', JSON.stringify(loadedPromos));
-        } else {
-          // Seed default promo
+          localStorage.setItem(`omexo_promos_${siteSlug}`, JSON.stringify(loadedPromos));
+        } else if (isAdminUser) {
           const defaultPromos: PromoOffer[] = [
-            { id: 'combo-1', title: 'Special Desk Combo', subheadline: 'Two useful picks. One special price.', price: 350, ctaText: 'GET THE COMBO', bannerUrl: 'https://images.unsplash.com/photo-1541807084-5c52b6b3adef?auto=format&fit=crop&w=600&q=80', isActive: true }
+            {
+              id: `${siteSlug}-combo-1`,
+              title: activeBrand.defaultComboConfig.title,
+              subheadline: activeBrand.defaultComboConfig.subheadline,
+              price: activeBrand.defaultComboConfig.price,
+              ctaText: activeBrand.defaultComboConfig.ctaText,
+              bannerUrl: activeBrand.defaultComboConfig.card1Image,
+              isActive: true
+            }
           ];
+          setPromos(defaultPromos);
           for (const p of defaultPromos) {
-            await setDoc(doc(db, 'promos', p.id), p);
+            await setDoc(doc(db, promoCollectionName, p.id), p);
           }
         }
       } catch (err) {
@@ -402,10 +463,10 @@ export const Admin: React.FC = () => {
       }
     };
     fetchPromos();
-  }, []);
+  }, [isAuthReady, isAdminUser, siteSlug, activeBrand]);
 
   const addAuditLog = (action: string, module: string) => {
-    const activeAdmin = adminUsers.find(u => u.email === username)?.name || 'Muhammed Sinan vk';
+    const activeAdmin = authUser?.displayName || authUser?.email || 'Verified Admin';
     const newLog: AuditLog = {
       id: 'log-' + Date.now(),
       admin: activeAdmin,
@@ -416,43 +477,36 @@ export const Admin: React.FC = () => {
     setAuditLogs(prev => [newLog, ...prev]);
   };
 
-  // Auth Submit logic
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    const cleanMail = username.toLowerCase().trim();
-    if (cleanMail === 'omexoofficial@gmail.com' && password === 'omexo246') {
-      setIsAuthenticated(true);
-      setAdminRole('Super Admin');
-      localStorage.setItem('omexo_admin_logged_in', 'true');
-      localStorage.setItem('omexo_admin_role', 'Super Admin');
-      toast('Welcome back, Muhammed Sinan! Super Admin console authorized.', 'success');
-      addAuditLog('Successfully logged into Super Admin control panel', 'Access');
-    } else if (cleanMail === 'albin@omexo.in' && password === 'admin123') {
-      setIsAuthenticated(true);
-      setAdminRole('Admin');
-      localStorage.setItem('omexo_admin_logged_in', 'true');
-      localStorage.setItem('omexo_admin_role', 'Admin');
-      toast('Welcome back, Albin joseph! Store admin console authorized.', 'success');
-      addAuditLog('Successfully logged into Admin control panel', 'Access');
-    } else if (cleanMail === 'fida@omexo.in' && password === 'staff123') {
-      setIsAuthenticated(true);
-      setAdminRole('Staff');
-      localStorage.setItem('omexo_admin_logged_in', 'true');
-      localStorage.setItem('omexo_admin_role', 'Staff');
-      toast('Welcome back, Fida! Limited staff console authorized.', 'success');
-      addAuditLog('Successfully logged into Staff control panel', 'Access');
-    } else {
-      toast('Access Denied. Check your administrator credentials.', 'error');
-      setIsAlarmActive(true);
-      startSiren();
+  // Auth Submit logic via Firebase Google Sign-In
+  const handleGoogleAdminLogin = async () => {
+    setIsSigningIn(true);
+    try {
+      const cred = await signInWithPopup(auth, googleProvider);
+      const email = cred.user.email?.trim().toLowerCase() || '';
+      if (!cred.user.emailVerified || !isAuthorizedAdminEmail(email)) {
+        await signOut(auth);
+        toast('Access Denied. Unauthorized administrator Google account.', 'error');
+        setIsAlarmActive(true);
+        startSiren();
+        return;
+      }
+
+      toast(`Welcome back, ${cred.user.displayName || email}! Command console authorized.`, 'success');
+      addAuditLog(`Verified Google Auth login for ${email}`, 'Access');
+    } catch (err: any) {
+      if (err?.code !== 'auth/popup-closed-by-user') {
+        toast('Google sign-in failed. Please retry.', 'error');
+      }
+    } finally {
+      setIsSigningIn(false);
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     addAuditLog('Safely logged out of console session', 'Access');
-    setIsAuthenticated(false);
-    localStorage.removeItem('omexo_admin_logged_in');
-    localStorage.removeItem('omexo_admin_role');
+    setSelectedOrderIds([]);
+    setActiveOrderDetails(null);
+    await signOut(auth);
     toast('Logged out from command console.', 'success');
   };
 
@@ -468,7 +522,57 @@ export const Admin: React.FC = () => {
     return false;
   };
 
-  // Handle direct product image file upload to server Cloudinary storage (or local base64 fallback)
+  const ALLOWED_IMAGE_MIME_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif'];
+
+  // Reusable authenticated upload helper
+  const uploadImageFile = async (file: File): Promise<string> => {
+    if (!ALLOWED_IMAGE_MIME_TYPES.includes(file.type.toLowerCase())) {
+      toast('Only PNG, JPG, WEBP, or GIF images are permitted.', 'error');
+      throw new Error('Disallowed image format');
+    }
+    if (file.size > 15 * 1024 * 1024) {
+      toast('Selected image file is too large (Maximum size: 15MB).', 'error');
+      throw new Error('File too large');
+    }
+    const idToken = await auth.currentUser?.getIdToken();
+    if (!idToken) {
+      toast('Verified admin session required to upload images.', 'error');
+      throw new Error('Missing admin token');
+    }
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64Data = reader.result as string;
+        try {
+          const response = await fetch('/api/upload', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${idToken}`,
+            },
+            body: JSON.stringify({ image: base64Data })
+          });
+          if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            reject(new Error(errData.error || 'Server upload failed'));
+            return;
+          }
+          const resData = await response.json();
+          if (resData.success && resData.url) {
+            resolve(resData.url);
+          } else {
+            reject(new Error(resData.error || 'Invalid server response'));
+          }
+        } catch (err) {
+          reject(err);
+        }
+      };
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // Handle direct product image file upload to authenticated upload endpoint
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -478,62 +582,21 @@ export const Admin: React.FC = () => {
       return;
     }
 
-    // Volumetric limits: 15MB limit check
-    if (file.size > 15 * 1024 * 1024) {
-      toast('Selected image file is too large (Maximum size: 15MB).', 'error');
-      return;
-    }
-
     setIsUploadingImage(true);
-
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      const base64Data = reader.result as string;
-      try {
-        const response = await fetch('/api/upload', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ image: base64Data })
-        });
-
-        if (!response.ok) {
-          const errData = await response.json();
-          throw new Error(errData.error || 'Server responded with an upload error state');
-        }
-
-        const resData = await response.json();
-        if (resData.success && resData.url) {
-          setProdImageUrl(resData.url);
-          toast(resData.fallback 
-            ? 'Success: Product image saved as Base64 storage fallback.' 
-            : 'Success: Product image uploaded securely to Cloudinary storage!', 
-            'success'
-          );
-          addAuditLog(`Uploaded product image file to backend storage`, 'Products');
-        } else {
-          throw new Error(resData.error || 'Invalid server payload format returned');
-        }
-      } catch (err: any) {
-        console.error('Image upload failed:', err);
-        // Robust fallback: set file data as local preview so merchant can still preview and save the product details
-        setProdImageUrl(base64Data);
-        toast('Direct cloud storage upload failed, but image preview successfully loaded locally!', 'info');
-      } finally {
-        setIsUploadingImage(false);
-      }
-    };
-
-    reader.onerror = () => {
-      toast('Failed to parse selected image file.', 'error');
+    try {
+      const url = await uploadImageFile(file);
+      setProdImageUrl(url);
+      toast('Product image uploaded securely!', 'success');
+      addAuditLog('Uploaded product image file to secure backend storage', 'Products');
+    } catch (err: any) {
+      console.error('Image upload failed:', err);
+      toast(err?.message || 'Failed to upload product image.', 'error');
+    } finally {
       setIsUploadingImage(false);
-    };
-
-    reader.readAsDataURL(file);
+    }
   };
 
-  // Handle direct promo/offer image file upload to server
+  // Handle direct promo/offer image file upload to authenticated upload endpoint
   const handlePromoImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -543,89 +606,17 @@ export const Admin: React.FC = () => {
       return;
     }
 
-    if (file.size > 15 * 1024 * 1024) {
-      toast('Selected image file is too large (Maximum size: 15MB).', 'error');
-      return;
-    }
-
     setIsUploadingPromoImage(true);
-
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      const base64Data = reader.result as string;
-      try {
-        const response = await fetch('/api/upload', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ image: base64Data })
-        });
-
-        if (!response.ok) {
-          const errData = await response.json();
-          throw new Error(errData.error || 'Server responded with an upload error state');
-        }
-
-        const resData = await response.json();
-        if (resData.success && resData.url) {
-          setPromoImageUrl(resData.url);
-          toast(resData.fallback 
-            ? 'Success: Promo image saved as Base64 storage fallback.' 
-            : 'Success: Promo image uploaded securely to Cloudinary storage!', 
-            'success'
-          );
-        } else {
-          throw new Error(resData.error || 'Invalid server payload format returned');
-        }
-      } catch (err: any) {
-        console.error('Promo image upload failed:', err);
-        setPromoImageUrl(base64Data);
-        toast('Direct cloud storage upload failed, but image preview successfully loaded locally!', 'info');
-      } finally {
-        setIsUploadingPromoImage(false);
-      }
-    };
-
-    reader.onerror = () => {
-      toast('Failed to parse selected image file.', 'error');
+    try {
+      const url = await uploadImageFile(file);
+      setPromoImageUrl(url);
+      toast('Promo image uploaded securely!', 'success');
+    } catch (err: any) {
+      console.error('Promo image upload failed:', err);
+      toast(err?.message || 'Failed to upload promo image.', 'error');
+    } finally {
       setIsUploadingPromoImage(false);
-    };
-
-    reader.readAsDataURL(file);
-  };
-
-  // Reusable helper for image file upload
-  const uploadImageFile = async (file: File): Promise<string> => {
-    if (file.size > 15 * 1024 * 1024) {
-      toast('Selected image file is too large (Maximum size: 15MB).', 'error');
-      throw new Error('File too large');
     }
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64Data = reader.result as string;
-        try {
-          const response = await fetch('/api/upload', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image: base64Data })
-          });
-          if (response.ok) {
-            const resData = await response.json();
-            if (resData.success && resData.url) {
-              resolve(resData.url);
-              return;
-            }
-          }
-          resolve(base64Data);
-        } catch {
-          resolve(base64Data);
-        }
-      };
-      reader.onerror = () => reject(new Error('Failed to read file'));
-      reader.readAsDataURL(file);
-    });
   };
 
   // Create or Update Promo Offer
@@ -636,9 +627,9 @@ export const Admin: React.FC = () => {
       return;
     }
 
-    const imgUrl = promoImageUrl || 'https://images.unsplash.com/photo-1541807084-5c52b6b3adef?auto=format&fit=crop&w=600&q=80';
+    const imgUrl = sanitizeSafeUrl(promoImageUrl, { allowDataImage: true, fallback: activeBrand.defaultComboConfig.card1Image });
     const isEdit = !!editingPromoId;
-    const promoId = editingPromoId || 'promo-' + Date.now();
+    const promoId = editingPromoId || `${siteSlug}-promo-${Date.now()}`;
 
     const payload: PromoOffer = {
       id: promoId,
@@ -651,8 +642,8 @@ export const Admin: React.FC = () => {
     };
 
     try {
-      // Sync with Firestore
-      await setDoc(doc(db, 'promos', promoId), payload);
+      // Sync with per-website Firestore collection
+      await setDoc(doc(db, `promos_${siteSlug}`, promoId), payload);
 
       // Update local state
       if (isEdit) {
@@ -680,23 +671,29 @@ export const Admin: React.FC = () => {
   };
 
   // Delete Promo Offer
-  const handleDeletePromo = async (id: string, title: string) => {
+  const handleDeletePromo = (id: string, title: string) => {
     if (!hasPermission('offers')) {
       toast('Unauthorized operation scope.', 'error');
       return;
     }
 
-    if (window.confirm(`Are you sure you want to completely remove the promo campaign "${title}"?`)) {
-      try {
-        await deleteDoc(doc(db, 'promos', id));
-        setPromos(prev => prev.filter(p => p.id !== id));
-        toast(`Removed promo campaign: "${title}"`, 'success');
-        addAuditLog(`Deleted promo campaign: "${title}"`, 'Offers');
-      } catch (err) {
-        console.error('Failed to delete promo:', err);
-        toast('Failed to delete promo from Firestore database.', 'error');
-      }
-    }
+    setDeleteConfirmModal({
+      isOpen: true,
+      title: 'Delete Promo Campaign',
+      message: `Are you sure you want to permanently remove "${title}"?`,
+      confirmLabel: 'Delete Promo',
+      onConfirm: async () => {
+        try {
+          await deleteDoc(doc(db, `promos_${siteSlug}`, id));
+          setPromos((prev) => prev.filter((p) => p.id !== id));
+          toast(`Removed promo campaign: "${title}"`, 'success');
+          addAuditLog(`Deleted promo campaign: "${title}"`, 'Offers');
+        } catch (err) {
+          console.error('Failed to delete promo:', err);
+          toast('Failed to delete promo from Firestore database.', 'error');
+        }
+      },
+    });
   };
 
   // Generate standalone HTML Print Companion to bypass iframe sandboxing limits
@@ -709,10 +706,11 @@ export const Admin: React.FC = () => {
       chunks.push(selectedOrders.slice(i, i + size));
     }
 
+    const siteDisplayName = storeSettings?.storeName || activeBrand.name;
     const htmlContent = `<!DOCTYPE html>
 <html>
 <head>
-  <title>Omexo Bulk Shipping Labels</title>
+  <title>${escapeHtml(siteDisplayName)} Bulk Shipping Labels</title>
   <meta charset="utf-8">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
@@ -726,7 +724,7 @@ export const Admin: React.FC = () => {
 </head>
 <body class="flex flex-col items-center">
   <div class="no-print bg-white shadow-md p-4 rounded-xl mb-6 max-w-2xl w-full text-center">
-    <h3 class="text-sm font-bold text-zinc-800 uppercase tracking-wider">Omexo Desktop Label Printer Companion</h3>
+    <h3 class="text-sm font-bold text-zinc-800 uppercase tracking-wider">${escapeHtml(siteDisplayName)} Label Printer Companion</h3>
     <p class="text-xs text-zinc-500 mt-1">Press the print button below or press <strong>Ctrl + P</strong> (Cmd + P on Mac) to print these labels.</p>
     <button onclick="window.print()" class="mt-3 px-5 py-2 bg-[#234F1E] text-white font-extrabold text-xs uppercase tracking-widest rounded-full cursor-pointer hover:bg-[#1C4018]">
       🖨️ Open Print Dialog
@@ -740,44 +738,44 @@ export const Admin: React.FC = () => {
           <div class="border-2 border-dashed border-slate-400 p-4 rounded-lg flex flex-col justify-between space-y-2 text-[11px] h-[68mm] max-h-[68mm] overflow-hidden text-left" style="box-sizing: border-box;">
             <div class="flex justify-between items-start border-b border-slate-300 pb-1">
               <div>
-                <h5 class="font-black text-slate-900 text-[10px] leading-none uppercase tracking-wider">omexo premium</h5>
-                <p class="text-[8px] text-slate-500 mt-0.5">PREMIUM TECH ACCESSORIES</p>
+                <h5 class="font-black text-slate-900 text-[10px] leading-none uppercase tracking-wider">${escapeHtml(siteDisplayName)}</h5>
+                <p class="text-[8px] text-slate-500 mt-0.5">${escapeHtml(activeBrand.shortLabel.toUpperCase())} DISPATCH</p>
               </div>
               <div class="text-right">
-                <span class="text-[9px] bg-zinc-100 text-zinc-800 px-2 py-0.5 rounded font-black font-mono">${order.paymentType}</span>
+                <span class="text-[9px] bg-zinc-100 text-zinc-800 px-2 py-0.5 rounded font-black font-mono">${escapeHtml(order.paymentType)}</span>
               </div>
             </div>
 
             <div class="grid grid-cols-2 gap-2 text-[10px] text-slate-700">
               <div class="space-y-0.5">
-                <span class="text-[7.5px] text-slate-400 font-extrabold uppercase block leading-none">Deliver To</span>
-                <strong class="text-slate-900 font-black text-xs block leading-tight">${order.customerName}</strong>
-                <p class="text-[9.5px] leading-tight font-semibold mt-0.5">${order.address}</p>
-                <p class="font-black text-slate-900 mt-0.5">PIN: ${order.pincode}</p>
-                <p class="font-mono mt-0.5">Mob: ${order.customerPhone}</p>
+                <span class="text-[7.5px] text-slate-400 font-extrabold uppercase block leading-none">TO (Recipient)</span>
+                <strong class="text-slate-900 font-black text-xs block leading-tight">${escapeHtml(order.customerName)}</strong>
+                <p class="text-[9.5px] leading-tight font-semibold mt-0.5">${escapeHtml(order.address)}</p>
+                <p class="font-black text-slate-900 mt-0.5">PIN: ${escapeHtml(order.pincode)}</p>
+                <p class="font-mono mt-0.5">Phone: ${escapeHtml(order.customerPhone)}</p>
               </div>
               
               <div class="border-l border-slate-200 pl-2 flex flex-col justify-between space-y-1">
                 <div>
-                  <span class="text-[7.5px] text-slate-400 font-extrabold uppercase block leading-none">Sender / Return Address</span>
-                  <strong class="text-slate-900 font-bold text-[8.5px] block leading-none mt-0.5">Muhammed Sinan vk (Omexo)</strong>
-                  <p class="text-[8px] text-slate-500 leading-tight">ozhukour, palekod, kondotty, Malappuram, Kerala</p>
-                  <p class="text-[8px] text-slate-700 font-bold mt-0.5">PIN: 673642 | Mob: 8590181381</p>
+                  <span class="text-[7.5px] text-slate-400 font-extrabold uppercase block leading-none">FROM (Sender)</span>
+                  <strong class="text-slate-900 font-bold text-[8.5px] block leading-tight mt-0.5">${escapeHtml(ORDER_LABEL_SENDER.name)}</strong>
+                  <p class="text-[8px] text-slate-600 leading-tight mt-0.5">${escapeHtml(ORDER_LABEL_SENDER.address)}</p>
+                  <p class="text-[8px] text-slate-800 font-bold mt-0.5">Contact No / Support team: ${escapeHtml(ORDER_LABEL_SENDER.phone)}</p>
                 </div>
 
                 <div class="border-t border-slate-200 pt-1">
                   <span class="text-[7.5px] text-slate-400 font-extrabold uppercase block leading-none">Collect Value</span>
-                  <span class="text-xs font-black text-slate-900">₹${order.totalAmount}</span>
+                  <span class="text-xs font-black text-slate-900">₹${escapeHtml(order.totalAmount)}</span>
                 </div>
               </div>
             </div>
 
             <div class="border-t border-slate-200 pt-1.5 flex justify-between items-center text-[9px] text-slate-500">
               <div class="font-semibold truncate max-w-[120px]">
-                ${order.items.map(item => `${item.title} (x${item.quantity})`).join(', ')}
+                ${escapeHtml(order.items.map(item => `${item.title} (x${item.quantity})`).join(', '))}
               </div>
               <div class="text-right font-mono font-bold text-slate-800">
-                Ref: ${order.id}
+                Ref: ${escapeHtml(order.id)}
               </div>
             </div>
           </div>
@@ -792,12 +790,12 @@ export const Admin: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `omexo_shipping_labels_${Date.now()}.html`;
+    a.download = `omexo_${siteSlug}_shipping_labels_${Date.now()}.html`;
     a.click();
     toast('Success: Standalone HTML Print Companion saved! Open and print directly from any web browser.', 'success');
   };
 
-  // Handle direct slide banner background image file upload to server
+  // Handle direct slide banner background image file upload to authenticated upload endpoint
   const handleBannerImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -807,56 +805,17 @@ export const Admin: React.FC = () => {
       return;
     }
 
-    if (file.size > 15 * 1024 * 1024) {
-      toast('Selected image file is too large (Maximum size: 15MB).', 'error');
-      return;
-    }
-
     setIsUploadingBannerImage(true);
-
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      const base64Data = reader.result as string;
-      try {
-        const response = await fetch('/api/upload', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ image: base64Data })
-        });
-
-        if (!response.ok) {
-          const errData = await response.json();
-          throw new Error(errData.error || 'Server responded with an upload error state');
-        }
-
-        const resData = await response.json();
-        if (resData.success && resData.url) {
-          setBannerImageUrl(resData.url);
-          toast(resData.fallback 
-            ? 'Success: Slide banner image saved as Base64 storage fallback.' 
-            : 'Success: Slide banner image uploaded securely to Cloudinary storage!', 
-            'success'
-          );
-        } else {
-          throw new Error(resData.error || 'Invalid server payload format returned');
-        }
-      } catch (err: any) {
-        console.error('Banner image upload failed:', err);
-        setBannerImageUrl(base64Data);
-        toast('Direct cloud storage upload failed, but image preview successfully loaded locally!', 'info');
-      } finally {
-        setIsUploadingBannerImage(false);
-      }
-    };
-
-    reader.onerror = () => {
-      toast('Failed to parse selected image file.', 'error');
+    try {
+      const url = await uploadImageFile(file);
+      setBannerImageUrl(url);
+      toast('Slide banner image uploaded securely!', 'success');
+    } catch (err: any) {
+      console.error('Banner image upload failed:', err);
+      toast(err?.message || 'Failed to upload slide banner image.', 'error');
+    } finally {
       setIsUploadingBannerImage(false);
-    };
-
-    reader.readAsDataURL(file);
+    }
   };
 
   // Create or Update Slide Banner
@@ -867,10 +826,11 @@ export const Admin: React.FC = () => {
       return;
     }
 
-    const imgUrl = bannerImageUrl || 'https://images.unsplash.com/photo-1595225476474-87563907a212?auto=format&fit=crop&w=600&q=80';
+    const imgUrl = sanitizeSafeUrl(bannerImageUrl, { allowDataImage: true, fallback: activeBrand.defaultOfferBanner.backgroundImageUrl });
     const isEdit = editingBannerIdx !== null;
 
     const payload: OfferBanner = {
+      siteSlug,
       badge: bannerBadge,
       title: bannerTitle,
       description: bannerDescription,
@@ -882,11 +842,11 @@ export const Admin: React.FC = () => {
 
     try {
       if (isEdit) {
-        await updateBanner(editingBannerIdx!, payload);
+        await updateBanner(editingBannerIdx!, payload, siteSlug);
         toast(`Successfully updated homepage slide banner!`, 'success');
         addAuditLog(`Updated homepage banner slide "${bannerTitle}"`, 'Banners');
       } else {
-        await addBanner(payload);
+        await addBanner(payload, siteSlug);
         toast(`Successfully created new homepage slide banner!`, 'success');
         addAuditLog(`Created new homepage banner slide "${bannerTitle}"`, 'Banners');
       }
@@ -907,22 +867,28 @@ export const Admin: React.FC = () => {
   };
 
   // Delete Slide Banner
-  const handleDeleteBannerWrapper = async (idx: number, title: string) => {
+  const handleDeleteBannerWrapper = (idx: number, title: string) => {
     if (!hasPermission('banners')) {
       toast('Unauthorized operation scope.', 'error');
       return;
     }
 
-    if (window.confirm(`Are you sure you want to completely remove the banner slide "${title}"?`)) {
-      try {
-        await deleteBanner(idx);
-        toast(`Successfully deleted homepage slide banner!`, 'success');
-        addAuditLog(`Deleted slide banner: "${title}"`, 'Banners');
-      } catch (err) {
-        console.error('Failed to delete banner:', err);
-        toast('Failed to delete banner slide from database.', 'error');
-      }
-    }
+    setDeleteConfirmModal({
+      isOpen: true,
+      title: 'Delete Slide Banner',
+      message: `Are you sure you want to remove the banner slide "${title}"?`,
+      confirmLabel: 'Delete Banner',
+      onConfirm: async () => {
+        try {
+          await deleteBanner(idx, siteSlug);
+          toast('Successfully deleted homepage slide banner!', 'success');
+          addAuditLog(`Deleted slide banner: "${title}"`, 'Banners');
+        } catch (err) {
+          console.error('Failed to delete banner:', err);
+          toast('Failed to delete banner slide from database.', 'error');
+        }
+      },
+    });
   };
 
   // Add / Edit Product Submit
@@ -933,14 +899,26 @@ export const Admin: React.FC = () => {
       return;
     }
 
-    const imgUrl = prodImageUrl || 'https://images.unsplash.com/photo-1595225476474-87563907a212?auto=format&fit=crop&w=600&q=80';
+    if (!prodTitle.trim()) {
+      toast('Product title cannot be empty.', 'error');
+      return;
+    }
+    if (Number(prodSalePrice) < 0 || Number(prodRegularPrice) < 0 || Number(prodStockCount) < 0) {
+      toast('Price and stock quantity cannot be negative.', 'error');
+      return;
+    }
+
+    const imgUrl = sanitizeSafeUrl(prodImageUrl, { allowDataImage: true, fallback: activeBrand.defaultHeroConfig.cardImage });
+    const normalizedSlug: BrandCategorySlug = siteSlug;
+    const canonicalCategoryName = getCanonicalCategoryName(normalizedSlug);
 
     if (editingProduct) {
       const updated: Product = {
         ...editingProduct,
-        title: prodTitle,
-        description: prodDescription,
-        category: prodCategory || 'Desk Essentials',
+        title: prodTitle.trim(),
+        description: prodDescription.trim(),
+        category: canonicalCategoryName,
+        categorySlug: normalizedSlug,
         salePrice: Number(prodSalePrice),
         regularPrice: Number(prodRegularPrice),
         stockCount: Number(prodStockCount),
@@ -948,23 +926,24 @@ export const Admin: React.FC = () => {
       };
       await updateProduct(updated);
       toast(`Successfully updated "${prodTitle}"!`, 'success');
-      addAuditLog(`Updated product information for "${prodTitle}"`, 'Products');
+      addAuditLog(`Updated product information for "${prodTitle}" (${canonicalCategoryName})`, 'Products');
       setEditingProduct(null);
     } else {
       const payload = {
-        title: prodTitle,
-        category: prodCategory || 'Desk Essentials',
-        description: prodDescription,
+        title: prodTitle.trim(),
+        category: canonicalCategoryName,
+        categorySlug: normalizedSlug,
+        description: prodDescription.trim(),
         salePrice: Number(prodSalePrice),
         regularPrice: Number(prodRegularPrice),
         stockCount: Number(prodStockCount),
         images: [imgUrl],
-        specs: { 'Origin': 'Omexo Assembly Lab', 'Warranty': '1 Year Replacement' },
+        specs: { 'Origin': activeBrand.name, 'Delivery': 'Cash on Delivery Available Across India' },
         isTrending: true
       };
       await addProduct(payload);
       toast(`Successfully created "${prodTitle}"!`, 'success');
-      addAuditLog(`Created new catalog product "${prodTitle}"`, 'Products');
+      addAuditLog(`Created new catalog product "${prodTitle}" (${canonicalCategoryName})`, 'Products');
       setIsAddingProduct(false);
     }
 
@@ -972,19 +951,117 @@ export const Admin: React.FC = () => {
     setProdTitle('');
     setProdDescription('');
     setProdImageUrl('');
+    setProdCategory(siteSlug);
   };
 
   // Delete product wrapper
-  const handleDeleteProduct = async (id: string, name: string) => {
+  const handleDeleteProduct = (id: string, name: string) => {
     if (!hasPermission('products')) {
       toast('Unauthorized mutation scope.', 'error');
       return;
     }
-    if (window.confirm(`Are you completely sure you want to delete "${name}"?`)) {
-      await deleteProduct(id);
-      toast(`Deleted "${name}"`, 'success');
-      addAuditLog(`Deleted catalog product "${name}"`, 'Products');
+    setDeleteConfirmModal({
+      isOpen: true,
+      title: 'Delete Product',
+      message: `Are you sure you want to permanently delete "${name}" from ${activeBrand.name}?`,
+      confirmLabel: 'Delete Product',
+      onConfirm: async () => {
+        try {
+          await deleteProduct(id);
+          setSelectedProductIds((prev) => prev.filter((pid) => pid !== id));
+          toast(`Deleted "${name}"`, 'success');
+          addAuditLog(`Deleted catalog product "${name}"`, 'Products');
+        } catch (err) {
+          console.error('Failed to delete product:', err);
+          toast('Failed to delete product from database.', 'error');
+        }
+      },
+    });
+  };
+
+  // Bulk delete products wrapper
+  const handleDeleteProductsBulk = () => {
+    if (!hasPermission('products')) {
+      toast('Unauthorized mutation scope.', 'error');
+      return;
     }
+    if (selectedProductIds.length === 0) return;
+    const targetIds = [...selectedProductIds];
+    setDeleteConfirmModal({
+      isOpen: true,
+      title: `Delete ${targetIds.length} Selected Product(s)`,
+      message: `Permanently delete ${targetIds.length} selected product(s) from ${activeBrand.name}? This cannot be undone.`,
+      confirmLabel: `Delete ${targetIds.length} Products`,
+      onConfirm: async () => {
+        try {
+          await deleteProductsBulk(targetIds);
+          setSelectedProductIds([]);
+          toast(`Deleted ${targetIds.length} product(s)`, 'success');
+          addAuditLog(`Bulk deleted ${targetIds.length} products`, 'Products');
+        } catch (err) {
+          console.error('Failed to bulk delete products:', err);
+          toast('Failed to delete selected products from database.', 'error');
+        }
+      },
+    });
+  };
+
+  // Delete single order wrapper
+  const handleDeleteOrder = (orderId: string) => {
+    if (!hasPermission('orders')) {
+      toast('Unauthorized operation scope.', 'error');
+      return;
+    }
+    setDeleteConfirmModal({
+      isOpen: true,
+      title: 'Delete Order',
+      message: `Permanently delete order ${orderId} and its public tracking record? This cannot be undone.`,
+      confirmLabel: 'Delete Order',
+      onConfirm: async () => {
+        try {
+          await deleteOrder(orderId);
+          setSelectedOrderIds((prev) => prev.filter((id) => id !== orderId));
+          if (activeOrderDetails?.id === orderId) {
+            setActiveOrderDetails(null);
+          }
+          toast(`Deleted order ${orderId}`, 'success');
+          addAuditLog(`Deleted order ${orderId}`, 'Orders');
+        } catch (err) {
+          console.error('Failed to delete order:', err);
+          toast('Failed to delete order from database.', 'error');
+        }
+      },
+    });
+  };
+
+  // Bulk delete orders wrapper
+  const handleDeleteOrdersBulk = () => {
+    if (!hasPermission('orders')) {
+      toast('Unauthorized operation scope.', 'error');
+      return;
+    }
+    if (selectedOrderIds.length === 0) return;
+    const targetIds = [...selectedOrderIds];
+    setDeleteConfirmModal({
+      isOpen: true,
+      title: `Delete ${targetIds.length} Selected Order(s)`,
+      message: `Permanently delete ${targetIds.length} selected order(s) and their tracking records? This cannot be undone.`,
+      confirmLabel: `Delete ${targetIds.length} Orders`,
+      onConfirm: async () => {
+        try {
+          await deleteOrdersBulk(targetIds);
+          setSelectedOrderIds([]);
+          if (activeOrderDetails && targetIds.includes(activeOrderDetails.id)) {
+            setActiveOrderDetails(null);
+          }
+          toast(`Deleted ${targetIds.length} order(s)`, 'success');
+          addAuditLog(`Bulk deleted ${targetIds.length} orders`, 'Orders');
+        } catch (err) {
+          console.error('Failed to bulk delete orders:', err);
+          toast('Failed to delete selected orders from database.', 'error');
+        }
+      },
+    });
   };
 
   // Revenue & Order Statistics Computations
@@ -1126,8 +1203,15 @@ export const Admin: React.FC = () => {
     <div className="min-h-screen bg-[#FAF9F4] text-[#234F1E] font-sans antialiased" id="admin-root-dashboard">
       <AnimatePresence mode="wait">
         
-        {/* UNAUTHENTICATED STATE: Premium Glassmorphic Login Screen */}
-        {!isAuthenticated ? (
+        {/* UNAUTHENTICATED STATE: Firebase Google Admin Auth Gate */}
+        {!isAuthReady ? (
+          <div className="min-h-screen flex items-center justify-center bg-[#234F1E] text-white">
+            <div className="flex flex-col items-center gap-3">
+              <RefreshCw className="w-7 h-7 animate-spin text-[#E8E0D2]" />
+              <span className="text-xs font-extrabold uppercase tracking-widest">Verifying Admin Session...</span>
+            </div>
+          </div>
+        ) : !isAdminUser ? (
           isAlarmActive ? (
             <motion.div 
               initial={{ opacity: 0 }}
@@ -1158,17 +1242,17 @@ export const Admin: React.FC = () => {
                 <div className="p-4 bg-red-950/40 border border-red-500/20 rounded-2xl text-[10px] text-red-200/90 font-mono text-left space-y-1.5 leading-relaxed">
                   <div className="flex items-center gap-2 font-black text-red-400">
                     <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
-                    <span>[ ALERT ] UNAUTHORIZED CREDENTIALS DETECTED</span>
+                    <span>[ ALERT ] UNAUTHORIZED GOOGLE ACCOUNT BLOCKED</span>
                   </div>
                   <div>• SIREN ACTIVE: Web Audio Synthesizer Beacons On</div>
                   <div>• CONSOLE PORT: Admin Dashboard Access Forbidden</div>
-                  <div>• IP LOGGED: Logged to persistent store & audit table</div>
+                  <div>• SECURITY RULES: Firestore Server Rules Enforced</div>
                   <div>• TELEGRAM ALERT: Security broadcast queued</div>
                 </div>
 
                 <div className="space-y-3">
                   <p className="text-[10px] text-zinc-400 font-bold uppercase leading-snug">
-                    Access denied. Intruder alert is sounding to warn off unauthorized attempts.
+                    Access denied. Only allowlisted Omexo administrator Google accounts are permitted.
                   </p>
                   
                   <button
@@ -1176,7 +1260,6 @@ export const Admin: React.FC = () => {
                     onClick={() => {
                       stopSiren();
                       setIsAlarmActive(false);
-                      setPassword('');
                     }}
                     className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-black text-xs uppercase tracking-widest rounded-full transition-all cursor-pointer shadow-lg active:scale-95"
                   >
@@ -1193,70 +1276,72 @@ export const Admin: React.FC = () => {
               className="min-h-screen flex items-center justify-center p-4 relative bg-[#234F1E] overflow-hidden"
               id="admin-login-screen"
             >
-              {/* Soft lighting accents inspired by posters */}
+              {/* Soft lighting accents */}
               <div className="absolute top-1/4 left-1/4 w-[400px] h-[400px] bg-white/10 rounded-full blur-3xl pointer-events-none" />
               <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-[#E8E0D2]/10 rounded-full blur-3xl pointer-events-none" />
 
               <div className="max-w-md w-full bg-white/10 backdrop-blur-md border border-white/20 p-8 rounded-[32px] text-center space-y-6 relative z-10 shadow-2xl">
                 <div className="flex flex-col items-center gap-2">
-                  <div className="bg-white/90 p-4 rounded-2xl shadow-inner mb-2">
-                    <span className="text-2xl font-black tracking-widest text-[#234F1E] font-display">omexo</span>
+                  <div className="bg-white/95 px-5 py-3.5 rounded-2xl shadow-inner mb-2 flex flex-col items-center">
+                    <span className="text-xl font-black tracking-widest text-[#234F1E] font-display uppercase">{activeBrand.name}</span>
+                    <span className="text-[9px] font-extrabold uppercase tracking-[0.2em] text-[#234F1E]/60 mt-0.5">Standalone Admin Panel</span>
                   </div>
-                  <h1 className="text-xl font-extrabold uppercase tracking-widest text-white font-display">Command Console</h1>
-                  <p className="text-xs text-white/70 font-semibold tracking-wide">Authorized store managers access point only.</p>
+                  <h1 className="text-xl font-extrabold uppercase tracking-widest text-white font-display">Secured Command Console</h1>
+                  <p className="text-xs text-white/75 font-semibold tracking-wide">
+                    Independent admin workspace for <strong>{activeBrand.name}</strong> ({activeBrand.adminPath}). Sign in with an authorized administrator Google account.
+                  </p>
                 </div>
 
-                <form onSubmit={handleLogin} className="space-y-4 text-left">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold uppercase text-white/60 tracking-wider">Email Address</label>
-                    <input
-                      type="email"
-                      required
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      placeholder="name@omexo.in"
-                      className="w-full px-4 py-2.5 bg-white/10 border border-white/20 rounded-xl text-xs font-bold text-white placeholder-white/40 focus:outline-none focus:border-white/50"
-                    />
+                {authUser && !isAdminUser && (
+                  <div className="p-3 bg-red-500/20 border border-red-300/30 rounded-2xl text-xs text-red-100 font-bold">
+                    Signed in as {authUser.email}, which is not on the administrator allowlist.
                   </div>
+                )}
 
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold uppercase text-white/60 tracking-wider">Security Password</label>
-                    <input
-                      type="password"
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full px-4 py-2.5 bg-white/10 border border-white/20 rounded-xl text-xs font-bold text-white placeholder-white/40 focus:outline-none focus:border-white/50"
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between text-[11px] font-bold text-white/80">
-                    <label className="flex items-center gap-1.5 cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        checked={rememberMe} 
-                        onChange={(e) => setRememberMe(e.target.checked)} 
-                        className="rounded border-white/20 text-[#234F1E] focus:ring-transparent"
-                      />
-                      <span>Remember console</span>
-                    </label>
-                    <button 
-                      type="button" 
-                      onClick={() => toast('Credentials shared offline securely on official channel.', 'info')}
-                      className="hover:text-white"
-                    >
-                      Forgot Password?
-                    </button>
-                  </div>
-
+                <div className="space-y-3 pt-2">
                   <button
-                    type="submit"
-                    className="w-full py-3 bg-[#FAF9F4] hover:bg-[#E8E0D2] text-[#234F1E] font-black text-xs uppercase tracking-widest rounded-full transition-all cursor-pointer shadow-md"
+                    type="button"
+                    disabled={isSigningIn}
+                    onClick={handleGoogleAdminLogin}
+                    className="w-full py-3.5 px-5 bg-[#FAF9F4] hover:bg-[#E8E0D2] disabled:opacity-60 text-[#234F1E] font-black text-xs uppercase tracking-widest rounded-full transition-all cursor-pointer shadow-md flex items-center justify-center gap-2"
+                    id="admin-google-signin-btn"
                   >
-                    Verify Access
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>{isSigningIn ? 'Verifying Google Session...' : 'Sign in with Authorized Google Account'}</span>
                   </button>
-                </form>
+
+                  {authUser && (
+                    <button
+                      type="button"
+                      onClick={() => signOut(auth)}
+                      className="w-full py-2.5 bg-white/10 hover:bg-white/20 text-white font-bold text-[11px] uppercase tracking-wider rounded-full transition-all cursor-pointer"
+                    >
+                      Sign Out & Switch Account
+                    </button>
+                  )}
+
+                  <div className="pt-3 border-t border-white/10 space-y-2">
+                    <span className="text-[9px] font-extrabold uppercase tracking-widest text-white/50 block">Switch Standalone Website Admin</span>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {BRAND_SITES.map((slug) => {
+                        const cfg = getSiteBrandConfig(slug);
+                        const active = slug === siteSlug;
+                        return (
+                          <button
+                            key={slug}
+                            type="button"
+                            onClick={() => navigate('admin', undefined, slug)}
+                            className={`px-2 py-1.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
+                              active ? 'bg-white text-[#234F1E]' : 'bg-white/10 text-white/80 hover:bg-white/20'
+                            }`}
+                          >
+                            {cfg.shortLabel}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
               </div>
             </motion.div>
           )
@@ -1272,9 +1357,34 @@ export const Admin: React.FC = () => {
           >
             {/* Sidebar Desktop Navigation */}
             <aside className="w-64 bg-[#234F1E] text-[#FAF9F4] hidden lg:flex flex-col shrink-0 border-r border-white/5 relative z-20 shadow-xl" id="admin-sidebar">
-              <div className="p-6 border-b border-white/5 flex items-center justify-between">
-                <span className="text-2xl font-black tracking-widest text-white font-display">omexo</span>
-                <span className="text-[9px] bg-white/10 text-[#E8E0D2] px-2 py-0.5 rounded-full font-bold uppercase tracking-widest">{adminRole}</span>
+              <div className="p-5 border-b border-white/10 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0 text-left">
+                    <span className="text-lg font-black tracking-wider text-white font-display block truncate">{activeBrand.name}</span>
+                    <span className="text-[9px] text-[#E8E0D2]/75 font-bold uppercase tracking-widest block">Standalone Admin</span>
+                  </div>
+                  <span className="text-[9px] bg-white/10 text-[#E8E0D2] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider shrink-0">{adminRole}</span>
+                </div>
+
+                {/* Standalone Website Admin Switcher */}
+                <div className="grid grid-cols-3 gap-1 bg-black/20 p-1 rounded-xl" id="admin-site-switcher">
+                  {BRAND_SITES.map((slug) => {
+                    const cfg = getSiteBrandConfig(slug);
+                    const isCurrent = slug === siteSlug;
+                    return (
+                      <button
+                        key={slug}
+                        type="button"
+                        onClick={() => navigate('admin', undefined, slug)}
+                        className={`py-1.5 px-1 rounded-lg text-[9.5px] font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
+                          isCurrent ? 'bg-white text-[#234F1E] shadow-xs' : 'text-white/70 hover:text-white hover:bg-white/10'
+                        }`}
+                      >
+                        {cfg.shortLabel}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Sidebar Menu items */}
@@ -1313,7 +1423,15 @@ export const Admin: React.FC = () => {
                 })}
               </nav>
 
-              <div className="p-4 border-t border-white/5 bg-black/10">
+              <div className="p-4 border-t border-white/5 bg-black/10 space-y-2">
+                <button
+                  type="button"
+                  onClick={() => navigate('home', undefined, siteSlug)}
+                  className="w-full flex items-center justify-center gap-2 py-2 bg-white/10 hover:bg-white/20 text-[#FAF9F4] rounded-xl font-bold text-[10px] uppercase tracking-wider transition-all cursor-pointer"
+                >
+                  <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                  <span>Open {activeBrand.shortLabel} Store</span>
+                </button>
                 <button
                   onClick={handleLogout}
                   className="w-full flex items-center justify-center gap-2 py-2.5 bg-white/5 hover:bg-red-950/20 text-white hover:text-red-300 border border-white/10 hover:border-red-800/30 rounded-full font-bold text-xs uppercase tracking-wider transition-all cursor-pointer"
@@ -1339,11 +1457,37 @@ export const Admin: React.FC = () => {
                     transition={{ type: 'spring', damping: 25, stiffness: 220 }}
                     className="fixed top-0 bottom-0 left-0 w-64 bg-[#234F1E] text-[#FAF9F4] flex flex-col z-50 lg:hidden border-r border-white/5"
                   >
-                    <div className="p-6 border-b border-white/5 flex items-center justify-between">
-                      <span className="text-2xl font-black tracking-widest text-white font-display">omexo</span>
-                      <button onClick={() => setIsMobileSidebarOpen(false)} className="text-white/60 hover:text-white">
-                        <X className="w-5 h-5" />
-                      </button>
+                    <div className="p-5 border-b border-white/10 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="text-left">
+                          <span className="text-lg font-black tracking-wider text-white font-display block">{activeBrand.name}</span>
+                          <span className="text-[9px] text-[#E8E0D2]/75 font-bold uppercase tracking-widest">Standalone Admin</span>
+                        </div>
+                        <button onClick={() => setIsMobileSidebarOpen(false)} className="text-white/60 hover:text-white">
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-3 gap-1 bg-black/20 p-1 rounded-xl">
+                        {BRAND_SITES.map((slug) => {
+                          const cfg = getSiteBrandConfig(slug);
+                          const isCurrent = slug === siteSlug;
+                          return (
+                            <button
+                              key={slug}
+                              type="button"
+                              onClick={() => {
+                                navigate('admin', undefined, slug);
+                                setIsMobileSidebarOpen(false);
+                              }}
+                              className={`py-1.5 px-1 rounded-lg text-[9.5px] font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
+                                isCurrent ? 'bg-white text-[#234F1E]' : 'text-white/70 hover:text-white'
+                              }`}
+                            >
+                              {cfg.shortLabel}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
 
                     <nav className="flex-1 overflow-y-auto p-4 space-y-1 text-xs font-bold uppercase tracking-wider text-white/70">
@@ -1384,7 +1528,18 @@ export const Admin: React.FC = () => {
                       })}
                     </nav>
 
-                    <div className="p-4 border-t border-white/5 bg-black/10">
+                    <div className="p-4 border-t border-white/5 bg-black/10 space-y-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsMobileSidebarOpen(false);
+                          navigate('home', undefined, siteSlug);
+                        }}
+                        className="w-full flex items-center justify-center gap-2 py-2 bg-white/10 hover:bg-white/20 text-[#FAF9F4] rounded-xl font-bold text-[10px] uppercase tracking-wider transition-all cursor-pointer"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                        <span>Open {activeBrand.shortLabel} Store</span>
+                      </button>
                       <button
                         onClick={handleLogout}
                         className="w-full flex items-center justify-center gap-2 py-2.5 bg-white/5 hover:bg-red-950/20 text-white hover:text-red-300 border border-white/10 hover:border-red-800/30 rounded-full font-bold text-xs uppercase tracking-wider transition-all cursor-pointer"
@@ -1411,18 +1566,32 @@ export const Admin: React.FC = () => {
                     <Menu className="w-6 h-6" />
                   </button>
                   <div className="text-left">
-                    <h2 className="text-xs font-black text-[#234F1E]/60 uppercase tracking-widest leading-none">Console Management</h2>
-                    <h1 className="text-lg font-black text-[#234F1E] font-display mt-0.5 uppercase tracking-wider">omexo</h1>
+                    <h2 className="text-[10px] font-black text-[#234F1E]/60 uppercase tracking-widest leading-none">
+                      Standalone Store Admin · {activeBrand.adminPath}
+                    </h2>
+                    <h1 className="text-lg font-black text-[#234F1E] font-display mt-0.5 uppercase tracking-wider">
+                      {storeSettings?.storeName || activeBrand.name}
+                    </h1>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => navigate('home', undefined, siteSlug)}
+                    className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#234F1E]/10 hover:bg-[#234F1E] text-[#234F1E] hover:text-white rounded-lg text-[10px] font-extrabold uppercase tracking-wider transition-colors cursor-pointer"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>View {activeBrand.shortLabel} Site</span>
+                  </button>
                   <div className="text-right hidden sm:block">
-                    <div className="text-xs font-black text-[#234F1E]">Muhammed Sinan vk</div>
+                    <div className="text-xs font-black text-[#234F1E]">
+                      {authUser?.displayName || authUser?.email || 'Verified Admin'}
+                    </div>
                     <div className="text-[9px] text-[#234F1E]/50 font-bold uppercase tracking-wider">Role: {adminRole}</div>
                   </div>
-                  <div className="w-10 h-10 bg-[#234F1E] text-[#FAF9F4] font-black text-xs rounded-full flex items-center justify-center border border-white/20">
-                    MS
+                  <div className="w-10 h-10 bg-[#234F1E] text-[#FAF9F4] font-black text-xs rounded-full flex items-center justify-center border border-white/20 uppercase">
+                    {(authUser?.displayName || authUser?.email || 'AD').slice(0, 2)}
                   </div>
                 </div>
               </header>
@@ -1654,11 +1823,26 @@ export const Admin: React.FC = () => {
                     
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                       <div className="text-left">
-                        <h3 className="text-sm font-bold text-[#234F1E] uppercase tracking-widest font-display">Products Catalog</h3>
-                        <p className="text-[10px] text-[#234F1E]/50 font-bold uppercase mt-0.5">Manage stock availability, regular pricing, and listing imagery.</p>
+                        <h3 className="text-sm font-bold text-[#234F1E] uppercase tracking-widest font-display">
+                          {activeBrand.name} Products Catalog ({products.length})
+                        </h3>
+                        <p className="text-[10px] text-[#234F1E]/50 font-bold uppercase mt-0.5">
+                          Strictly isolated catalog for {activeBrand.name}. Manage stock, pricing, and listing imagery.
+                        </p>
                       </div>
 
-                      <div className="flex items-center gap-2 self-start sm:self-auto">
+                      <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+                        {selectedProductIds.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={handleDeleteProductsBulk}
+                            className="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white font-extrabold rounded-full text-xs uppercase tracking-widest transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+                            id="admin-bulk-delete-products-btn"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Delete Selected ({selectedProductIds.length})
+                          </button>
+                        )}
                         <div className="relative">
                           <Search className="w-3.5 h-3.5 text-[#234F1E]/40 absolute left-3 top-2.5" />
                           <input
@@ -1671,8 +1855,19 @@ export const Admin: React.FC = () => {
                         </div>
                         
                         <button
-                          onClick={() => { setIsAddingProduct(true); setEditingProduct(null); }}
+                          onClick={() => {
+                            setIsAddingProduct(true);
+                            setEditingProduct(null);
+                            setProdTitle('');
+                            setProdDescription('');
+                            setProdImageUrl('');
+                            setProdSalePrice(199);
+                            setProdRegularPrice(250);
+                            setProdStockCount(100);
+                            setProdCategory(siteSlug);
+                          }}
                           className="px-4 py-1.5 bg-[#234F1E] hover:bg-[#1C4018] text-[#FAF9F4] font-extrabold rounded-full text-xs uppercase tracking-widest transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+                          id="admin-add-product-btn"
                         >
                           <Plus className="w-3.5 h-3.5" />
                           Add Product
@@ -1685,7 +1880,7 @@ export const Admin: React.FC = () => {
                       <div className="glass-card p-6 rounded-[28px] border border-[#234F1E]/10 text-left animate-in slide-in-from-top-2 duration-200 space-y-4">
                         <div className="flex justify-between items-center border-b border-[#234F1E]/10 pb-3">
                           <h4 className="text-xs font-bold text-[#234F1E] uppercase tracking-widest font-display">
-                            {editingProduct ? `Edit "${editingProduct.title}"` : '🏷️ Create New Catalog Product'}
+                            {editingProduct ? `Edit "${editingProduct.title}"` : `🏷️ Add Product to ${activeBrand.name}`}
                           </h4>
                           <button onClick={() => { setIsAddingProduct(false); setEditingProduct(null); }} className="text-[#234F1E]/40 hover:text-[#234F1E]">
                             <X className="w-5 h-5" />
@@ -1706,15 +1901,14 @@ export const Admin: React.FC = () => {
                           </div>
 
                           <div className="space-y-1.5">
-                            <label className="text-[9px] font-bold uppercase text-[#234F1E]/50 tracking-wider">Category Department</label>
-                            <select
-                              value={prodCategory}
-                              onChange={(e) => setProdCategory(e.target.value)}
-                              className="w-full px-3 py-2 bg-white border border-[#234F1E]/10 rounded-xl font-bold text-[#234F1E] focus:outline-none"
+                            <label className="text-[9px] font-bold uppercase text-[#234F1E]/50 tracking-wider">Locked Standalone Store</label>
+                            <div
+                              className="w-full px-3 py-2 bg-[#234F1E]/5 border border-[#234F1E]/15 rounded-xl font-extrabold text-[#234F1E] flex items-center justify-between"
+                              id="admin-product-category-select"
                             >
-                              <option value="">Select Category</option>
-                              {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                            </select>
+                              <span>{activeBrand.name}</span>
+                              <span className="text-[9px] uppercase tracking-wider text-[#234F1E]/60">Isolated Storefront</span>
+                            </div>
                           </div>
 
                           <div className="space-y-1.5">
@@ -1861,6 +2055,29 @@ export const Admin: React.FC = () => {
                         <table className="w-full text-xs text-left border-collapse">
                           <thead>
                             <tr className="border-b border-[#234F1E]/10 text-[#234F1E]/50 font-bold uppercase text-[9px] tracking-wider bg-[#234F1E]/5">
+                              <th className="p-3 text-center">
+                                <input
+                                  type="checkbox"
+                                  checked={(() => {
+                                    const visible = products.filter((p) =>
+                                      p.title.toLowerCase().includes(productSearch.toLowerCase())
+                                    );
+                                    return visible.length > 0 && visible.every((p) => selectedProductIds.includes(p.id));
+                                  })()}
+                                  onChange={(e) => {
+                                    const visible = products.filter((p) =>
+                                      p.title.toLowerCase().includes(productSearch.toLowerCase())
+                                    );
+                                    if (e.target.checked) {
+                                      setSelectedProductIds(visible.map((p) => p.id));
+                                    } else {
+                                      setSelectedProductIds([]);
+                                    }
+                                  }}
+                                  aria-label="Select all visible products"
+                                  className="rounded border-[#234F1E]/20 text-[#234F1E] focus:ring-transparent cursor-pointer"
+                                />
+                              </th>
                               <th className="p-3">Image</th>
                               <th className="p-3">Title</th>
                               <th className="p-3">Category</th>
@@ -1872,46 +2089,72 @@ export const Admin: React.FC = () => {
                           </thead>
                           <tbody className="divide-y divide-[#234F1E]/5 font-semibold text-[#234F1E]">
                             {products
-                              .filter(p => p.title.toLowerCase().includes(productSearch.toLowerCase()))
-                              .map((p) => (
-                                <tr key={p.id} className="hover:bg-[#234F1E]/5 transition-all">
-                                  <td className="p-3">
-                                    <img src={p.images[0]} alt={p.title} className="w-10 h-10 object-cover rounded-xl border border-[#234F1E]/10" />
-                                  </td>
-                                  <td className="p-3 font-bold max-w-[200px] truncate">{p.title}</td>
-                                  <td className="p-3 uppercase text-[10px] text-[#234F1E]/60">{p.category}</td>
-                                  <td className="p-3 text-right font-black">₹{p.salePrice}</td>
-                                  <td className="p-3 text-right text-[#234F1E]/40">₹{p.regularPrice}</td>
-                                  <td className="p-3 text-center">
-                                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase ${p.stockCount <= 5 ? 'bg-[#E8E0D2] text-[#234F1E]' : 'bg-[#234F1E]/10'}`}>
-                                      {p.stockCount} units
-                                    </span>
-                                  </td>
-                                  <td className="p-3 text-right space-x-2">
-                                    <button
-                                      onClick={() => {
-                                        setEditingProduct(p);
-                                        setProdTitle(p.title);
-                                        setProdCategory(p.category);
-                                        setProdSalePrice(p.salePrice);
-                                        setProdRegularPrice(p.regularPrice);
-                                        setProdStockCount(p.stockCount);
-                                        setProdDescription(p.description);
-                                        setProdImageUrl(p.images[0] || '');
-                                      }}
-                                      className="p-1.5 hover:bg-[#234F1E]/10 rounded-full cursor-pointer text-[#234F1E]"
-                                    >
-                                      <Edit className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteProduct(p.id, p.title)}
-                                      className="p-1.5 hover:bg-red-500/10 text-[#234F1E] hover:text-red-700 rounded-full cursor-pointer"
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                    </button>
-                                  </td>
-                                </tr>
-                              ))}
+                              .filter((p) => p.title.toLowerCase().includes(productSearch.toLowerCase()))
+                              .map((p) => {
+                                const badge = getCategoryBadgeStyle(p.categorySlug || p.category);
+                                return (
+                                  <tr key={p.id} className="hover:bg-[#234F1E]/5 transition-all">
+                                    <td className="p-3 text-center">
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedProductIds.includes(p.id)}
+                                        onChange={(e) => {
+                                          if (e.target.checked) {
+                                            setSelectedProductIds((prev) => [...prev, p.id]);
+                                          } else {
+                                            setSelectedProductIds((prev) => prev.filter((id) => id !== p.id));
+                                          }
+                                        }}
+                                        aria-label={`Select ${p.title}`}
+                                        className="rounded border-[#234F1E]/20 text-[#234F1E] focus:ring-transparent cursor-pointer"
+                                      />
+                                    </td>
+                                    <td className="p-3">
+                                      <img src={p.images[0]} alt={p.title} className="w-10 h-10 object-cover rounded-xl border border-[#234F1E]/10" />
+                                    </td>
+                                    <td className="p-3 font-bold max-w-[200px] truncate">{p.title}</td>
+                                    <td className="p-3">
+                                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[9.5px] font-extrabold uppercase tracking-wider whitespace-nowrap ${badge.badgeClass}`}>
+                                        {badge.label}
+                                      </span>
+                                    </td>
+                                    <td className="p-3 text-right font-black">₹{p.salePrice}</td>
+                                    <td className="p-3 text-right text-[#234F1E]/40">₹{p.regularPrice}</td>
+                                    <td className="p-3 text-center">
+                                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase ${p.stockCount <= 5 ? 'bg-[#E8E0D2] text-[#234F1E]' : 'bg-[#234F1E]/10'}`}>
+                                        {p.stockCount} units
+                                      </span>
+                                    </td>
+                                    <td className="p-3 text-right space-x-2">
+                                      <button
+                                        onClick={() => {
+                                          setEditingProduct(p);
+                                          setIsAddingProduct(false);
+                                          setProdTitle(p.title);
+                                          setProdCategory(siteSlug);
+                                          setProdSalePrice(p.salePrice);
+                                          setProdRegularPrice(p.regularPrice);
+                                          setProdStockCount(p.stockCount);
+                                          setProdDescription(p.description);
+                                          setProdImageUrl(p.images[0] || '');
+                                        }}
+                                        className="p-1.5 hover:bg-[#234F1E]/10 rounded-full cursor-pointer text-[#234F1E]"
+                                        title={`Edit ${p.title}`}
+                                      >
+                                        <Edit className="w-4 h-4" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteProduct(p.id, p.title)}
+                                        className="p-1.5 hover:bg-red-500/10 text-[#234F1E] hover:text-red-700 rounded-full cursor-pointer"
+                                        title={`Delete ${p.title}`}
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </button>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
                           </tbody>
                         </table>
                       </div>
@@ -2001,7 +2244,7 @@ export const Admin: React.FC = () => {
                           <div key={c.id} className="py-3 flex items-center justify-between font-bold gap-3">
                             <div className="flex items-center gap-3 min-w-0">
                               <img
-                                src={c.image || 'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?auto=format&fit=crop&w=400&q=80'}
+                                src={c.image || OMEXO_MEDIA.catLifestyle}
                                 alt={c.name}
                                 className="w-10 h-10 object-cover rounded-xl border border-[#234F1E]/10 shrink-0 bg-zinc-100"
                               />
@@ -2031,7 +2274,28 @@ export const Admin: React.FC = () => {
                                   }}
                                 />
                               </label>
-                              <button onClick={() => { deleteCategory(c.id); toast('Removed category', 'info'); }} className="p-1 hover:bg-[#234F1E]/5 rounded text-[#234F1E]/40 hover:text-red-700 cursor-pointer">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setDeleteConfirmModal({
+                                    isOpen: true,
+                                    title: 'Delete Category',
+                                    message: `Remove category "${c.name}"?`,
+                                    confirmLabel: 'Delete Category',
+                                    onConfirm: async () => {
+                                      try {
+                                        await deleteCategory(c.id);
+                                        toast('Removed category', 'info');
+                                        addAuditLog(`Deleted category "${c.name}"`, 'Categories');
+                                      } catch {
+                                        toast('Failed to delete category.', 'error');
+                                      }
+                                    },
+                                  });
+                                }}
+                                className="p-1 hover:bg-[#234F1E]/5 rounded text-[#234F1E]/40 hover:text-red-700 cursor-pointer"
+                                title={`Delete ${c.name}`}
+                              >
                                 <Trash2 className="w-4 h-4" />
                               </button>
                             </div>
@@ -2078,7 +2342,28 @@ export const Admin: React.FC = () => {
                         {brands.map(b => (
                           <div key={b.id} className="py-2.5 flex justify-between items-center font-bold">
                             <span className="text-[#234F1E]">{b.name}</span>
-                            <button onClick={() => { deleteBrand(b.id); toast('Removed brand partner', 'info'); }} className="p-1 hover:bg-[#234F1E]/5 rounded text-[#234F1E]/40 hover:text-red-700 cursor-pointer">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDeleteConfirmModal({
+                                  isOpen: true,
+                                  title: 'Delete Brand Partner',
+                                  message: `Remove brand partner "${b.name}"?`,
+                                  confirmLabel: 'Delete Brand',
+                                  onConfirm: async () => {
+                                    try {
+                                      await deleteBrand(b.id);
+                                      toast('Removed brand partner', 'info');
+                                      addAuditLog(`Deleted brand partner "${b.name}"`, 'Categories');
+                                    } catch {
+                                      toast('Failed to delete brand partner.', 'error');
+                                    }
+                                  },
+                                });
+                              }}
+                              className="p-1 hover:bg-[#234F1E]/5 rounded text-[#234F1E]/40 hover:text-red-700 cursor-pointer"
+                              title={`Delete ${b.name}`}
+                            >
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
@@ -2120,24 +2405,16 @@ export const Admin: React.FC = () => {
                               </td>
                               <td className="p-3 text-right space-x-2">
                                 <button
-                                  onClick={async () => {
-                                    const val = Number(prompt(`Enter stock quantity to ADD to "${p.title}":`, '10'));
-                                    if (isNaN(val) || val <= 0) return;
-                                    await updateProduct({ ...p, stockCount: p.stockCount + val });
-                                    toast(`Added +${val} units to "${p.title}"`, 'success');
-                                    addAuditLog(`Added +${val} stock count to product "${p.title}"`, 'Inventory');
+                                  onClick={() => {
+                                    setStockModalConfig({ isOpen: true, product: p, mode: 'add', quantity: 10 });
                                   }}
                                   className="px-3 py-1 bg-[#234F1E] hover:bg-[#1C4018] text-white rounded-full text-[9px] font-bold uppercase tracking-wider cursor-pointer"
                                 >
                                   + Restock
                                 </button>
                                 <button
-                                  onClick={async () => {
-                                    const val = Number(prompt(`Enter stock quantity to REDUCE from "${p.title}":`, '5'));
-                                    if (isNaN(val) || val <= 0) return;
-                                    await updateProduct({ ...p, stockCount: Math.max(0, p.stockCount - val) });
-                                    toast(`Reduced -${val} units from "${p.title}"`, 'success');
-                                    addAuditLog(`Removed -${val} stock count from product "${p.title}"`, 'Inventory');
+                                  onClick={() => {
+                                    setStockModalConfig({ isOpen: true, product: p, mode: 'reduce', quantity: 5 });
                                   }}
                                   className="px-3 py-1 bg-white border border-[#234F1E]/15 hover:border-[#234F1E] text-[#234F1E] rounded-full text-[9px] font-bold uppercase tracking-wider cursor-pointer"
                                 >
@@ -2158,19 +2435,35 @@ export const Admin: React.FC = () => {
                     
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-left">
                       <div>
-                        <h3 className="text-sm font-bold uppercase tracking-widest text-[#234F1E] font-display">Orders Desk</h3>
-                        <p className="text-[10px] text-[#234F1E]/50 font-bold uppercase mt-0.5">Monitor client checkout logs, manage status pipelines, and trigger A4 bulk labels print sheets.</p>
+                        <h3 className="text-sm font-bold uppercase tracking-widest text-[#234F1E] font-display">
+                          {activeBrand.name} Orders Desk ({orders.length})
+                        </h3>
+                        <p className="text-[10px] text-[#234F1E]/50 font-bold uppercase mt-0.5">
+                          Isolated order fulfillment for {activeBrand.name}. Contact customers on WhatsApp for COD verification and print A4 labels.
+                        </p>
                       </div>
 
-                      <div className="flex items-center gap-2 self-start sm:self-auto">
+                      <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
                         {selectedOrderIds.length > 0 && (
-                          <button
-                            onClick={() => setIsBulkPrinting(true)}
-                            className="px-4 py-1.5 bg-[#E8E0D2] hover:bg-[#D8CEBD] text-[#234F1E] font-extrabold rounded-full text-xs uppercase tracking-widest transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
-                          >
-                            <Printer className="w-3.5 h-3.5" />
-                            Print A4 Labels ({selectedOrderIds.length})
-                          </button>
+                          <>
+                            <button
+                              type="button"
+                              onClick={handleDeleteOrdersBulk}
+                              className="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white font-extrabold rounded-full text-xs uppercase tracking-widest transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+                              id="admin-bulk-delete-orders-btn"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              Delete Selected ({selectedOrderIds.length})
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setIsBulkPrinting(true)}
+                              className="px-4 py-1.5 bg-[#E8E0D2] hover:bg-[#D8CEBD] text-[#234F1E] font-extrabold rounded-full text-xs uppercase tracking-widest transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+                            >
+                              <Printer className="w-3.5 h-3.5" />
+                              Print A4 Labels ({selectedOrderIds.length})
+                            </button>
+                          </>
                         )}
                         <select
                           value={orderFilterStatus}
@@ -2196,67 +2489,110 @@ export const Admin: React.FC = () => {
                               <th className="p-3 text-center">
                                 <input 
                                   type="checkbox" 
+                                  checked={(() => {
+                                    const visibleOrders = orders.filter((o) => orderFilterStatus === 'All' || o.orderStatus === orderFilterStatus);
+                                    return visibleOrders.length > 0 && visibleOrders.every((o) => selectedOrderIds.includes(o.id));
+                                  })()}
                                   onChange={(e) => {
+                                    const visibleOrders = orders.filter((o) => orderFilterStatus === 'All' || o.orderStatus === orderFilterStatus);
                                     if (e.target.checked) {
-                                      setSelectedOrderIds(orders.map(o => o.id));
+                                      setSelectedOrderIds(visibleOrders.map(o => o.id));
                                     } else {
                                       setSelectedOrderIds([]);
                                     }
                                   }}
-                                  className="rounded border-[#234F1E]/20 text-[#234F1E] focus:ring-transparent"
+                                  aria-label="Select all visible orders"
+                                  className="rounded border-[#234F1E]/20 text-[#234F1E] focus:ring-transparent cursor-pointer"
                                 />
                               </th>
                               <th className="p-3">Ref ID</th>
+                              <th className="p-3">Storefront</th>
                               <th className="p-3">Date</th>
                               <th className="p-3">Customer</th>
                               <th className="p-3">Pincode</th>
                               <th className="p-3 text-right">Collect Total</th>
                               <th className="p-3 text-center">Status</th>
-                              <th className="p-3 text-right">Action</th>
+                              <th className="p-3 text-right">Actions</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-[#234F1E]/5 font-semibold text-[#234F1E]">
                             {orders
-                              .filter(o => orderFilterStatus === 'All' || o.orderStatus === orderFilterStatus)
-                              .map((o) => (
-                                <tr key={o.id} className="hover:bg-[#234F1E]/5">
-                                  <td className="p-3 text-center">
-                                    <input 
-                                      type="checkbox"
-                                      checked={selectedOrderIds.includes(o.id)}
-                                      onChange={(e) => {
-                                        if (e.target.checked) {
-                                          setSelectedOrderIds(prev => [...prev, o.id]);
-                                        } else {
-                                          setSelectedOrderIds(prev => prev.filter(id => id !== o.id));
-                                        }
-                                      }}
-                                      className="rounded border-[#234F1E]/20 text-[#234F1E] focus:ring-transparent"
-                                    />
-                                  </td>
-                                  <td className="p-3 font-mono font-bold text-[#234F1E]">{o.id}</td>
-                                  <td className="p-3 text-[#234F1E]/60">{new Date(o.createdAt).toLocaleDateString('en-IN')}</td>
-                                  <td className="p-3">{o.customerName}</td>
-                                  <td className="p-3 font-mono">{o.pincode}</td>
-                                  <td className="p-3 text-right font-black">₹{o.totalAmount}</td>
-                                  <td className="p-3 text-center">
-                                    <span className="bg-[#234F1E]/10 text-[#234F1E] px-2.5 py-0.5 rounded-full text-[8.5px] font-extrabold uppercase tracking-wider">
-                                      {o.orderStatus}
-                                    </span>
-                                  </td>
-                                  <td className="p-3 text-right">
-                                    <button
-                                      onClick={() => {
-                                        setActiveOrderDetails(o);
-                                        setTrackingNumInput(o.consignmentNumber || '');
-                                      }}
-                                      className="px-2.5 py-1 bg-white border border-[#234F1E]/10 text-[#234F1E] hover:border-[#234F1E] rounded-full text-[10px] uppercase font-extrabold tracking-wider cursor-pointer"
-                                    >
-                                      Manage
-                                    </button>
-                                  </td>
-                                </tr>
-                              ))}
+                              .filter((o) => orderFilterStatus === 'All' || o.orderStatus === orderFilterStatus)
+                              .map((o) => {
+                                const badge = getCategoryBadgeStyle(siteSlug);
+                                const customerWaUrl = buildCustomerOrderWhatsAppUrl(o, storeSettings?.storeName || activeBrand.name);
+                                return (
+                                  <tr key={o.id} className="hover:bg-[#234F1E]/5">
+                                    <td className="p-3 text-center">
+                                      <input 
+                                        type="checkbox" 
+                                        checked={selectedOrderIds.includes(o.id)}
+                                        onChange={(e) => {
+                                          if (e.target.checked) {
+                                            setSelectedOrderIds(prev => [...prev, o.id]);
+                                          } else {
+                                            setSelectedOrderIds(prev => prev.filter(id => id !== o.id));
+                                          }
+                                        }}
+                                        className="rounded border-[#234F1E]/20 text-[#234F1E] focus:ring-transparent"
+                                      />
+                                    </td>
+                                    <td className="p-3 font-mono font-bold text-[#234F1E]">{o.id}</td>
+                                    <td className="p-3">
+                                      <span
+                                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider whitespace-nowrap ${badge.badgeClass}`}
+                                      >
+                                        {badge.shortLabel}
+                                      </span>
+                                    </td>
+                                    <td className="p-3 text-[#234F1E]/60 whitespace-nowrap">{new Date(o.createdAt).toLocaleDateString('en-IN')}</td>
+                                    <td className="p-3">
+                                      <div className="font-bold text-[#234F1E]">{o.customerName}</div>
+                                      <div className="text-[10px] font-mono text-[#234F1E]/50">{o.customerPhone}</div>
+                                    </td>
+                                    <td className="p-3 font-mono">{o.pincode}</td>
+                                    <td className="p-3 text-right font-black">₹{o.totalAmount}</td>
+                                    <td className="p-3 text-center">
+                                      <span className="bg-[#234F1E]/10 text-[#234F1E] px-2.5 py-0.5 rounded-full text-[8.5px] font-extrabold uppercase tracking-wider">
+                                        {o.orderStatus}
+                                      </span>
+                                    </td>
+                                    <td className="p-3 text-right">
+                                      <div className="inline-flex items-center gap-1.5 justify-end">
+                                        <a
+                                          href={customerWaUrl}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          title="Contact Customer on WhatsApp"
+                                          className="px-2.5 py-1 bg-[#1E8E3E] hover:bg-[#167330] text-white rounded-full text-[9.5px] uppercase font-extrabold tracking-wider inline-flex items-center gap-1 whitespace-nowrap"
+                                        >
+                                          <MessageCircle className="w-3 h-3" />
+                                          WhatsApp
+                                        </a>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setActiveOrderDetails(o);
+                                            setTrackingNumInput(o.consignmentNumber || '');
+                                          }}
+                                          className="px-2.5 py-1 bg-white border border-[#234F1E]/10 text-[#234F1E] hover:border-[#234F1E] rounded-full text-[10px] uppercase font-extrabold tracking-wider cursor-pointer"
+                                        >
+                                          Manage
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDeleteOrder(o.id)}
+                                          className="p-1.5 text-red-500 hover:bg-red-50 rounded-full transition-colors cursor-pointer"
+                                          title={`Delete Order ${o.id}`}
+                                          id={`delete-order-${o.id}`}
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
                           </tbody>
                         </table>
                       </div>
@@ -2275,10 +2611,15 @@ export const Admin: React.FC = () => {
                           >
                             <div className="flex justify-between items-start border-b border-[#234F1E]/10 pb-4">
                               <div>
-                                <span className="text-[9px] bg-[#234F1E]/10 text-[#234F1E] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider">
-                                  Order Management
-                                </span>
-                                <h3 className="text-base font-black text-[#234F1E] font-mono mt-1">{activeOrderDetails.id}</h3>
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <span className="text-[9px] bg-[#234F1E]/10 text-[#234F1E] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider">
+                                    Order Management
+                                  </span>
+                                  <span className={`text-[9px] font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${getCategoryBadgeStyle(siteSlug).badgeClass}`}>
+                                    {activeBrand.name}
+                                  </span>
+                                </div>
+                                <h3 className="text-base font-black text-[#234F1E] font-mono mt-1.5">{activeOrderDetails.id}</h3>
                               </div>
                               <button
                                 onClick={() => setActiveOrderDetails(null)}
@@ -2297,6 +2638,17 @@ export const Admin: React.FC = () => {
                                 <p><strong>Consignment Track Code:</strong> <span className="font-mono text-[#234F1E] font-extrabold">{activeOrderDetails.consignmentNumber}</span></p>
                               )}
                             </div>
+
+                            <a
+                              href={buildCustomerOrderWhatsAppUrl(activeOrderDetails, storeSettings?.storeName || activeBrand.name)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="w-full py-2.5 px-4 bg-[#1E8E3E] hover:bg-[#167330] text-white font-extrabold rounded-xl text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm"
+                              id="drawer-contact-customer-whatsapp"
+                            >
+                              <MessageCircle className="w-4 h-4" />
+                              <span>Contact Customer on WhatsApp</span>
+                            </a>
 
                             <div className="space-y-1.5 text-xs">
                               <label className="text-[10px] font-bold uppercase text-[#234F1E]/50 tracking-wider block">Transition Order Status</label>
@@ -2348,18 +2700,65 @@ export const Admin: React.FC = () => {
                             <div className="space-y-2 border-t border-[#234F1E]/5 pt-4">
                               <h4 className="text-[10px] font-bold text-[#234F1E] uppercase tracking-widest">Purchased Products</h4>
                               <div className="space-y-2 text-xs">
-                                {activeOrderDetails.items.map((item, idx) => (
-                                  <div key={idx} className="flex justify-between items-center text-xs font-bold">
-                                    <span>{item.title} × {item.quantity}</span>
-                                    <span>₹{item.price * item.quantity}</span>
-                                  </div>
-                                ))}
+                                {activeOrderDetails.items.map((item, idx) => {
+                                  const matchedProd = products.find((p) => p.id === item.productId);
+                                  const badge = getCategoryBadgeStyle(
+                                    item.categorySlug || item.category || matchedProd?.categorySlug || matchedProd?.category || siteSlug
+                                  );
+                                  return (
+                                    <div key={idx} className="flex justify-between items-center text-xs font-bold gap-2">
+                                      <div className="min-w-0">
+                                        <span className="block truncate">{item.title} × {item.quantity}</span>
+                                        <span className={`inline-flex px-1.5 py-0.2 rounded text-[8.5px] font-extrabold uppercase ${badge.badgeClass}`}>
+                                          {badge.shortLabel}
+                                        </span>
+                                      </div>
+                                      <span className="shrink-0">₹{item.price * item.quantity}</span>
+                                    </div>
+                                  );
+                                })}
                                 <div className="flex justify-between items-center text-sm font-black border-t border-[#234F1E]/10 pt-2 text-[#234F1E]">
                                   <span>GRAND TOTAL COLLECTABLE</span>
                                   <span>₹{activeOrderDetails.totalAmount}</span>
                                 </div>
                               </div>
                             </div>
+
+                            {/* Dynamic Invoice / Store Dispatch Details */}
+                            <div className="p-4 bg-white border border-[#234F1E]/10 rounded-2xl space-y-1.5 text-[11px] text-[#234F1E]/80">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[9.5px] font-extrabold uppercase tracking-wider text-[#234F1E]">
+                                  Invoice & Sender Store Info
+                                </span>
+                                {sanitizeSafeUrl(storeSettings?.mapLocationUrl) && (
+                                  <a
+                                    href={sanitizeSafeUrl(storeSettings?.mapLocationUrl)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-[9.5px] font-bold text-[#234F1E] hover:underline"
+                                  >
+                                    <span>Map</span>
+                                    <ExternalLink className="w-2.5 h-2.5" />
+                                  </a>
+                                )}
+                              </div>
+                              <p className="font-bold text-[#234F1E]">{storeSettings?.storeName || activeBrand.name}</p>
+                              <p className="font-bold text-[#234F1E]">{ORDER_LABEL_SENDER.name}</p>
+                              <p className="leading-snug text-[#234F1E]/80">{ORDER_LABEL_SENDER.address}</p>
+                              <p className="font-mono text-[10px] font-bold text-[#234F1E]">
+                                Support team: {storeSettings?.supportNum || ORDER_LABEL_SENDER.phone} · {storeSettings?.supportMail || activeBrand.defaultStoreSettings.supportMail}
+                              </p>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteOrder(activeOrderDetails.id)}
+                              className="w-full py-2.5 px-4 bg-red-50 hover:bg-red-600 text-red-700 hover:text-white border border-red-200 font-extrabold rounded-xl text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                              id="drawer-delete-order-btn"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              <span>Delete Order Permanently</span>
+                            </button>
                           </motion.div>
                         </div>
                       )}
@@ -2437,8 +2836,9 @@ export const Admin: React.FC = () => {
                             type: newCouponType,
                             value: Number(newCouponValue),
                             minOrder: Number(newCouponMinOrder),
-                            isActive: true
-                          });
+                            isActive: true,
+                            siteSlug
+                          }, siteSlug);
                           setNewCouponCode('');
                           toast(`Active coupon "${code}" generated successfully!`, 'success');
                           addAuditLog(`Created new store coupon code: "${code}"`, 'Coupons');
@@ -2509,13 +2909,27 @@ export const Admin: React.FC = () => {
                             </div>
                             <div className="flex items-center gap-2">
                               <span className="text-[9px] bg-[#234F1E]/10 text-[#234F1E] px-2.5 py-0.5 rounded-full font-bold">Active</span>
-                              <button 
-                                onClick={async () => {
-                                  await deleteCoupon(coupon.id);
-                                  toast('Removed coupon discount code', 'info');
-                                  addAuditLog(`Deleted coupon discount "${coupon.code}"`, 'Coupons');
-                                }} 
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setDeleteConfirmModal({
+                                    isOpen: true,
+                                    title: 'Delete Coupon',
+                                    message: `Delete coupon code "${coupon.code}"?`,
+                                    confirmLabel: 'Delete Coupon',
+                                    onConfirm: async () => {
+                                      try {
+                                        await deleteCoupon(coupon.id);
+                                        toast('Removed coupon discount code', 'info');
+                                        addAuditLog(`Deleted coupon discount "${coupon.code}"`, 'Coupons');
+                                      } catch {
+                                        toast('Failed to delete coupon.', 'error');
+                                      }
+                                    },
+                                  });
+                                }}
                                 className="p-1 text-[#234F1E]/45 hover:text-red-700 cursor-pointer hover:bg-[#234F1E]/5 rounded"
+                                title={`Delete ${coupon.code}`}
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
@@ -2555,9 +2969,9 @@ export const Admin: React.FC = () => {
                       <form
                         onSubmit={async (e) => {
                           e.preventDefault();
-                          await updateComboConfig(comboForm);
+                          await updateComboConfig(comboForm, siteSlug);
                           toast('Special Combo Promo section updated successfully!', 'success');
-                          addAuditLog('Updated Special Combo promo banner content', 'Content');
+                          addAuditLog(`Updated Special Combo promo banner content for ${activeBrand.name}`, 'Content');
                         }}
                         className="space-y-4 text-xs"
                       >
@@ -2984,9 +3398,9 @@ export const Admin: React.FC = () => {
                       <form
                         onSubmit={async (e) => {
                           e.preventDefault();
-                          await updateHeroConfig(heroForm);
+                          await updateHeroConfig(heroForm, siteSlug);
                           toast('Main Homepage Hero Section updated successfully!', 'success');
-                          addAuditLog('Updated homepage hero banner content', 'Content');
+                          addAuditLog(`Updated homepage hero banner content for ${activeBrand.name}`, 'Content');
                         }}
                         className="space-y-4 text-xs"
                       >
@@ -3424,12 +3838,26 @@ export const Admin: React.FC = () => {
                                   </button>
                                 )}
                                 <button
-                                  onClick={async () => {
-                                    await deleteReview(rev.id);
-                                    toast('Review deleted from records', 'info');
-                                    addAuditLog(`Deleted customer review ID ${rev.id}`, 'Reviews');
+                                  type="button"
+                                  onClick={() => {
+                                    setDeleteConfirmModal({
+                                      isOpen: true,
+                                      title: 'Delete Review',
+                                      message: `Delete review by "${rev.customerName}"?`,
+                                      confirmLabel: 'Delete Review',
+                                      onConfirm: async () => {
+                                        try {
+                                          await deleteReview(rev.id);
+                                          toast('Review deleted from records', 'info');
+                                          addAuditLog(`Deleted customer review ID ${rev.id}`, 'Reviews');
+                                        } catch {
+                                          toast('Failed to delete review.', 'error');
+                                        }
+                                      },
+                                    });
                                   }}
                                   className="p-1 hover:bg-red-500/10 hover:text-red-700 text-[#234F1E]/45 rounded-full cursor-pointer inline-block"
+                                  title="Delete Review"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </button>
@@ -3483,18 +3911,24 @@ export const Admin: React.FC = () => {
                 {activeTab === 'settings' && (
                   <div className="glass-card p-6 rounded-[28px] border border-[#234F1E]/10 text-left animate-in fade-in duration-200 space-y-6">
                     <div>
-                      <h3 className="text-sm font-bold uppercase tracking-widest text-[#234F1E] font-display">Console Settings</h3>
-                      <p className="text-[10px] text-[#234F1E]/50 font-bold uppercase mt-0.5">Adjust metadata properties, support contacts, and notification channels.</p>
+                      <h3 className="text-sm font-bold uppercase tracking-widest text-[#234F1E] font-display">
+                        {activeBrand.name} — Store, Address & WhatsApp Settings
+                      </h3>
+                      <p className="text-[10px] text-[#234F1E]/50 font-bold uppercase mt-0.5">
+                        Dedicated settings for {activeBrand.name}. Changes apply strictly to this standalone website only.
+                      </p>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
                       
-                      {/* Store Metadata contact */}
+                      {/* Store Metadata, WhatsApp Routing & Location Settings */}
                       <div className="space-y-4 bg-white p-5 border border-[#234F1E]/10 rounded-2xl">
-                        <h4 className="text-[10px] font-bold uppercase tracking-widest text-[#234F1E]">General Contact Info</h4>
+                        <h4 className="text-[10px] font-bold uppercase tracking-widest text-[#234F1E]">
+                          {activeBrand.shortLabel} Store Identity, Address & WhatsApp Number
+                        </h4>
                         
                         <div className="space-y-1.5">
-                          <label className="text-[9px] font-bold text-[#234F1E]/50 uppercase tracking-wider block">Official Brand Name</label>
+                          <label className="text-[9px] font-bold text-[#234F1E]/50 uppercase tracking-wider block">Standalone Storefront Name</label>
                           <input
                             type="text"
                             value={storeName}
@@ -3504,51 +3938,143 @@ export const Admin: React.FC = () => {
                         </div>
 
                         <div className="space-y-1.5">
-                          <label className="text-[9px] font-bold text-[#234F1E]/50 uppercase tracking-wider block">Support WhatsApp Contact</label>
+                          <label className="text-[9px] font-bold text-[#234F1E]/50 uppercase tracking-wider block">
+                            {activeBrand.name} Order & Support WhatsApp Number
+                          </label>
                           <input
                             type="text"
-                            value={supportNum}
-                            onChange={(e) => setStorePhone(e.target.value)}
+                            value={siteSlug === 'essentials' ? essentialsWhatsapp : defaultWhatsapp}
+                            onChange={(e) => {
+                              if (siteSlug === 'essentials') {
+                                setEssentialsWhatsapp(e.target.value);
+                              } else {
+                                setDefaultWhatsapp(e.target.value);
+                              }
+                            }}
+                            placeholder={activeBrand.whatsappNumber}
+                            className="w-full px-3 py-1.5 border border-[#234F1E]/15 rounded-xl bg-[#FAF9F4] focus:outline-none font-mono font-bold text-[#234F1E]"
+                            id={siteSlug === 'essentials' ? 'settings-essentials-whatsapp' : 'settings-default-whatsapp'}
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="space-y-1.5">
+                            <label className="text-[9px] font-bold text-[#234F1E]/50 uppercase tracking-wider block">Contact No / Support Team</label>
+                            <input
+                              type="text"
+                              value={supportNum}
+                              onChange={(e) => setStorePhone(e.target.value)}
+                              className="w-full px-3 py-1.5 border border-[#234F1E]/10 rounded-xl bg-[#FAF9F4] focus:outline-none font-bold text-[#234F1E]"
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className="text-[9px] font-bold text-[#234F1E]/50 uppercase tracking-wider block">Support Email Address</label>
+                            <input
+                              type="email"
+                              value={supportMail}
+                              onChange={(e) => setStoreEmail(e.target.value)}
+                              className="w-full px-3 py-1.5 border border-[#234F1E]/10 rounded-xl bg-[#FAF9F4] focus:outline-none font-bold text-[#234F1E]"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-[9px] font-bold text-[#234F1E]/50 uppercase tracking-wider block">Store & Dispatch Address (Footer, Contact & Invoices)</label>
+                          <textarea
+                            rows={2}
+                            value={storeAddress}
+                            onChange={(e) => setStoreAddress(e.target.value)}
+                            placeholder="Enter full business / dispatch address..."
+                            className="w-full px-3 py-2 border border-[#234F1E]/10 rounded-xl bg-[#FAF9F4] focus:outline-none font-bold text-[#234F1E] resize-none"
+                            id="settings-store-address"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <label className="text-[9px] font-bold text-[#234F1E]/50 uppercase tracking-wider block">Google Maps Location Link</label>
+                            {sanitizeSafeUrl(mapLocationUrl) && (
+                              <a
+                                href={sanitizeSafeUrl(mapLocationUrl)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-[9.5px] font-bold text-[#234F1E] hover:underline"
+                              >
+                                <span>Test Map Link</span>
+                                <ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+                            )}
+                          </div>
+                          <input
+                            type="url"
+                            value={mapLocationUrl}
+                            onChange={(e) => setMapLocationUrl(e.target.value)}
+                            placeholder="https://maps.google.com/?q=..."
+                            className="w-full px-3 py-1.5 border border-[#234F1E]/10 rounded-xl bg-[#FAF9F4] focus:outline-none font-mono text-[11px] font-bold text-[#234F1E]"
+                            id="settings-map-location-url"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-[9px] font-bold text-[#234F1E]/50 uppercase tracking-wider block">SEO Title</label>
+                          <input
+                            type="text"
+                            value={seoTitle}
+                            onChange={(e) => setSeoTitle(e.target.value)}
                             className="w-full px-3 py-1.5 border border-[#234F1E]/10 rounded-xl bg-[#FAF9F4] focus:outline-none font-bold text-[#234F1E]"
                           />
                         </div>
 
                         <div className="space-y-1.5">
-                          <label className="text-[9px] font-bold text-[#234F1E]/50 uppercase tracking-wider block">Support Email Address</label>
-                          <input
-                            type="email"
-                            value={supportMail}
-                            onChange={(e) => setStoreEmail(e.target.value)}
-                            className="w-full px-3 py-1.5 border border-[#234F1E]/10 rounded-xl bg-[#FAF9F4] focus:outline-none font-bold text-[#234F1E]"
+                          <label className="text-[9px] font-bold text-[#234F1E]/50 uppercase tracking-wider block">SEO Meta Description</label>
+                          <textarea
+                            rows={2}
+                            value={seoDescription}
+                            onChange={(e) => setSeoDescription(e.target.value)}
+                            className="w-full px-3 py-2 border border-[#234F1E]/10 rounded-xl bg-[#FAF9F4] focus:outline-none font-semibold text-[#234F1E] resize-none"
                           />
                         </div>
 
                         <button
                           onClick={async () => {
-                            await updateStoreSettings({
-                              storeName,
-                              supportNum,
-                              supportMail,
-                              address: storeSettings?.address || 'Omexo Digital Hub, Calicut, Kerala - 673001, India',
-                              seoTitle,
-                              seoDescription
-                            });
-                            toast('General store details saved and published live to website!', 'success');
-                            addAuditLog('Updated global support contact metadata properties', 'Settings');
+                            const activeWaNumber =
+                              siteSlug === 'essentials'
+                                ? sanitizeWhatsappNumber(essentialsWhatsapp, WHATSAPP_NUMBERS.ESSENTIALS)
+                                : sanitizeWhatsappNumber(defaultWhatsapp, WHATSAPP_NUMBERS.DEFAULT);
+                            await updateStoreSettings(
+                              {
+                                storeName: storeName.trim() || activeBrand.name,
+                                supportNum: supportNum.trim() || activeBrand.defaultStoreSettings.supportNum,
+                                defaultWhatsapp: activeWaNumber,
+                                essentialsWhatsapp: activeWaNumber,
+                                supportMail: supportMail.trim() || activeBrand.defaultStoreSettings.supportMail,
+                                address: storeAddress.trim() || activeBrand.defaultStoreSettings.address,
+                                mapLocationUrl: sanitizeSafeUrl(mapLocationUrl, { allowDataImage: false, fallback: '' }),
+                                seoTitle: seoTitle.trim() || activeBrand.defaultStoreSettings.seoTitle,
+                                seoDescription: seoDescription.trim() || activeBrand.defaultStoreSettings.seoDescription
+                              },
+                              siteSlug
+                            );
+                            toast(`${activeBrand.name} settings saved live!`, 'success');
+                            addAuditLog(`Updated ${activeBrand.name} Store Address, Map Link & WhatsApp number`, 'Settings');
                           }}
-                          className="px-5 py-2.5 bg-[#234F1E] text-white font-extrabold text-[10px] uppercase tracking-widest rounded-full cursor-pointer"
+                          className="px-5 py-2.5 bg-[#234F1E] hover:bg-[#1C4018] text-white font-extrabold text-[10px] uppercase tracking-widest rounded-full cursor-pointer"
+                          id="settings-save-general-btn"
                         >
-                          Save general settings
+                          Save {activeBrand.shortLabel} Settings
                         </button>
                       </div>
 
                       {/* Telegram integration details */}
                       <div className="space-y-4 bg-white p-5 border border-[#234F1E]/10 rounded-2xl">
-                        <h4 className="text-[10px] font-bold uppercase tracking-widest text-[#234F1E]">Telegram Alerts Bot Channel</h4>
+                        <h4 className="text-[10px] font-bold uppercase tracking-widest text-[#234F1E]">
+                          {activeBrand.shortLabel} Telegram Alerts Bot Channel
+                        </h4>
                         
                         <div className="p-3 bg-[#234F1E]/5 border border-[#234F1E]/10 text-[9.5px] text-[#234F1E]/70 font-semibold leading-relaxed rounded-xl space-y-1">
                           <p>🔗 <strong>Real-time Telegram integration:</strong></p>
-                          <p>Dispatch automated instant order checkouts alerts directly to your team chat or bot stream via HTTP Bot API.</p>
+                          <p>Dispatch automated instant order checkouts alerts for <strong>{activeBrand.name}</strong> directly to your team chat or bot stream via HTTP Bot API.</p>
                         </div>
 
                         <div className="space-y-1.5">
@@ -3557,7 +4083,7 @@ export const Admin: React.FC = () => {
                             type="password"
                             value={telegramConfig.botToken}
                             onChange={async (e) => {
-                              await updateTelegramConfig({ ...telegramConfig, botToken: e.target.value });
+                              await updateTelegramConfig({ ...telegramConfig, botToken: e.target.value }, siteSlug);
                             }}
                             placeholder="e.g. 748209384:AAH92..."
                             className="w-full px-3 py-1.5 border border-[#234F1E]/10 rounded-xl bg-[#FAF9F4] focus:outline-none font-mono text-xs"
@@ -3570,7 +4096,7 @@ export const Admin: React.FC = () => {
                             type="text"
                             value={telegramConfig.chatId}
                             onChange={async (e) => {
-                              await updateTelegramConfig({ ...telegramConfig, chatId: e.target.value });
+                              await updateTelegramConfig({ ...telegramConfig, chatId: e.target.value }, siteSlug);
                             }}
                             placeholder="e.g. -1004829304"
                             className="w-full px-3 py-1.5 border border-[#234F1E]/10 rounded-xl bg-[#FAF9F4] focus:outline-none font-mono text-xs"
@@ -3604,20 +4130,27 @@ export const Admin: React.FC = () => {
                       <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
                         {adminRole === 'Super Admin' ? (
                           <button
+                            type="button"
                             onClick={() => {
-                              if (window.confirm('⚠️ Are you completely sure you want to permanently clear all audit logs? This action is irreversible.')) {
-                                const clearedLogs = [
-                                  {
-                                    id: 'log-' + Date.now(),
-                                    admin: 'Muhammed Sinan vk',
-                                    action: 'Cleared all console audit log board history',
-                                    module: 'Audit Logs',
-                                    timestamp: new Date().toLocaleString('en-IN', { hour12: true })
-                                  }
-                                ];
-                                setAuditLogs(clearedLogs);
-                                toast('Audit log board cleared successfully!', 'success');
-                              }
+                              setDeleteConfirmModal({
+                                isOpen: true,
+                                title: 'Clear All Audit Logs',
+                                message: 'Are you completely sure you want to permanently clear all console audit log history? This action is irreversible.',
+                                confirmLabel: 'Clear All Logs',
+                                onConfirm: () => {
+                                  const clearedLogs = [
+                                    {
+                                      id: 'log-' + Date.now(),
+                                      admin: authUser?.displayName || authUser?.email || 'Super Admin',
+                                      action: 'Cleared all console audit log board history',
+                                      module: 'Audit Logs',
+                                      timestamp: new Date().toLocaleString('en-IN', { hour12: true }),
+                                    },
+                                  ];
+                                  setAuditLogs(clearedLogs);
+                                  toast('Audit log board cleared successfully!', 'success');
+                                },
+                              });
                             }}
                             className="px-4 py-1.5 bg-red-700 hover:bg-red-800 text-white font-extrabold rounded-full text-xs uppercase tracking-widest cursor-pointer flex items-center gap-1.5 shadow-sm"
                           >
@@ -3642,7 +4175,7 @@ export const Admin: React.FC = () => {
                             const url = URL.createObjectURL(blob);
                             const a = document.createElement('a');
                             a.href = url;
-                            a.download = `omexo_audit_logs_${Date.now()}.txt`;
+                            a.download = `omexo_${siteSlug}_audit_logs_${Date.now()}.txt`;
                             a.click();
                             toast('Successfully exported raw audit logs text!', 'success');
                           }}
@@ -3663,7 +4196,22 @@ export const Admin: React.FC = () => {
                             </div>
                             <div className="text-[9px] text-[#234F1E]/40 font-bold uppercase">Module: {log.module}</div>
                           </div>
-                          <span className="text-[9px] text-[#234F1E]/50 font-mono shrink-0 text-right">{log.timestamp}</span>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-[9px] text-[#234F1E]/50 font-mono text-right">{log.timestamp}</span>
+                            {adminRole === 'Super Admin' && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setAuditLogs((prev) => prev.filter((item) => item.id !== log.id));
+                                  toast('Removed audit log entry', 'info');
+                                }}
+                                className="p-1 text-[#234F1E]/35 hover:text-red-700 hover:bg-red-500/10 rounded cursor-pointer"
+                                title="Delete log entry"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -3767,7 +4315,7 @@ export const Admin: React.FC = () => {
                         {/* Label Header */}
                         <div className="flex justify-between items-start border-b border-slate-300 pb-1">
                           <div>
-                            <h5 className="font-black text-slate-900 text-[10px] leading-none uppercase tracking-wider font-display">omexo premium</h5>
+                            <h5 className="font-black text-slate-900 text-[10px] leading-none uppercase tracking-wider font-display">{storeSettings?.storeName || activeBrand.name}</h5>
                             <span className="text-[7px] text-slate-500 font-bold uppercase tracking-wide mt-0.5 block">Logistics Dispatch Slip</span>
                           </div>
                           <span className="text-[9px] font-black font-mono bg-slate-100 border border-slate-200 px-1.5 py-0.2 rounded">
@@ -3775,25 +4323,26 @@ export const Admin: React.FC = () => {
                           </span>
                         </div>
 
-                        {/* Recipient Address */}
+                        {/* Recipient & Sender Address */}
                         <div className="grid grid-cols-2 gap-2 border-b border-slate-200 pb-1">
                           <div className="space-y-0.5 border-r border-slate-200 pr-1.5">
-                            <span className="text-[7px] font-bold text-teal-600 uppercase tracking-wider block">Ship To (Recipient):</span>
+                            <span className="text-[7px] font-bold text-teal-600 uppercase tracking-wider block">TO (Recipient):</span>
                             <p className="font-extrabold text-[9px] text-slate-900 leading-none">{order.customerName}</p>
                             <p className="text-[8px] text-slate-700 leading-tight font-semibold line-clamp-2 mt-0.5">{order.address}</p>
                             <div className="text-[8px] pt-0.5 space-y-0.5">
                               <div className="font-extrabold text-slate-900">PIN: {order.pincode}</div>
-                              <div className="font-bold text-slate-800">Mob: {order.customerPhone}</div>
+                              <div className="font-bold text-slate-800">Phone: {order.customerPhone}</div>
                             </div>
                           </div>
                           
                           <div className="space-y-0.5 pl-0.5">
-                            <span className="text-[7px] font-bold text-zinc-400 uppercase tracking-wider block">From (Sender):</span>
-                            <p className="font-bold text-[8.5px] text-slate-900 leading-none">Muhammed Sinan vk</p>
-                            <p className="text-[7.5px] text-slate-500 leading-tight font-medium mt-0.5">ozhukour, palekod, kondotty, Malappuram, Kerala</p>
-                            <div className="text-[7.5px] pt-0.5 space-y-0.5">
-                              <div className="font-bold text-slate-900">PIN: 673642</div>
-                              <div className="font-bold text-slate-800">Mob: 8590181381</div>
+                            <span className="text-[7px] font-bold text-zinc-400 uppercase tracking-wider block">FROM (Sender):</span>
+                            <p className="font-bold text-[8.5px] text-slate-900 leading-tight">{ORDER_LABEL_SENDER.name}</p>
+                            <p className="text-[7.5px] text-slate-600 leading-tight font-medium mt-0.5 line-clamp-3">
+                              {ORDER_LABEL_SENDER.address}
+                            </p>
+                            <div className="text-[7.5px] pt-0.5">
+                              <div className="font-bold text-slate-800">Contact No / Support team: {ORDER_LABEL_SENDER.phone}</div>
                             </div>
                           </div>
                         </div>
@@ -3836,6 +4385,157 @@ export const Admin: React.FC = () => {
           </div>
         </div>,
         document.body
+      )}
+
+      {/* Custom Inventory Stock Adjustment Modal */}
+      {stockModalConfig.isOpen && stockModalConfig.product && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-[9990] flex items-center justify-center p-4">
+          <div className="bg-[#FAF9F4] border border-[#234F1E]/15 rounded-[28px] max-w-sm w-full p-6 shadow-2xl space-y-4 text-left">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-black uppercase tracking-wider text-[#234F1E] font-display">
+                {stockModalConfig.mode === 'add' ? 'Restock Inventory' : 'Reduce Inventory'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setStockModalConfig({ isOpen: false, product: null, mode: 'add', quantity: 10 })}
+                className="p-1 text-[#234F1E]/50 hover:text-[#234F1E]"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-xs font-bold text-[#234F1E]/75">
+              {stockModalConfig.product.title} (Current: {stockModalConfig.product.stockCount} units)
+            </p>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-[#234F1E]/60 block">
+                Quantity to {stockModalConfig.mode === 'add' ? 'Add' : 'Reduce'}
+              </label>
+              <input
+                type="number"
+                min={1}
+                value={stockModalConfig.quantity}
+                onChange={(e) => setStockModalConfig(prev => ({ ...prev, quantity: Math.max(1, Number(e.target.value) || 0) }))}
+                className="w-full px-3 py-2 bg-white border border-[#234F1E]/15 rounded-xl font-bold text-sm text-[#234F1E] focus:outline-none"
+              />
+            </div>
+            <div className="flex gap-2 justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => setStockModalConfig({ isOpen: false, product: null, mode: 'add', quantity: 10 })}
+                className="px-4 py-2 bg-white border border-[#234F1E]/15 text-[#234F1E] rounded-full text-xs font-bold uppercase tracking-wider cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const targetProduct = stockModalConfig.product;
+                  const qty = Number(stockModalConfig.quantity);
+                  if (!targetProduct || isNaN(qty) || qty <= 0) return;
+                  const nextStock =
+                    stockModalConfig.mode === 'add'
+                      ? targetProduct.stockCount + qty
+                      : Math.max(0, targetProduct.stockCount - qty);
+                  await updateProduct({ ...targetProduct, stockCount: nextStock });
+                  toast(
+                    stockModalConfig.mode === 'add'
+                      ? `Added +${qty} units to "${targetProduct.title}"`
+                      : `Reduced -${qty} units from "${targetProduct.title}"`,
+                    'success'
+                  );
+                  addAuditLog(
+                    `${stockModalConfig.mode === 'add' ? 'Added +' : 'Removed -'}${qty} stock count for product "${targetProduct.title}"`,
+                    'Inventory'
+                  );
+                  setStockModalConfig({ isOpen: false, product: null, mode: 'add', quantity: 10 });
+                }}
+                className="px-5 py-2 bg-[#234F1E] hover:bg-[#1C4018] text-white rounded-full text-xs font-extrabold uppercase tracking-wider cursor-pointer"
+              >
+                Confirm Update
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Delete Confirmation Modal */}
+      {deleteConfirmModal.isOpen && (
+        <div className="fixed inset-0 bg-slate-900/55 backdrop-blur-xs z-[9995] flex items-center justify-center p-4">
+          <div className="bg-[#FAF9F4] border border-[#234F1E]/15 rounded-[28px] max-w-sm w-full p-6 shadow-2xl space-y-4 text-left">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-red-700">
+                <Trash2 className="w-4 h-4 shrink-0" />
+                <h3 className="text-sm font-black uppercase tracking-wider font-display">
+                  {deleteConfirmModal.title}
+                </h3>
+              </div>
+              <button
+                type="button"
+                disabled={isConfirmDeleting}
+                onClick={() =>
+                  setDeleteConfirmModal({
+                    isOpen: false,
+                    title: '',
+                    message: '',
+                    confirmLabel: 'Delete Permanently',
+                    onConfirm: null,
+                  })
+                }
+                className="p-1 text-[#234F1E]/50 hover:text-[#234F1E] disabled:opacity-40 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs font-semibold text-[#234F1E]/80 leading-relaxed">
+              {deleteConfirmModal.message}
+            </p>
+
+            <div className="flex gap-2 justify-end pt-2">
+              <button
+                type="button"
+                disabled={isConfirmDeleting}
+                onClick={() =>
+                  setDeleteConfirmModal({
+                    isOpen: false,
+                    title: '',
+                    message: '',
+                    confirmLabel: 'Delete Permanently',
+                    onConfirm: null,
+                  })
+                }
+                className="px-4 py-2 bg-white border border-[#234F1E]/15 text-[#234F1E] rounded-full text-xs font-bold uppercase tracking-wider cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isConfirmDeleting}
+                onClick={async () => {
+                  if (!deleteConfirmModal.onConfirm) return;
+                  setIsConfirmDeleting(true);
+                  try {
+                    await deleteConfirmModal.onConfirm();
+                  } finally {
+                    setIsConfirmDeleting(false);
+                    setDeleteConfirmModal({
+                      isOpen: false,
+                      title: '',
+                      message: '',
+                      confirmLabel: 'Delete Permanently',
+                      onConfirm: null,
+                    });
+                  }
+                }}
+                className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-full text-xs font-extrabold uppercase tracking-wider cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5"
+                id="admin-confirm-delete-modal-btn"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                {isConfirmDeleting ? 'Deleting...' : deleteConfirmModal.confirmLabel}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

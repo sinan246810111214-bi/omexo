@@ -1,7 +1,11 @@
+export type BrandCategorySlug = 'decor' | 'essentials' | 'lifestyle';
+
 export interface Category {
   id: string;
   name: string;
+  slug?: BrandCategorySlug | string;
   subcategories: string[];
+  description?: string;
   image?: string;
 }
 
@@ -42,7 +46,8 @@ export interface Product {
   id: string;
   title: string;
   category: string;
-  brand?: string; // Add brand property
+  categorySlug?: BrandCategorySlug | string;
+  brand?: string;
   description: string;
   salePrice: number;
   regularPrice: number;
@@ -57,6 +62,8 @@ export type OrderStatus = 'Pending' | 'Processing' | 'Shipped' | 'Delivered' | '
 export interface OrderItem {
   productId: string;
   title: string;
+  category?: string;
+  categorySlug?: BrandCategorySlug | string;
   price: number;
   quantity: number;
   image: string;
@@ -64,6 +71,7 @@ export interface OrderItem {
 
 export interface Order {
   id: string;
+  siteSlug?: BrandCategorySlug;
   customerName: string;
   customerEmail: string;
   customerPhone: string;
@@ -84,6 +92,8 @@ export interface CartItem {
 }
 
 export interface OfferBanner {
+  id?: string;
+  siteSlug?: BrandCategorySlug;
   badge: string;
   title: string;
   description: string;
@@ -95,6 +105,7 @@ export interface OfferBanner {
 
 export interface CustomerReview {
   id: string;
+  siteSlug?: BrandCategorySlug;
   customerName: string;
   productName: string;
   productId?: string;
@@ -106,6 +117,7 @@ export interface CustomerReview {
 
 export interface Coupon {
   id: string;
+  siteSlug?: BrandCategorySlug;
   code: string;
   value: number;
   type: 'Percentage' | 'Fixed';
@@ -115,6 +127,7 @@ export interface Coupon {
 
 export interface CMSPage {
   id: string;
+  siteSlug?: BrandCategorySlug;
   title: string;
   content: string;
 }
@@ -122,9 +135,11 @@ export interface CMSPage {
 export interface StoreSettings {
   storeName: string;
   supportNum: string;
+  defaultWhatsapp?: string;
+  essentialsWhatsapp?: string;
   supportMail: string;
   address: string;
+  mapLocationUrl?: string;
   seoTitle: string;
   seoDescription: string;
 }
-

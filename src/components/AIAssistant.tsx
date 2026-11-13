@@ -1,21 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from '../hooks/useStore';
 import { X, Send, User } from 'lucide-react';
+import { getSiteBrandConfig } from '../config/categories';
 
 const UnknownPersonIcon: React.FC<{ className?: string }> = ({ className }) => (
-  <svg 
-    viewBox="0 0 100 100" 
+  <svg
+    viewBox="0 0 100 100"
     className={`${className} select-none`}
-    fill="none" 
+    fill="none"
     xmlns="http://www.w3.org/2000/svg"
   >
-    {/* Clean circular border matching the user's sketch */}
     <circle cx="50" cy="50" r="46" stroke="currentColor" strokeWidth="3" fill="white" />
-    {/* Head Silhouette */}
     <circle cx="50" cy="38" r="14" fill="currentColor" />
-    {/* Neck Connection */}
     <path d="M45 48 H55 V57 H45 Z" fill="currentColor" />
-    {/* Curving shoulders fitting perfectly inside the border bounds */}
     <path d="M22 78 C25 62, 35 56, 50 56 C65 56, 75 62, 78 78 Z" fill="currentColor" />
   </svg>
 );
@@ -28,16 +25,17 @@ interface ChatMessage {
 }
 
 export const AIAssistant: React.FC = () => {
-  const { products, orders } = useStore();
+  const { activeSite, siteProducts, storeSettings } = useStore();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [hasNewMessageBadge, setHasNewMessageBadge] = useState(false);
-  
-  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Automatically scroll to the latest message
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const activeBrand = getSiteBrandConfig(activeSite);
+  const storeName = storeSettings?.storeName || activeBrand.name;
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -46,21 +44,19 @@ export const AIAssistant: React.FC = () => {
     scrollToBottom();
   }, [messages, isLoading]);
 
-  // Show a friendly customer service welcome message in Malayalam and English
+  // Reset welcome message when switching between standalone websites
   useEffect(() => {
-    if (messages.length === 0) {
-      const initialText = "ഹലോ! ഞാൻ നിങ്ങളുടെ ഒമേക്സോ സപ്പോർട്ട് അസിസ്റ്റന്റാണ്. ഉൽപ്പന്നങ്ങളെക്കുറിച്ചോ, ഓർഡറുകളെക്കുറിച്ചോ, ഡെലിവറിയെക്കുറിച്ചോ ഉള്ള സംശയങ്ങൾ മലയാളത്തിലോ ഇംഗ്ലീഷിലോ ചോദിക്കാം. \n\n(Welcome to Omexo Support! Ask me about our premium gadgets, Cash On Delivery, or express shipping policies in Malayalam or English.)";
-      
-      setMessages([
-        {
-          id: 'welcome',
-          role: 'model',
-          text: initialText,
-          timestamp: new Date()
-        }
-      ]);
-    }
-  }, []);
+    const initialText = `ഹലോ! ഞാൻ ${storeName} സപ്പോർട്ട് അസിസ്റ്റന്റാണ്. ഉൽപ്പന്നങ്ങളെക്കുറിച്ചോ, ഓർഡറുകളെക്കുറിച്ചോ, ഡെലിവറിയെക്കുറിച്ചോ ഉള്ള സംശയങ്ങൾ മലയാളത്തിലോ ഇംഗ്ലീഷിലോ ചോദിക്കാം.\n\n(Welcome to ${storeName}! Ask me about our products, Cash On Delivery, or express shipping policies in Malayalam or English.)`;
+
+    setMessages([
+      {
+        id: `welcome-${activeSite}`,
+        role: 'model',
+        text: initialText,
+        timestamp: new Date(),
+      },
+    ]);
+  }, [activeSite, storeName]);
 
   const handleSendMessage = async (textToSend: string) => {
     if (!textToSend.trim() || isLoading) return;
@@ -69,7 +65,7 @@ export const AIAssistant: React.FC = () => {
       id: 'msg-' + Date.now() + '-user',
       role: 'user',
       text: textToSend.trim(),
-      timestamp: new Date()
+      timestamp: new Date(),
     };
 
     setMessages((prev) => [...prev, userMsg]);
@@ -77,37 +73,40 @@ export const AIAssistant: React.FC = () => {
     setIsLoading(true);
 
     try {
-      // Build grounding context using live store details
-      const productsString = products
-        .slice(0, 15) // send up to 15 products to save tokens
-        .map(p => `• ${p.title} (Price: ₹${p.salePrice}, Category: ${p.category}, Brand: ${p.brand}, Rating: ${p.rating}/5) - ${p.shortDescription}`)
+      // Strictly send ONLY the active standalone website's products (zero cross-store bleed)
+      const productsString = siteProducts
+        .slice(0, 15)
+        .map(
+          (p) =>
+            `• ${p.title} (Price: ₹${p.salePrice}, Store: ${storeName}, Brand: ${p.brand || storeName}) - ${p.description.slice(0, 120)}`
+        )
         .join('\n');
 
       const storeContext = {
-        productsCount: products.length,
-        ordersCount: orders.length,
-        productsString: productsString
+        storeName,
+        productsCount: siteProducts.length,
+        ordersCount: 0,
+        productsString,
       };
 
-      // Extract raw messages history in the unified format
       const chatHistory = messages
-        .filter(m => m.id !== 'welcome') // Skip welcome to save token context
-        .map(m => ({
+        .filter((m) => !m.id.startsWith('welcome'))
+        .map((m) => ({
           role: m.role,
-          text: m.text
+          text: m.text,
         }));
 
       const response = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           message: userMsg.text,
-          role: 'customer', // Always run as customer support
-          chatHistory: chatHistory,
-          storeContext: storeContext
-        })
+          role: 'customer',
+          chatHistory,
+          storeContext,
+        }),
       });
 
       if (!response.ok) {
@@ -115,12 +114,12 @@ export const AIAssistant: React.FC = () => {
       }
 
       const data = await response.json();
-      
+
       const assistantMsg: ChatMessage = {
         id: 'msg-' + Date.now() + '-model',
         role: 'model',
         text: data.reply || 'I processed your query, but no response text was returned.',
-        timestamp: new Date()
+        timestamp: new Date(),
       };
 
       setMessages((prev) => [...prev, assistantMsg]);
@@ -129,8 +128,8 @@ export const AIAssistant: React.FC = () => {
       const errorMsg: ChatMessage = {
         id: 'msg-' + Date.now() + '-error',
         role: 'model',
-        text: "I am having trouble connecting to the secure AI endpoint. Please check that GEMINI_API_KEY is configured in your Settings secrets panel.",
-        timestamp: new Date()
+        text: 'I am having trouble connecting right now. Please tap the WhatsApp button to chat with our store team directly.',
+        timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMsg]);
     } finally {
@@ -143,12 +142,11 @@ export const AIAssistant: React.FC = () => {
     handleSendMessage(inputValue);
   };
 
-  // Pre-made quick customer queries
   const customerSuggestions = [
-    "Recommend a charger",
-    "വാറന്റി വിവരങ്ങൾ?",
-    "Is COD payment supported?",
-    "ഹെഡ്‌ഫോൺ കാണിക്കാമോ?"
+    `Show ${activeBrand.shortLabel} products`,
+    'ഡെലിവറി വിവരങ്ങൾ?',
+    'Is COD payment supported?',
+    'WhatsApp വഴി ഓർഡർ ചെയ്യാമോ?',
   ];
 
   const toggleAssistant = () => {
@@ -159,12 +157,11 @@ export const AIAssistant: React.FC = () => {
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 font-sans antialiased" id="omexo-floating-assistant">
-      {/* Floating Action Trigger with friendly support person avatar */}
+    <div className="fixed bottom-22 right-6 z-40 font-sans antialiased" id="omexo-floating-assistant">
       <button
         onClick={toggleAssistant}
         className="w-14 h-14 rounded-full bg-white shadow-2xl flex items-center justify-center cursor-pointer transition-transform duration-150 hover:scale-105 relative border border-zinc-200 overflow-hidden"
-        aria-label="Toggle AI Assistant"
+        aria-label="Toggle Support Assistant"
         id="assistant-toggle-button"
       >
         {isOpen ? (
@@ -177,13 +174,11 @@ export const AIAssistant: React.FC = () => {
         )}
       </button>
 
-      {/* Assistant Window Tray */}
       {isOpen && (
-        <div 
+        <div
           className="absolute bottom-16 right-0 w-[350px] sm:w-[380px] h-[500px] bg-white border border-zinc-200 rounded shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 fade-in duration-200"
           id="assistant-chat-panel"
         >
-          {/* Header */}
           <div className="bg-zinc-50 border-b border-zinc-200 p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full overflow-hidden shrink-0">
@@ -191,14 +186,14 @@ export const AIAssistant: React.FC = () => {
               </div>
               <div>
                 <h4 className="text-xs font-bold uppercase tracking-widest text-zinc-900">
-                  Omexo Support
+                  {storeName} Support
                 </h4>
                 <p className="text-[9px] font-bold uppercase tracking-wider text-green-600 mt-0.5">
                   Customer Assistant • Online
                 </p>
               </div>
             </div>
-            <button 
+            <button
               onClick={() => setIsOpen(false)}
               className="text-zinc-400 hover:text-black p-1 transition-colors rounded"
             >
@@ -206,11 +201,10 @@ export const AIAssistant: React.FC = () => {
             </button>
           </div>
 
-          {/* Messages Board */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-zinc-50/40" id="assistant-messages-container">
             {messages.map((msg) => (
-              <div 
-                key={msg.id} 
+              <div
+                key={msg.id}
                 className={`flex gap-2.5 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 {msg.role !== 'user' && (
@@ -218,19 +212,15 @@ export const AIAssistant: React.FC = () => {
                     <UnknownPersonIcon className="w-full h-full text-zinc-900" />
                   </div>
                 )}
-                <div 
+                <div
                   className={`max-w-[78%] rounded p-3 text-xs leading-relaxed border ${
-                    msg.role === 'user' 
-                      ? 'bg-black border-black text-white font-medium' 
+                    msg.role === 'user'
+                      ? 'bg-black border-black text-white font-medium'
                       : 'bg-white border-zinc-200 text-zinc-800 font-semibold'
                   }`}
                 >
-                  <div className="whitespace-pre-line">
-                    {msg.text}
-                  </div>
-                  <span className={`block text-[8px] mt-1.5 uppercase font-bold tracking-wider text-right ${
-                    msg.role === 'user' ? 'text-zinc-400' : 'text-zinc-400'
-                  }`}>
+                  <div className="whitespace-pre-line">{msg.text}</div>
+                  <span className="block text-[8px] mt-1.5 uppercase font-bold tracking-wider text-right text-zinc-400">
                     {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
@@ -242,7 +232,6 @@ export const AIAssistant: React.FC = () => {
               </div>
             ))}
 
-            {/* Simulated Animated Thinking State */}
             {isLoading && (
               <div className="flex gap-2.5 justify-start">
                 <div className="w-6 h-6 rounded-full overflow-hidden shrink-0">
@@ -261,7 +250,6 @@ export const AIAssistant: React.FC = () => {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Prompt suggestions tray */}
           <div className="border-t border-zinc-100 p-2.5 bg-white flex gap-1.5 overflow-x-auto shrink-0 select-none no-scrollbar">
             {customerSuggestions.map((suggestion) => (
               <button
@@ -275,16 +263,15 @@ export const AIAssistant: React.FC = () => {
             ))}
           </div>
 
-          {/* Form Action Controls */}
-          <form 
-            onSubmit={handleSubmit} 
+          <form
+            onSubmit={handleSubmit}
             className="p-3 border-t border-zinc-200 bg-zinc-50 flex gap-2 items-center"
           >
             <input
               type="text"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              placeholder="Ask Omexo Support..."
+              placeholder={`Ask ${storeName}...`}
               className="flex-1 px-3 py-1.5 border border-zinc-200 rounded bg-white text-xs font-semibold text-zinc-800 placeholder-zinc-400 focus:outline-none focus:border-black"
               id="assistant-chat-input"
             />

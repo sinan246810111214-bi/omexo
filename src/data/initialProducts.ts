@@ -1,104 +1,140 @@
 import { Product } from '../types';
+import { OMEXO_MEDIA } from '../config/media';
 
 export const INITIAL_PRODUCTS: Product[] = [
   {
+    id: 'nordic-ribbed-ambient-lamp',
+    title: 'Nordic Ribbed Touch Ambient Lamp',
+    category: 'Omexo Decor',
+    categorySlug: 'decor',
+    brand: 'Omexo',
+    description:
+      'Cordless brushed-brass and ribbed crystal touch table lamp with 3 warm dimming modes. Elevates bedrooms, study desks, and living room shelves effortlessly.',
+    salePrice: 899,
+    regularPrice: 1499,
+    stockCount: 75,
+    images: [OMEXO_MEDIA.prodAmbientLamp, OMEXO_MEDIA.catDecor],
+    specs: {
+      'Lighting Modes': 'Warm White, Amber Glow, Natural Daylight (3-Step Touch)',
+      'Battery': '1800mAh Rechargeable USB-C (Up to 18 hrs runtime)',
+      'Material': 'Optical Ribbed Acrylic & Brushed Alloy Base',
+      'Dimensions': '21cm Height × 11cm Diameter',
+      'Delivery': 'Free All India Cash on Delivery'
+    },
+    isTrending: true
+  },
+  {
+    id: 'geometric-led-wall-sconce',
+    title: 'Warm Geometric LED Wall Light & Decor Set',
+    category: 'Omexo Decor',
+    categorySlug: 'decor',
+    brand: 'Omexo',
+    description:
+      'Minimalist Nordic diamond LED wall accent paired with matte botanical wall art styling. Creates soft architectural backlighting without harsh glare.',
+    salePrice: 1199,
+    regularPrice: 1899,
+    stockCount: 40,
+    images: [OMEXO_MEDIA.catDecor, OMEXO_MEDIA.prodAmbientLamp],
+    specs: {
+      'Illumination': '3000K Warm Architectural LED Strip',
+      'Installation': 'No-drill 3M heavy-duty mount or concealed hook',
+      'Power': 'USB / Standard Wall Adapter Compatible',
+      'Ideal For': 'Living rooms, bedside walls & reading corners'
+    },
+    isTrending: false
+  },
+  {
+    id: 'precision-3-stage-knife-sharpener',
+    title: 'Omexo 3-Stage Precision Knife Sharpener',
+    category: 'Omexo Essentials',
+    categorySlug: 'essentials',
+    brand: 'Omexo',
+    description:
+      'Restore razor-sharp factory edges in seconds. Engineered with coarse diamond, tungsten steel, and fine ceramic honing slots plus a non-slip ergonomic handle.',
+    salePrice: 349,
+    regularPrice: 699,
+    stockCount: 130,
+    images: [OMEXO_MEDIA.prodKnifeSharpener, OMEXO_MEDIA.catEssentials],
+    specs: {
+      'Sharpening Stages': '1. Diamond Coarse, 2. Tungsten Carbide, 3. Ceramic Fine',
+      'Grip Design': 'Ergonomic Matte Anti-Slip Handle & Silicone Base',
+      'Compatibility': 'Chef knives, cleavers, paring & utility blades',
+      'Cleaning': 'Detachable stainless steel grinding head'
+    },
+    isTrending: true
+  },
+  {
+    id: 'self-squeeze-mini-desktop-mop',
+    title: 'Self-Squeeze Portable Mini Cleaning Mop',
+    category: 'Omexo Essentials',
+    categorySlug: 'essentials',
+    brand: 'Omexo',
+    description:
+      'Compact one-hand self-wringing mini mop for kitchen counters, dining tables, glass mirrors, and bathroom tiles. Folds flat for effortless storage.',
+    salePrice: 299,
+    regularPrice: 549,
+    stockCount: 110,
+    images: [OMEXO_MEDIA.catEssentials, OMEXO_MEDIA.prodKnifeSharpener],
+    specs: {
+      'Mechanism': '180° Fold & Push-Pull Self-Squeeze Ring',
+      'Head Material': 'High-Absorbency Biodegradable PVA Sponge',
+      'Use Surfaces': 'Kitchen slabs, stovetops, car dashboards & glass',
+      'Weight': '195g Ultra-Lightweight Portable Build'
+    },
+    isTrending: true
+  },
+  {
     id: 'mechanical-switch-keychain',
     title: 'Mechanical Switch Fidget Keychain',
-    category: 'Desk Essentials',
+    category: 'Omexo Lifestyle',
+    categorySlug: 'lifestyle',
     brand: 'Omexo',
-    description: 'The ultimate clicky tactile companion for your keys or backpack. Built with a premium clear housing, hot-swappable tactile blue mechanical switch, and a high-profile translucent colored keycap. Perfect for tactile sensory relief and desk fidgeting.',
+    description:
+      'The ultimate clicky tactile stress-free companion for your keys or backpack. Built with a clear frosted housing, hot-swappable blue mechanical switch, and durable clasp.',
     salePrice: 199,
     regularPrice: 250,
     stockCount: 150,
-    images: [
-      'https://images.unsplash.com/photo-1595225476474-87563907a212?auto=format&fit=crop&w=600&q=80',
-      'https://images.unsplash.com/photo-1618384887929-16ec33fab9ef?auto=format&fit=crop&w=600&q=80'
-    ],
+    images: [OMEXO_MEDIA.catLifestyle],
     specs: {
-      'Switch Type': 'Tactical Clicky Blue Switch',
+      'Switch Type': 'Tactile Clicky Blue Mechanical Switch',
       'Hot-swappable': 'Yes (3-pin or 5-pin Cherry MX compatible)',
       'Keycap Profile': 'OEM Profile Translucent Polycarbonate',
-      'Attachment': 'Stainless Steel Premium Split Ring & Lobster Clasp',
-      'Housing': 'Clear Frost Acrylic Box'
+      'Attachment': 'Stainless Steel Split Ring & Carabiner Clasp'
     },
     isTrending: true
   },
   {
     id: 'foldable-phone-stand',
-    title: 'Ultra-Slim Foldable Phone Stand',
-    category: 'Tech Accessories',
+    title: 'Ultra-Slim Foldable Mobile Holder Stand',
+    category: 'Omexo Lifestyle',
+    categorySlug: 'lifestyle',
     brand: 'Omexo',
-    description: 'Engineered for absolute stability and portability. Crafted with premium aerospace-grade aluminum alloy with double multi-angle friction hinges. Folds completely flat to just 4mm thick, fitting seamlessly inside your pocket or card wallet.',
+    description:
+      'Engineered for absolute stability and portability. Crafted with aerospace-grade aluminum alloy with dual multi-angle friction hinges. Folds flat to fit in any pocket.',
     salePrice: 199,
     regularPrice: 330,
     stockCount: 120,
-    images: [
-      'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?auto=format&fit=crop&w=600&q=80',
-      'https://images.unsplash.com/photo-1586495777744-4413f21062fa?auto=format&fit=crop&w=600&q=80'
-    ],
+    images: [OMEXO_MEDIA.catLifestyle],
     specs: {
       'Material': 'Anodized Space-Grade Aluminum Alloy',
-      'Folded Thickness': '4mm Ultra-Thin',
+      'Folded Thickness': '4mm Ultra-Thin Pocket Profile',
       'Angle Adjustment': 'Dual-axis 270-degree rotation',
-      'Friction Hinges': 'High-torque dampening hinges (tested for 20k cycles)',
       'Protection': 'Anti-skid premium silicone cushions'
     },
     isTrending: true
   },
   {
-    id: 'omexo-special-combo',
-    title: 'Omexo Special Combo: Keychain + Stand',
-    category: 'Trending',
-    brand: 'Omexo',
-    description: 'Get both of our most-wanted everyday desk items for a special bundled price. Includes the clicky Mechanical Switch Fidget Keychain and the premium aerospace-grade Foldable Phone Stand. Elevate your everyday workspace layout.',
-    salePrice: 350,
-    regularPrice: 580,
-    stockCount: 85,
-    images: [
-      'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80'
-    ],
-    specs: {
-      'Included Item 1': 'Mechanical Switch Fidget Keychain',
-      'Included Item 2': 'Ultra-Slim Foldable Phone Stand',
-      'Delivery': 'Free All India Air Express Delivery'
-    },
-    isTrending: true
-  },
-  {
-    id: 'omexo-wave-pro',
-    title: 'Omexo Wave Pro Active Smartwatch',
-    category: 'Lifestyle',
-    brand: 'Omexo',
-    description: 'Elevate your daily hustle with the Omexo Wave Pro. Featuring a gorgeous 1.96" AMOLED display, premium titanium-alloy chassis, dual-band GPS tracker, and custom sports tracking with real-time vitals monitoring. Crafted for the modern nomad with a rugged yet minimal aesthetic.',
-    salePrice: 3499,
-    regularPrice: 5999,
-    stockCount: 45,
-    images: [
-      'https://images.unsplash.com/photo-1542496658-e33a6d0d50f6?auto=format&fit=crop&w=600&q=80',
-      'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=80'
-    ],
-    specs: {
-      'Display': '1.96" AMOLED Display (410x502 px, 1000 nits)',
-      'Chassis': 'Titanium Alloy with Ceramic Back Cover',
-      'Battery Life': 'Up to 10 days (typical use)',
-      'Water Resistance': '5ATM & IP68 Dust & Water Proofing',
-      'Connectivity': 'Bluetooth 5.3 LE, Dual-Band GPS'
-    },
-    isTrending: false
-  },
-  {
     id: 'omexo-airbuds-max',
     title: 'Omexo Airbuds Max-T Dual Audio Buds',
-    category: 'Tech Accessories',
+    category: 'Omexo Lifestyle',
+    categorySlug: 'lifestyle',
     brand: 'Omexo',
-    description: 'Immerse yourself in acoustic bliss. Built with dual-driver hybrid technology and ultra-responsive Active Noise Cancellation up to 48dB. Features Mint Green-Teal accent rings for the ultimate premium visual style.',
+    description:
+      'Immerse yourself in acoustic clarity. Built with dual-driver hybrid technology and Active Noise Cancellation up to 48dB with quad-mic crystal clear voice calls.',
     salePrice: 1999,
     regularPrice: 3999,
     stockCount: 60,
-    images: [
-      'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80',
-      'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=600&q=80'
-    ],
+    images: [OMEXO_MEDIA.catLifestyle],
     specs: {
       'Audio Driver': '11mm Dynamic + Balanced Armature Hybrid Drivers',
       'Noise Cancellation': 'Active ANC up to 48dB with Quad-mic ENC',
@@ -107,5 +143,24 @@ export const INITIAL_PRODUCTS: Product[] = [
       'Bluetooth': 'v5.3 with Dual Device Connectivity'
     },
     isTrending: false
+  },
+  {
+    id: 'omexo-special-combo',
+    title: 'Omexo Special Combo: Keychain + Stand',
+    category: 'Omexo Lifestyle',
+    categorySlug: 'lifestyle',
+    brand: 'Omexo',
+    description:
+      'Get both of our most-wanted everyday desk items for a special bundled price. Includes the clicky Mechanical Switch Fidget Keychain and the Foldable Mobile Stand.',
+    salePrice: 350,
+    regularPrice: 580,
+    stockCount: 85,
+    images: [OMEXO_MEDIA.catLifestyle],
+    specs: {
+      'Included Item 1': 'Mechanical Switch Fidget Keychain',
+      'Included Item 2': 'Ultra-Slim Foldable Mobile Holder Stand',
+      'Delivery': 'Free All India Air Express Delivery'
+    },
+    isTrending: true
   }
 ];

@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { Upload, Image as ImageIcon, Loader2, CheckCircle } from 'lucide-react';
+import { Upload, Loader2, CheckCircle } from 'lucide-react';
+import { auth } from '../lib/firebase';
 
 interface ImageUploaderProps {
   onUploadSuccess: (base64Url: string) => void;
@@ -16,14 +17,17 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [uploadStatus, setUploadStatus] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const processFile = (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      alert('Please upload an image file only.');
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif'];
+    if (!allowedTypes.includes(file.type.toLowerCase())) {
+      setErrorMsg('Only PNG, JPG, WEBP, or GIF images are permitted.');
       return;
     }
 
+    setErrorMsg('');
     setLoading(true);
     setSuccess(false);
     setUploadStatus('Reading local file...');
@@ -34,10 +38,12 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
         const base64Data = e.target.result;
         setUploadStatus('Uploading image...');
         try {
+          const idToken = await auth.currentUser?.getIdToken();
           const response = await fetch('/api/upload', {
             method: 'POST',
             headers: {
-              'Content-Type': 'application/json'
+              'Content-Type': 'application/json',
+              ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
             },
             body: JSON.stringify({ image: base64Data })
           });
@@ -55,11 +61,8 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
             throw new Error('No URL returned from server');
           }
         } catch (err: any) {
-          console.warn('Remote upload failed, using local base64 fallback:', err.message || err);
-          // Gracefully fallback to high-fidelity base64 URL directly:
-          onUploadSuccess(base64Data);
-          setSuccess(true);
-          setUploadStatus('Added successfully!');
+          console.warn('Remote upload failed:', err.message || err);
+          setErrorMsg('Admin sign-in required for secure upload.');
         }
         
         setTimeout(() => {
@@ -157,6 +160,12 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
           </div>
         )}
       </div>
+
+      {errorMsg && (
+        <p className="text-[11px] font-bold text-red-600" role="alert">
+          {errorMsg}
+        </p>
+      )}
     </div>
   );
 };
