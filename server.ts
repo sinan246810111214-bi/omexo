@@ -674,8 +674,16 @@ app.get('/sitemap.xml', (req, res) => {
 
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
+    if (!process.env.DISABLE_HMR) {
+      process.env.DISABLE_HMR = 'true';
+    }
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        ws: false,
+        hmr: false,
+        watch: null,
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);
@@ -687,9 +695,17 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
+  const httpServer = app.listen(PORT, '0.0.0.0', () => {
     console.log(`[Omexo Full-Stack Server] running live on port ${PORT}`);
+  });
+
+  httpServer.on('error', (err) => {
+    console.error('[Omexo Full-Stack Server] failed to bind port:', err);
+    process.exit(1);
   });
 }
 
-startServer();
+startServer().catch((err) => {
+  console.error('[Omexo Full-Stack Server] fatal startup error:', err);
+  process.exit(1);
+});
