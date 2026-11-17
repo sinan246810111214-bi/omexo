@@ -80,7 +80,9 @@ interface AdminProps {
 
 export const Admin: React.FC<AdminProps> = ({ siteSlug: rawSiteSlug = 'lifestyle' }) => {
   const siteSlug: BrandCategorySlug =
-    rawSiteSlug === 'decor' || rawSiteSlug === 'essentials' ? rawSiteSlug : 'lifestyle';
+    rawSiteSlug === 'decor' || rawSiteSlug === 'essentials' || rawSiteSlug === 'aesthetic'
+      ? rawSiteSlug
+      : 'lifestyle';
   const { navigate } = useHashRouter();
   const activeBrand = getSiteBrandConfig(siteSlug);
 
@@ -1359,7 +1361,7 @@ export const Admin: React.FC<AdminProps> = ({ siteSlug: rawSiteSlug = 'lifestyle
 
                   <div className="pt-3 border-t border-white/10 space-y-2">
                     <span className="text-[9px] font-extrabold uppercase tracking-widest text-white/50 block">Switch Standalone Website Admin</span>
-                    <div className="grid grid-cols-3 gap-1.5">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                       {BRAND_SITES.map((slug) => {
                         const cfg = getSiteBrandConfig(slug);
                         const active = slug === siteSlug;
@@ -1404,7 +1406,7 @@ export const Admin: React.FC<AdminProps> = ({ siteSlug: rawSiteSlug = 'lifestyle
                 </div>
 
                 {/* Standalone Website Admin Switcher */}
-                <div className="grid grid-cols-3 gap-1 bg-black/20 p-1 rounded-xl" id="admin-site-switcher">
+                <div className="grid grid-cols-2 gap-1 bg-black/20 p-1 rounded-xl" id="admin-site-switcher">
                   {BRAND_SITES.map((slug) => {
                     const cfg = getSiteBrandConfig(slug);
                     const isCurrent = slug === siteSlug;
@@ -1504,7 +1506,7 @@ export const Admin: React.FC<AdminProps> = ({ siteSlug: rawSiteSlug = 'lifestyle
                           <X className="w-5 h-5" />
                         </button>
                       </div>
-                      <div className="grid grid-cols-3 gap-1 bg-black/20 p-1 rounded-xl">
+                      <div className="grid grid-cols-2 gap-1 bg-black/20 p-1 rounded-xl">
                         {BRAND_SITES.map((slug) => {
                           const cfg = getSiteBrandConfig(slug);
                           const isCurrent = slug === siteSlug;

@@ -7,8 +7,8 @@
       "properties": {
         "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
         "title": { "type": "string", "minLength": 1, "maxLength": 200 },
-        "category": { "type": "string", "enum": ["Omexo Decor", "Omexo Essentials", "Omexo Lifestyle"] },
-        "categorySlug": { "type": "string", "enum": ["decor", "essentials", "lifestyle"] },
+        "category": { "type": "string", "enum": ["Omexo Decor", "Omexo Essentials", "Omexo Lifestyle", "Omexo Aesthetic"] },
+        "categorySlug": { "type": "string", "enum": ["decor", "essentials", "lifestyle", "aesthetic"] },
         "brand": { "type": "string", "maxLength": 80 },
         "description": { "type": "string", "maxLength": 5000 },
         "salePrice": { "type": "number" },
@@ -27,7 +27,7 @@
       "properties": {
         "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
         "name": { "type": "string", "minLength": 1, "maxLength": 100 },
-        "slug": { "type": "string", "enum": ["decor", "essentials", "lifestyle"] },
+        "slug": { "type": "string", "enum": ["decor", "essentials", "lifestyle", "aesthetic"] },
         "description": { "type": "string", "maxLength": 1000 },
         "image": { "type": "string", "maxLength": 500000 }
       },
@@ -39,7 +39,7 @@
       "type": "object",
       "properties": {
         "id": { "type": "string", "pattern": "^OMX-[0-9]{6}$", "maxLength": 32 },
-        "siteSlug": { "type": "string", "enum": ["decor", "essentials", "lifestyle"] },
+        "siteSlug": { "type": "string", "enum": ["decor", "essentials", "lifestyle", "aesthetic"] },
         "customerName": { "type": "string", "minLength": 1, "maxLength": 120 },
         "customerPhone": { "type": "string", "minLength": 8, "maxLength": 20 },
         "customerEmail": { "type": "string", "maxLength": 150 },
@@ -61,7 +61,7 @@
       "type": "object",
       "properties": {
         "id": { "type": "string", "pattern": "^OMX-[0-9]{6}$", "maxLength": 32 },
-        "siteSlug": { "type": "string", "enum": ["decor", "essentials", "lifestyle"] },
+        "siteSlug": { "type": "string", "enum": ["decor", "essentials", "lifestyle", "aesthetic"] },
         "orderStatus": { "type": "string", "enum": ["Pending", "Processing", "Shipped", "Delivered", "Cancelled"] },
         "paymentType": { "type": "string", "enum": ["COD", "Online"] },
         "paymentStatus": { "type": "string", "enum": ["Pending", "Paid"] },
@@ -78,7 +78,7 @@
       "type": "object",
       "properties": {
         "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
-        "siteSlug": { "type": "string", "enum": ["decor", "essentials", "lifestyle"] },
+        "siteSlug": { "type": "string", "enum": ["decor", "essentials", "lifestyle", "aesthetic"] },
         "customerName": { "type": "string", "minLength": 1, "maxLength": 100 },
         "productName": { "type": "string", "minLength": 1, "maxLength": 200 },
         "rating": { "type": "integer" },
@@ -94,7 +94,7 @@
       "type": "object",
       "properties": {
         "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
-        "siteSlug": { "type": "string", "enum": ["decor", "essentials", "lifestyle"] },
+        "siteSlug": { "type": "string", "enum": ["decor", "essentials", "lifestyle", "aesthetic"] },
         "code": { "type": "string", "minLength": 1, "maxLength": 40 },
         "value": { "type": "number" },
         "type": { "type": "string", "enum": ["Percentage", "Fixed"] },
@@ -156,7 +156,7 @@
     },
     "/settings/{settingId}": {
       "schema": { "$ref": "#/entities/StoreSettings" },
-      "description": "Per-site store config docs (site_lifestyle, site_decor, site_essentials, hero_*, combo_*, offerBanner_*); telegram* is admin-only."
+      "description": "Per-site store config docs (site_lifestyle, site_decor, site_essentials, site_aesthetic, hero_*, combo_*, offerBanner_*); telegram* is admin-only."
     }
   }
 }

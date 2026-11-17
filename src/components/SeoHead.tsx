@@ -9,7 +9,7 @@ import {
 } from '../config/categories';
 
 const DEFAULT_KEYWORDS =
-  'Omexo India, Omexo Decor, Omexo Essentials, Omexo Lifestyle, home decor online India, kitchen tools, smart gadgets COD';
+  'Omexo India, Omexo Decor, Omexo Essentials, Omexo Lifestyle, Omexo Aesthetic, anti-tarnish jewelry, minimalist room decor, custom gift hampers, couple combos COD';
 
 function setMetaTag(selector: string, attrName: 'name' | 'property', attrValue: string, content: string) {
   let tag = document.querySelector<HTMLMetaElement>(selector);

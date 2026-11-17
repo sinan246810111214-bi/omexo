@@ -162,5 +162,86 @@ export const INITIAL_PRODUCTS: Product[] = [
       'Delivery': 'Free All India Air Express Delivery'
     },
     isTrending: true
+  },
+  {
+    id: 'antitarnish-18k-layered-chain-bracelet-set',
+    title: '18K Gold-Plated Anti-Tarnish Herringbone Chain & Bracelet Set',
+    category: 'Omexo Aesthetic',
+    categorySlug: 'aesthetic',
+    brand: 'Omexo Aesthetic',
+    description:
+      'Sweat-proof, waterproof 316L stainless steel layered herringbone chain necklace, delicate curb bracelet, and sculpted minimalist band rings plated in 18K PVD gold for daily tarnish-free wear.',
+    salePrice: 499,
+    regularPrice: 999,
+    stockCount: 95,
+    images: [OMEXO_MEDIA.prodAntiTarnishJewelry, OMEXO_MEDIA.catAesthetic],
+    specs: {
+      'Subcategory': 'Anti-Tarnish Jewelry',
+      'Material': '316L Surgical Stainless Steel with 18K PVD Gold',
+      'Durability': '100% Waterproof, Sweat-Proof & Hypoallergenic',
+      'Includes': 'Layered Chain Necklace, Matching Bracelet & 2 Band Rings',
+      'Delivery': 'Free All India Cash on Delivery'
+    },
+    isTrending: true
+  },
+  {
+    id: 'minimalist-band-rings-stack-pack',
+    title: 'Sculpted Anti-Tarnish Minimalist Band Rings Pack (Set of 3)',
+    category: 'Omexo Aesthetic',
+    categorySlug: 'aesthetic',
+    brand: 'Omexo Aesthetic',
+    description:
+      'Stackable minimalist band rings in waterproof 18K PVD gold and rhodium finishes. Skin-safe, fade-resistant daily rings designed to complement casual and festive looks.',
+    salePrice: 349,
+    regularPrice: 699,
+    stockCount: 110,
+    images: [OMEXO_MEDIA.prodAntiTarnishJewelry, OMEXO_MEDIA.catAesthetic],
+    specs: {
+      'Subcategory': 'Anti-Tarnish Jewelry',
+      'Finish': 'Waterproof Anti-Tarnish Dual-Tone Gold & Silver',
+      'Sizing': 'Comfort-Fit Open Adjustable Stack (Fits US 6–9)',
+      'Care': 'Shower & Perfume Safe · Velvet Pouch Included'
+    },
+    isTrending: false
+  },
+  {
+    id: 'minimalist-room-desk-decor-kit',
+    title: 'Nordic Minimalist Room & Desk Aesthetic Decor Set',
+    category: 'Omexo Aesthetic',
+    categorySlug: 'aesthetic',
+    brand: 'Omexo Aesthetic',
+    description:
+      'Curated study desk and bedroom corner upgrade: matte cream ceramic arch vase, natural travertine catchall tray, minimalist desktop organizer, and warm amber tea-light holder.',
+    salePrice: 799,
+    regularPrice: 1399,
+    stockCount: 65,
+    images: [OMEXO_MEDIA.prodMinimalistDeskDecor, OMEXO_MEDIA.catAesthetic],
+    specs: {
+      'Subcategory': 'Minimalist Room & Desk Decor',
+      'Pieces Included': 'Ceramic Arch Vase, Dried Botanicals, Organizer & Tray',
+      'Material': 'Matte Stoneware Ceramic & Travertine Composite',
+      'Ideal For': 'Work-from-home desks, bookshelves & bedside corners'
+    },
+    isTrending: true
+  },
+  {
+    id: 'custom-gift-hamper-couple-combo',
+    title: 'Curated Custom Gift Hamper & Couple Combo Box',
+    category: 'Omexo Aesthetic',
+    categorySlug: 'aesthetic',
+    brand: 'Omexo Aesthetic',
+    description:
+      'Bespoke linen keepsake gift box tied with sage-olive ribbon—includes matching minimalist magnetic couple bracelets, an anti-tarnish pendant chain, scented soy jar candle, and custom message card.',
+    salePrice: 899,
+    regularPrice: 1599,
+    stockCount: 70,
+    images: [OMEXO_MEDIA.prodGiftHamperCombo, OMEXO_MEDIA.catAesthetic],
+    specs: {
+      'Subcategory': 'Custom Gift Hampers & Couple Combos',
+      'Hamper Contents': 'Couple Bracelet Duo, Anti-Tarnish Chain, Soy Candle & Note Card',
+      'Personalization': 'Custom Gift Note Printed Inside (Send via WhatsApp after order)',
+      'Packaging': 'Luxury Rigid Keepsake Gift Box with Satin Ribbon'
+    },
+    isTrending: true
   }
 ];

@@ -112,7 +112,7 @@ export const Home: React.FC = () => {
     .filter(
       (c) =>
         !c.slug &&
-        !['omexo lifestyle', 'omexo decor', 'omexo essentials'].includes(c.name.toLowerCase())
+        !['omexo lifestyle', 'omexo decor', 'omexo essentials', 'omexo aesthetic'].includes(c.name.toLowerCase())
     )
     .map((c) => c.name);
   const subcategoryTabs = Array.from(new Set([...baseSubcategories, ...customCategories]));

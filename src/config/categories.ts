@@ -12,7 +12,7 @@ import {
 } from '../types';
 import { OMEXO_MEDIA } from './media';
 
-export const BRAND_SITES: BrandCategorySlug[] = ['lifestyle', 'decor', 'essentials'];
+export const BRAND_SITES: BrandCategorySlug[] = ['lifestyle', 'decor', 'essentials', 'aesthetic'];
 
 export interface BrandCategoryDefinition {
   id: string;
@@ -374,17 +374,127 @@ export const SITE_BRAND_CONFIGS: Record<BrandCategorySlug, SiteBrandProfile> = {
       },
     ],
   },
+  aesthetic: {
+    slug: 'aesthetic',
+    name: 'Omexo Aesthetic',
+    shortLabel: 'Aesthetic',
+    storePrefix: '/aesthetic',
+    adminPath: '/aesthetic/admin',
+    tagline: 'Anti-tarnish jewelry, minimalist room & desk decor, custom gift hampers & couple combos',
+    description:
+      'Waterproof 18K anti-tarnish chains, bracelets & rings, minimalist room & study desk decor, and curated custom gift hampers & couple combos across India with Cash on Delivery.',
+    subcategories: [
+      'Anti-Tarnish Jewelry',
+      'Minimalist Room & Desk Decor',
+      'Custom Gift Hampers',
+      'Couple Combos',
+    ],
+    whatsappNumber: WHATSAPP_NUMBERS.DEFAULT,
+    instagramHandle: '@omexo_aesthetic',
+    instagramUrl: 'https://www.instagram.com/omexo_aesthetic/',
+    accentBadgeClass: 'bg-rose-100 text-rose-900 border border-rose-200',
+    accentButtonClass: 'bg-pine-green hover:bg-pine-green-hover text-warm-white',
+    defaultStoreSettings: {
+      storeName: 'Omexo Aesthetic',
+      supportNum: '8590181381',
+      defaultWhatsapp: WHATSAPP_NUMBERS.DEFAULT,
+      essentialsWhatsapp: WHATSAPP_NUMBERS.DEFAULT,
+      supportMail: 'omexoofficial@gmail.com',
+      address: 'Muhammed Sinan VK (Omexo), Vennakkattil H, mappattukara, palliyaal thodi,kulukallur po',
+      mapLocationUrl: 'https://maps.google.com/?q=Kulukkallur,+Palakkad,+Kerala',
+      seoTitle: 'Omexo Aesthetic | Anti-Tarnish Jewelry, Minimalist Desk Decor & Gift Hampers',
+      seoDescription:
+        'Shop waterproof anti-tarnish chains, bracelets & rings, minimalist room & desk decor, and bespoke custom gift hampers & couple combos with Cash on Delivery across India.',
+    },
+    defaultHeroConfig: {
+      badge: 'Omexo Aesthetic Boutique',
+      title: 'Timeless Glow.\nCurated Aesthetics.',
+      description:
+        'Anti-tarnish chains, bracelets & rings, minimalist room & desk decor, and bespoke custom gift hampers & couple combos delivered across India with Cash on Delivery.',
+      primaryCtaText: 'SHOP AESTHETIC',
+      secondaryCtaText: 'TRACK ORDER',
+      cardTitle: '18K Anti-Tarnish Layered Chain & Ring Set',
+      cardSubtitle: 'Omexo Aesthetic · Cash on Delivery',
+      cardPrice: 499,
+      cardRegularPrice: 999,
+      cardImage: OMEXO_MEDIA.prodAntiTarnishJewelry,
+    },
+    defaultComboConfig: {
+      badge: '💝 CUSTOM HAMPER & COUPLE SET',
+      title: 'AESTHETIC GIFT COMBO',
+      subheadline: 'Anti-tarnish keepsakes meets minimalist gifting.',
+      description:
+        'Elevate gifting moments with our curated linen gift hamper featuring matching magnetic couple bracelets, a minimalist soy candle, and an anti-tarnish keepsake chain.',
+      price: 899,
+      valuePrice: 1599,
+      ctaText: 'ORDER GIFT COMBO',
+      card1Title: 'Anti-Tarnish Jewelry',
+      card1Image: OMEXO_MEDIA.prodAntiTarnishJewelry,
+      card2Title: 'Custom Gift Hamper',
+      card2Image: OMEXO_MEDIA.prodGiftHamperCombo,
+      isActive: true,
+    },
+    defaultOfferBanner: {
+      siteSlug: 'aesthetic',
+      badge: '✨ OMEXO AESTHETIC STUDIO',
+      title: 'Waterproof Jewelry, Desk Aesthetics & Bespoke Hampers.',
+      description:
+        'Tarnish-free everyday chains, bracelets & rings paired with calm Scandinavian room decor and custom couple gift boxes.',
+      primaryCta: 'Explore Aesthetic Picks',
+      secondaryCta: 'Track Existing Order',
+      imageUrl: OMEXO_MEDIA.catAesthetic,
+      backgroundImageUrl: OMEXO_MEDIA.catAesthetic,
+    },
+    defaultReviews: [
+      {
+        id: 'rev-7',
+        siteSlug: 'aesthetic',
+        customerName: 'Aishwarya Menon',
+        productName: '18K Gold-Plated Anti-Tarnish Herringbone Chain & Bracelet Set',
+        rating: 5,
+        reviewText: 'Wore this daily for weeks—zero fading even in Kerala humidity! Gorgeous packaging too.',
+        date: '04-10-2026',
+        status: 'Approved',
+      },
+      {
+        id: 'rev-8',
+        siteSlug: 'aesthetic',
+        customerName: 'Arjun & Diya',
+        productName: 'Curated Luxury Custom Gift Hamper & Couple Combo',
+        rating: 5,
+        reviewText: 'Ordered the couple combo hamper for our anniversary. Looked straight out of an editorial boutique.',
+        date: '02-10-2026',
+        status: 'Approved',
+      },
+    ],
+    defaultCmsPages: [
+      {
+        id: 'aesthetic_home',
+        siteSlug: 'aesthetic',
+        title: 'Aesthetic Studio Content',
+        content: 'Timeless Glow. Curated Aesthetics. Anti-tarnish chains, bracelets & rings, minimalist desk decor, and custom gift hampers.',
+      },
+      {
+        id: 'aesthetic_about',
+        siteSlug: 'aesthetic',
+        title: 'About Omexo Aesthetic',
+        content: 'Omexo Aesthetic crafts waterproof stainless steel anti-tarnish jewelry, warm minimalist desk decor, and custom couple gift hampers shipped across India with COD.',
+      },
+    ],
+  },
 };
 
 export function getSiteBrandConfig(siteSlug?: string | null): SiteBrandProfile {
   if (siteSlug === 'decor') return SITE_BRAND_CONFIGS.decor;
   if (siteSlug === 'essentials') return SITE_BRAND_CONFIGS.essentials;
+  if (siteSlug === 'aesthetic') return SITE_BRAND_CONFIGS.aesthetic;
   return SITE_BRAND_CONFIGS.lifestyle;
 }
 
 export function getSitePathPrefix(siteSlug?: BrandCategorySlug | null): string {
   if (siteSlug === 'decor') return '/decor';
   if (siteSlug === 'essentials') return '/essentials';
+  if (siteSlug === 'aesthetic') return '/aesthetic';
   return '';
 }
 
@@ -412,6 +522,12 @@ export const INSTAGRAM_ECOSYSTEM = [
     label: 'Gadgets & Audio',
     handle: '@omexo_lifestyle',
     url: 'https://www.instagram.com/omexo_lifestyle/',
+  },
+  {
+    name: 'Omexo Aesthetic',
+    label: 'Jewelry & Gifting',
+    handle: '@omexo_aesthetic',
+    url: 'https://www.instagram.com/omexo_aesthetic/',
   },
 ] as const;
 
@@ -461,6 +577,21 @@ export const OMEXO_CATEGORIES: BrandCategoryDefinition[] = [
     seoDescription: SITE_BRAND_CONFIGS.lifestyle.defaultStoreSettings.seoDescription,
     image: OMEXO_MEDIA.catLifestyle,
   },
+  {
+    id: 'cat-aesthetic',
+    slug: 'aesthetic',
+    name: 'Omexo Aesthetic',
+    shortLabel: 'Aesthetic',
+    tagline: SITE_BRAND_CONFIGS.aesthetic.tagline,
+    description: SITE_BRAND_CONFIGS.aesthetic.description,
+    subcategories: SITE_BRAND_CONFIGS.aesthetic.subcategories,
+    whatsappNumber: WHATSAPP_NUMBERS.DEFAULT,
+    instagramHandle: '@omexo_aesthetic',
+    instagramUrl: 'https://www.instagram.com/omexo_aesthetic/',
+    seoTitle: SITE_BRAND_CONFIGS.aesthetic.defaultStoreSettings.seoTitle,
+    seoDescription: SITE_BRAND_CONFIGS.aesthetic.defaultStoreSettings.seoDescription,
+    image: OMEXO_MEDIA.catAesthetic,
+  },
 ];
 
 export const DEFAULT_BRAND_CATEGORIES: Category[] = OMEXO_CATEGORIES.map((c) => ({
@@ -494,20 +625,39 @@ export function formatWhatsappDisplay(input?: string | null, fallback: string = 
 }
 
 /**
- * Normalizes any category name, legacy category name, or slug into one of the three
- * canonical slugs ('decor' | 'essentials' | 'lifestyle') when applicable, or 'All'.
+ * Normalizes any category name, legacy category name, or slug into one of the four
+ * canonical slugs ('decor' | 'essentials' | 'lifestyle' | 'aesthetic') when applicable, or 'All'.
  */
 export function resolveCategorySlug(input?: string | null): BrandCategorySlug | 'All' | null {
   if (!input) return 'All';
   const normalized = input.trim().toLowerCase();
   if (normalized === 'all' || normalized === 'all products') return 'All';
 
-  // 1. Exact canonical matches always take absolute precedence (prevents Lifestyle items from ever shifting to Decor/Essentials)
+  // 1. Exact canonical matches always take absolute precedence (prevents cross-store drift)
   if (normalized === 'lifestyle' || normalized === 'omexo lifestyle') return 'lifestyle';
   if (normalized === 'decor' || normalized === 'omexo decor') return 'decor';
   if (normalized === 'essentials' || normalized === 'omexo essentials') return 'essentials';
+  if (normalized === 'aesthetic' || normalized === 'omexo aesthetic') return 'aesthetic';
 
-  // 2. Legacy category fallbacks only when no canonical category matched
+  // 2. Aesthetic keyword fallbacks (word-boundary safe so 'keychain' never matches 'chain' and 'pairing' never matches 'ring')
+  if (
+    normalized.includes('aesthetic') ||
+    normalized.includes('tarnish') ||
+    normalized.includes('jewelry') ||
+    normalized.includes('jewellery') ||
+    normalized.includes('bracelet') ||
+    normalized.includes('hamper') ||
+    normalized.includes('couple') ||
+    normalized.includes('necklace') ||
+    normalized.includes('earring') ||
+    normalized.includes('gift') ||
+    /\bchains?\b/i.test(normalized) ||
+    /\brings?\b/i.test(normalized)
+  ) {
+    return 'aesthetic';
+  }
+
+  // 3. Legacy category fallbacks only when no canonical category matched
   if (
     normalized.includes('lifestyle') ||
     normalized.includes('tech') ||
@@ -581,6 +731,14 @@ export function getCategoryBadgeStyle(categoryOrSlug?: string | null): {
       badgeClass: 'bg-emerald-100 text-emerald-900 border border-emerald-200',
     };
   }
+  if (slug === 'aesthetic') {
+    return {
+      slug: 'aesthetic',
+      label: 'Omexo Aesthetic',
+      shortLabel: 'Aesthetic',
+      badgeClass: 'bg-rose-100 text-rose-900 border border-rose-200',
+    };
+  }
   return {
     slug: 'lifestyle',
     label: 'Omexo Lifestyle',
@@ -591,18 +749,18 @@ export function getCategoryBadgeStyle(categoryOrSlug?: string | null): {
 
 /**
  * Checks whether a product belongs to a selected category / standalone site (strict brand isolation:
- * Lifestyle, Decor, and Essentials items never cross into each other).
+ * Lifestyle, Decor, Essentials, and Aesthetic items never cross into each other).
  */
 export function doesProductMatchCategory(product: Product, selectedCategory: string): boolean {
   if (!selectedCategory || selectedCategory === 'All') return true;
   const targetSlug = resolveCategorySlug(selectedCategory);
   const rawSlug = (product.categorySlug || '').trim().toLowerCase();
   const productSlug =
-    rawSlug === 'decor' || rawSlug === 'essentials' || rawSlug === 'lifestyle'
+    rawSlug === 'decor' || rawSlug === 'essentials' || rawSlug === 'lifestyle' || rawSlug === 'aesthetic'
       ? (rawSlug as BrandCategorySlug)
       : resolveCategorySlug(product.category);
 
-  // Strict guard: Lifestyle, Decor, and Essentials never cross-pollinate
+  // Strict guard: Lifestyle, Decor, Essentials, and Aesthetic never cross-pollinate
   if (
     targetSlug &&
     targetSlug !== 'All' &&
@@ -619,7 +777,12 @@ export function doesProductMatchCategory(product: Product, selectedCategory: str
  * Resolves all unique brand slugs associated with an order's line items.
  */
 export function getOrderBrandSlugs(order: Order, products: Product[] = []): BrandCategorySlug[] {
-  if (order.siteSlug === 'decor' || order.siteSlug === 'essentials' || order.siteSlug === 'lifestyle') {
+  if (
+    order.siteSlug === 'decor' ||
+    order.siteSlug === 'essentials' ||
+    order.siteSlug === 'lifestyle' ||
+    order.siteSlug === 'aesthetic'
+  ) {
     return [order.siteSlug];
   }
   const slugs = new Set<BrandCategorySlug>();
@@ -708,6 +871,8 @@ export function buildSupportWhatsAppUrl(
       ? 'Omexo Essentials'
       : slug === 'decor'
       ? 'Omexo Decor'
+      : slug === 'aesthetic'
+      ? 'Omexo Aesthetic'
       : 'Omexo Lifestyle';
 
   const message = `Hi ${catLabel}, I have an inquiry regarding your products and Cash on Delivery ordering.`;

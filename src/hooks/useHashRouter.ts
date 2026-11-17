@@ -31,7 +31,7 @@ function parseNormalizedPath(rawPath: string, queryString = ''): RouteState {
   let siteSlug: BrandCategorySlug = 'lifestyle';
   let subPath = cleaned;
 
-  // Explicit admin shortcuts: /admin/decor, /admin/essentials, /admin/lifestyle
+  // Explicit admin shortcuts: /admin/decor, /admin/essentials, /admin/lifestyle, /admin/aesthetic
   if (cleaned === '/admin/decor') {
     return { route: 'admin', params: {}, siteSlug: 'decor', categorySlug: 'decor' };
   }
@@ -41,6 +41,9 @@ function parseNormalizedPath(rawPath: string, queryString = ''): RouteState {
   if (cleaned === '/admin/lifestyle') {
     return { route: 'admin', params: {}, siteSlug: 'lifestyle', categorySlug: 'lifestyle' };
   }
+  if (cleaned === '/admin/aesthetic') {
+    return { route: 'admin', params: {}, siteSlug: 'aesthetic', categorySlug: 'aesthetic' };
+  }
 
   // Standalone website prefixes
   if (cleaned === '/decor' || cleaned.startsWith('/decor/')) {
@@ -49,6 +52,9 @@ function parseNormalizedPath(rawPath: string, queryString = ''): RouteState {
   } else if (cleaned === '/essentials' || cleaned.startsWith('/essentials/')) {
     siteSlug = 'essentials';
     subPath = cleaned.slice('/essentials'.length) || '/';
+  } else if (cleaned === '/aesthetic' || cleaned.startsWith('/aesthetic/')) {
+    siteSlug = 'aesthetic';
+    subPath = cleaned.slice('/aesthetic'.length) || '/';
   } else if (cleaned === '/lifestyle' || cleaned.startsWith('/lifestyle/')) {
     siteSlug = 'lifestyle';
     subPath = cleaned.slice('/lifestyle'.length) || '/';

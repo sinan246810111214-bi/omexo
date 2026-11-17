@@ -14,7 +14,13 @@
   </url>
   <url>
     <loc>https://omexo.in/essentials</loc>
-    <lastmod>2026-11-13</lastmod>
+    <lastmod>2026-11-17</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://omexo.in/aesthetic</loc>
+    <lastmod>2026-11-17</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
@@ -37,6 +43,12 @@
     <priority>0.7</priority>
   </url>
   <url>
+    <loc>https://omexo.in/aesthetic/track-order</loc>
+    <lastmod>2026-11-17</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://omexo.in/contact-us</loc>
     <lastmod>2026-11-13</lastmod>
     <changefreq>monthly</changefreq>
@@ -51,6 +63,12 @@
   <url>
     <loc>https://omexo.in/essentials/contact-us</loc>
     <lastmod>2026-11-13</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://omexo.in/aesthetic/contact-us</loc>
+    <lastmod>2026-11-17</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
@@ -117,6 +135,30 @@
   <url>
     <loc>https://omexo.in/product/omexo-airbuds-max</loc>
     <lastmod>2026-11-13</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://omexo.in/aesthetic/product/antitarnish-18k-layered-chain-bracelet-set</loc>
+    <lastmod>2026-11-17</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://omexo.in/aesthetic/product/minimalist-band-rings-stack-pack</loc>
+    <lastmod>2026-11-17</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://omexo.in/aesthetic/product/minimalist-room-desk-decor-kit</loc>
+    <lastmod>2026-11-17</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://omexo.in/aesthetic/product/custom-gift-hamper-couple-combo</loc>
+    <lastmod>2026-11-17</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>

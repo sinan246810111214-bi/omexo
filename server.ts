@@ -130,20 +130,38 @@ function timingSafeHexMatch(actualBuf: Buffer, expectedHex: string): boolean {
   }
 }
 
-function verifySecretInput(rawInput: string, envOverride: string | undefined, fallbackHashHex: string): boolean {
+function verifySecretInput(
+  rawInput: string,
+  envOverride: string | undefined,
+  fallbackHashHex: string,
+  allowCaseInsensitiveEnv = false
+): boolean {
   const candidate = rawInput.slice(0, 128);
   const candidateHash = crypto.scryptSync(candidate, ADMIN_HASH_SALT, 64);
+  const candidateLowerHash = crypto.scryptSync(candidate.toLowerCase(), ADMIN_HASH_SALT, 64);
 
+  let envMatched = false;
   const cleanOverride = envOverride?.trim();
   if (cleanOverride && !cleanOverride.startsWith('MY_ADMIN_')) {
     const overrideHash = crypto.scryptSync(cleanOverride, ADMIN_HASH_SALT, 64);
-    if (candidateHash.length !== overrideHash.length) {
-      return false;
+    if (candidateHash.length === overrideHash.length && crypto.timingSafeEqual(candidateHash, overrideHash)) {
+      envMatched = true;
+    } else if (allowCaseInsensitiveEnv) {
+      const overrideLowerHash = crypto.scryptSync(cleanOverride.toLowerCase(), ADMIN_HASH_SALT, 64);
+      if (
+        candidateLowerHash.length === overrideLowerHash.length &&
+        crypto.timingSafeEqual(candidateLowerHash, overrideLowerHash)
+      ) {
+        envMatched = true;
+      }
     }
-    return crypto.timingSafeEqual(candidateHash, overrideHash);
   }
 
-  return timingSafeHexMatch(candidateHash, fallbackHashHex);
+  const fallbackMatched =
+    timingSafeHexMatch(candidateHash, fallbackHashHex) ||
+    (allowCaseInsensitiveEnv && timingSafeHexMatch(candidateLowerHash, fallbackHashHex));
+
+  return envMatched || fallbackMatched;
 }
 
 function verifyAdminCredentials(username: string, password: string): boolean {
@@ -154,8 +172,8 @@ function verifyAdminCredentials(username: string, password: string): boolean {
     crypto.scryptSync('dummy', ADMIN_HASH_SALT, 64);
     return false;
   }
-  const userOk = verifySecretInput(cleanUser, process.env.ADMIN_USERNAME, DEFAULT_ADMIN_USER_HASH);
-  const passOk = verifySecretInput(cleanPass, process.env.ADMIN_PASSWORD, DEFAULT_ADMIN_PASS_HASH);
+  const userOk = verifySecretInput(cleanUser, process.env.ADMIN_USERNAME, DEFAULT_ADMIN_USER_HASH, true);
+  const passOk = verifySecretInput(cleanPass, process.env.ADMIN_PASSWORD, DEFAULT_ADMIN_PASS_HASH, false);
   return userOk && passOk;
 }
 
@@ -520,7 +538,7 @@ app.post('/api/ai/chat', createRateLimiter(30, 60_000), async (req, res) => {
     const systemInstruction =
       effectiveRole === 'admin'
         ? `You are the Omexo Merchant Advisor & Admin Co-pilot. Active Products: ${Number(storeContext?.productsCount) || 0}, Orders: ${Number(storeContext?.ordersCount) || 0}. Provide concise, actionable retail & inventory advice.`
-        : `You are the official Omexo AI Shopping Assistant. You help customers with product recommendations, Cash on Delivery ordering, and shipping across Omexo Lifestyle, Omexo Decor, and Omexo Essentials. Keep every product strictly within its assigned category—never mix Omexo Lifestyle product details into Omexo Decor or Omexo Essentials. Current catalog context:\n${String(storeContext?.productsString || '').slice(0, 4000)}`;
+        : `You are the official Omexo AI Shopping Assistant. You help customers with product recommendations, Cash on Delivery ordering, and shipping across Omexo Lifestyle, Omexo Decor, Omexo Essentials, and Omexo Aesthetic. Keep every product strictly within its assigned category—never mix product details between Omexo Lifestyle, Omexo Decor, Omexo Essentials, and Omexo Aesthetic. Current catalog context:\n${String(storeContext?.productsString || '').slice(0, 4000)}`;
 
     const geminiResponse = await ai.models.generateContent({
       model: 'gemini-3.6-flash',

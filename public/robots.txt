@@ -3,9 +3,11 @@ User-agent: *
 Allow: /
 Allow: /decor
 Allow: /essentials
+Allow: /aesthetic
 Allow: /product/
 Allow: /decor/product/
 Allow: /essentials/product/
+Allow: /aesthetic/product/
 Allow: /track-order
 Allow: /contact-us
 
@@ -15,9 +17,11 @@ Disallow: /admin/
 Disallow: /lifestyle/admin
 Disallow: /decor/admin
 Disallow: /essentials/admin
+Disallow: /aesthetic/admin
 Disallow: /checkout
 Disallow: /decor/checkout
 Disallow: /essentials/checkout
+Disallow: /aesthetic/checkout
 Disallow: /api/
 
 Sitemap: https://omexo.in/sitemap.xml

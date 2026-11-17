@@ -1,4 +1,4 @@
-export type BrandCategorySlug = 'decor' | 'essentials' | 'lifestyle';
+export type BrandCategorySlug = 'decor' | 'essentials' | 'lifestyle' | 'aesthetic';
 
 export interface Category {
   id: string;

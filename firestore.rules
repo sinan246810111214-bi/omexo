@@ -50,7 +50,7 @@ service cloud.firestore {
         && data.id is string && data.id.size() >= 1 && data.id.size() <= 128
         && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
         && data.category is string && data.category.size() >= 1 && data.category.size() <= 80
-        && (!('categorySlug' in data) || (data.categorySlug is string && data.categorySlug in ['decor', 'essentials', 'lifestyle']))
+        && (!('categorySlug' in data) || (data.categorySlug is string && data.categorySlug in ['decor', 'essentials', 'lifestyle', 'aesthetic']))
         && (!('brand' in data) || (data.brand is string && data.brand.size() <= 80))
         && data.description is string && data.description.size() <= 5000
         && data.salePrice is number && data.salePrice >= 0 && data.salePrice <= 1000000
@@ -74,7 +74,7 @@ service cloud.firestore {
           'paymentType', 'paymentStatus', 'orderStatus', 'createdAt', 'consignmentNumber'
         ])
         && data.id == orderId
-        && (!('siteSlug' in data) || (data.siteSlug is string && data.siteSlug in ['decor', 'essentials', 'lifestyle']))
+        && (!('siteSlug' in data) || (data.siteSlug is string && data.siteSlug in ['decor', 'essentials', 'lifestyle', 'aesthetic']))
         && data.customerName is string && data.customerName.size() >= 1 && data.customerName.size() <= 120
         && data.customerPhone is string && data.customerPhone.size() >= 8 && data.customerPhone.size() <= 25
         && data.customerEmail is string && data.customerEmail.size() <= 150
@@ -98,7 +98,7 @@ service cloud.firestore {
           'totalAmount', 'createdAt', 'itemCount', 'consignmentNumber'
         ])
         && data.id == orderId
-        && (!('siteSlug' in data) || (data.siteSlug is string && data.siteSlug in ['decor', 'essentials', 'lifestyle']))
+        && (!('siteSlug' in data) || (data.siteSlug is string && data.siteSlug in ['decor', 'essentials', 'lifestyle', 'aesthetic']))
         && data.orderStatus == 'Pending'
         && data.paymentType in ['COD', 'Online']
         && data.paymentStatus in ['Pending', 'Paid']
@@ -111,7 +111,7 @@ service cloud.firestore {
       return data.keys().hasAll(['id', 'customerName', 'productName', 'rating', 'reviewText', 'date', 'status'])
         && data.keys().hasOnly(['id', 'siteSlug', 'customerName', 'productName', 'rating', 'reviewText', 'date', 'status'])
         && data.id == reviewId
-        && (!('siteSlug' in data) || (data.siteSlug is string && data.siteSlug in ['decor', 'essentials', 'lifestyle']))
+        && (!('siteSlug' in data) || (data.siteSlug is string && data.siteSlug in ['decor', 'essentials', 'lifestyle', 'aesthetic']))
         && data.customerName is string && data.customerName.size() >= 1 && data.customerName.size() <= 100
         && data.productName is string && data.productName.size() >= 1 && data.productName.size() <= 200
         && data.rating is int && data.rating >= 1 && data.rating <= 5
@@ -191,6 +191,12 @@ service cloud.firestore {
       allow create, update, delete: if isValidId(promoId) && isAdmin();
     }
 
+    match /promos_aesthetic/{promoId} {
+      allow get: if isValidId(promoId);
+      allow list: if true;
+      allow create, update, delete: if isValidId(promoId) && isAdmin();
+    }
+
     // 4. Customer Orders (Strict PII Protection: Admin-Only Read/List/Update/Delete)
     match /orders/{orderId} {
       allow get, list: if isAdmin();
@@ -252,6 +258,10 @@ service cloud.firestore {
     }
 
     match /settings/telegram_essentials {
+      allow read, write: if isAdmin();
+    }
+
+    match /settings/telegram_aesthetic {
       allow read, write: if isAdmin();
     }
 

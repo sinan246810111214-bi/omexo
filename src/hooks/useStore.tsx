@@ -157,6 +157,7 @@ const DEFAULT_BRANDS: Brand[] = [
   { id: 'brand-1', name: 'Omexo Decor' },
   { id: 'brand-2', name: 'Omexo Essentials' },
   { id: 'brand-3', name: 'Omexo Lifestyle' },
+  { id: 'brand-4', name: 'Omexo Aesthetic' },
 ];
 
 const DEFAULT_BANNERS: OfferBanner[] = BRAND_SITES.map((slug) => ({
@@ -175,6 +176,8 @@ const DEFAULT_COUPONS: Coupon[] = [
   { id: 'coup-decor-2', siteSlug: 'decor', code: 'OMEXO10', value: 10, type: 'Percentage', minOrder: 300, isActive: true },
   { id: 'coup-essentials-1', siteSlug: 'essentials', code: 'ESSENTIALS10', value: 10, type: 'Percentage', minOrder: 300, isActive: true },
   { id: 'coup-essentials-2', siteSlug: 'essentials', code: 'OMEXO10', value: 10, type: 'Percentage', minOrder: 300, isActive: true },
+  { id: 'coup-aesthetic-1', siteSlug: 'aesthetic', code: 'AESTHETIC10', value: 10, type: 'Percentage', minOrder: 300, isActive: true },
+  { id: 'coup-aesthetic-2', siteSlug: 'aesthetic', code: 'OMEXO10', value: 10, type: 'Percentage', minOrder: 300, isActive: true },
 ];
 
 const DEFAULT_CMS_PAGES: CMSPage[] = BRAND_SITES.flatMap(
@@ -186,6 +189,7 @@ function createDefaultSiteSettingsMap(): SiteRecord<StoreSettings> {
     lifestyle: { ...SITE_BRAND_CONFIGS.lifestyle.defaultStoreSettings },
     decor: { ...SITE_BRAND_CONFIGS.decor.defaultStoreSettings },
     essentials: { ...SITE_BRAND_CONFIGS.essentials.defaultStoreSettings },
+    aesthetic: { ...SITE_BRAND_CONFIGS.aesthetic.defaultStoreSettings },
   };
 }
 
@@ -194,6 +198,7 @@ function createDefaultHeroMap(): SiteRecord<HeroConfig> {
     lifestyle: { ...SITE_BRAND_CONFIGS.lifestyle.defaultHeroConfig },
     decor: { ...SITE_BRAND_CONFIGS.decor.defaultHeroConfig },
     essentials: { ...SITE_BRAND_CONFIGS.essentials.defaultHeroConfig },
+    aesthetic: { ...SITE_BRAND_CONFIGS.aesthetic.defaultHeroConfig },
   };
 }
 
@@ -202,6 +207,7 @@ function createDefaultComboMap(): SiteRecord<ComboConfig> {
     lifestyle: { ...SITE_BRAND_CONFIGS.lifestyle.defaultComboConfig },
     decor: { ...SITE_BRAND_CONFIGS.decor.defaultComboConfig },
     essentials: { ...SITE_BRAND_CONFIGS.essentials.defaultComboConfig },
+    aesthetic: { ...SITE_BRAND_CONFIGS.aesthetic.defaultComboConfig },
   };
 }
 
@@ -210,6 +216,7 @@ function createDefaultOfferBannerMap(): SiteRecord<OfferBanner> {
     lifestyle: { ...SITE_BRAND_CONFIGS.lifestyle.defaultOfferBanner },
     decor: { ...SITE_BRAND_CONFIGS.decor.defaultOfferBanner },
     essentials: { ...SITE_BRAND_CONFIGS.essentials.defaultOfferBanner },
+    aesthetic: { ...SITE_BRAND_CONFIGS.aesthetic.defaultOfferBanner },
   };
 }
 
@@ -218,6 +225,7 @@ function createDefaultTelegramMap(): SiteRecord<TelegramConfig> {
     lifestyle: { botToken: '', chatId: '' },
     decor: { botToken: '', chatId: '' },
     essentials: { botToken: '', chatId: '' },
+    aesthetic: { botToken: '', chatId: '' },
   };
 }
 
@@ -259,10 +267,23 @@ function createDefaultPromosMap(): SiteRecord<PromoOffer[]> {
         isActive: true,
       },
     ],
+    aesthetic: [
+      {
+        id: 'aesthetic-combo-1',
+        siteSlug: 'aesthetic',
+        title: SITE_BRAND_CONFIGS.aesthetic.defaultComboConfig.title,
+        subheadline: SITE_BRAND_CONFIGS.aesthetic.defaultComboConfig.subheadline,
+        price: SITE_BRAND_CONFIGS.aesthetic.defaultComboConfig.price,
+        ctaText: SITE_BRAND_CONFIGS.aesthetic.defaultComboConfig.ctaText,
+        bannerUrl: SITE_BRAND_CONFIGS.aesthetic.defaultComboConfig.card1Image,
+        isActive: true,
+      },
+    ],
   };
 }
 
 const SEED_FLAG_KEY = 'omexo_seed_v1';
+const AESTHETIC_SEED_FLAG_KEY = 'omexo_aesthetic_seed_v1';
 
 function hasSeedMarker(): boolean {
   try {
@@ -275,6 +296,22 @@ function hasSeedMarker(): boolean {
 function setLocalSeedMarker(): void {
   try {
     localStorage.setItem(SEED_FLAG_KEY, '1');
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function hasAestheticSeedMarker(): boolean {
+  try {
+    return localStorage.getItem(AESTHETIC_SEED_FLAG_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function setAestheticLocalSeedMarker(): void {
+  try {
+    localStorage.setItem(AESTHETIC_SEED_FLAG_KEY, '1');
   } catch {
     // ignore storage errors
   }
@@ -350,6 +387,8 @@ function normalizeProductRecord(prod: Product): Product {
     lockedSlug = 'decor';
   } else if (rawSlug === 'essentials' || rawCat === 'omexo essentials' || rawCat === 'essentials') {
     lockedSlug = 'essentials';
+  } else if (rawSlug === 'aesthetic' || rawCat === 'omexo aesthetic' || rawCat === 'aesthetic') {
+    lockedSlug = 'aesthetic';
   } else {
     const resolved = resolveCategorySlug(prod.categorySlug || prod.category);
     lockedSlug = resolved && resolved !== 'All' ? resolved : 'lifestyle';
@@ -415,7 +454,12 @@ function normalizeCategoryList(rawCategories: Category[]): Category[] {
 }
 
 function inferReviewSiteSlug(rev: CustomerReview, allProducts: Product[]): BrandCategorySlug {
-  if (rev.siteSlug === 'decor' || rev.siteSlug === 'essentials' || rev.siteSlug === 'lifestyle') {
+  if (
+    rev.siteSlug === 'decor' ||
+    rev.siteSlug === 'essentials' ||
+    rev.siteSlug === 'lifestyle' ||
+    rev.siteSlug === 'aesthetic'
+  ) {
     return rev.siteSlug;
   }
   const prod = allProducts.find(
@@ -505,6 +549,7 @@ function loadPromosMapFromStorage(): SiteRecord<PromoOffer[]> {
     lifestyle: hasSeedMarker() ? [] : defaults.lifestyle,
     decor: hasSeedMarker() ? [] : defaults.decor,
     essentials: hasSeedMarker() ? [] : defaults.essentials,
+    aesthetic: hasAestheticSeedMarker() ? [] : defaults.aesthetic,
   };
   for (const slug of BRAND_SITES) {
     try {
@@ -574,7 +619,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [orders, setOrders] = useState<Order[]>([]);
 
   const [cartsMap, setCartsMap] = useState<SiteRecord<CartItem[]>>(() => {
-    const map: SiteRecord<CartItem[]> = { lifestyle: [], decor: [], essentials: [] };
+    const map: SiteRecord<CartItem[]> = { lifestyle: [], decor: [], essentials: [], aesthetic: [] };
     for (const slug of BRAND_SITES) {
       try {
         const saved = localStorage.getItem(`omexo_cart_${slug}`);
@@ -789,8 +834,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const markSeedInitialized = useCallback(() => {
     setLocalSeedMarker();
+    setAestheticLocalSeedMarker();
     if (isGoogleAdmin) {
       setDoc(doc(db, 'settings', 'seed_v1'), { initialized: true }, { merge: true }).catch(() => {});
+      setDoc(doc(db, 'settings', 'seed_aesthetic_v1'), { initialized: true }, { merge: true }).catch(() => {});
     }
   }, [isGoogleAdmin]);
 
@@ -814,9 +861,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         coupResult,
         cmsResult,
         seedResult,
+        aestheticSeedResult,
         promoLifeResult,
         promoDecorResult,
         promoEssResult,
+        promoAesthResult,
       ] = await Promise.allSettled([
         getDocFromServer(doc(db, 'test', 'connection')),
         getDocs(collection(db, 'products')),
@@ -836,9 +885,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         ),
         getDocs(collection(db, 'cmsPages')),
         getDoc(doc(db, 'settings', 'seed_v1')),
+        getDoc(doc(db, 'settings', 'seed_aesthetic_v1')),
         getDocs(collection(db, 'promos_lifestyle')),
         getDocs(collection(db, 'promos_decor')),
         getDocs(collection(db, 'promos_essentials')),
+        getDocs(collection(db, 'promos_aesthetic')),
       ]);
 
       if (
@@ -850,6 +901,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
 
       const seedDocExists = seedResult.status === 'fulfilled' && seedResult.value.exists();
+      const aestheticSeedDocExists =
+        aestheticSeedResult.status === 'fulfilled' && aestheticSeedResult.value.exists();
       const anyCollectionHasData =
         (prodResult.status === 'fulfilled' && !prodResult.value.empty) ||
         (catResult.status === 'fulfilled' && !catResult.value.empty) ||
@@ -858,9 +911,22 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         (cmsResult.status === 'fulfilled' && !cmsResult.value.empty) ||
         (promoLifeResult.status === 'fulfilled' && !promoLifeResult.value.empty) ||
         (promoDecorResult.status === 'fulfilled' && !promoDecorResult.value.empty) ||
-        (promoEssResult.status === 'fulfilled' && !promoEssResult.value.empty);
+        (promoEssResult.status === 'fulfilled' && !promoEssResult.value.empty) ||
+        (promoAesthResult.status === 'fulfilled' && !promoAesthResult.value.empty);
 
       const alreadySeeded = seedDocExists || anyCollectionHasData || hasSeedMarker();
+      const aestheticProductsSeed = INITIAL_PRODUCTS.filter((p) => p.categorySlug === 'aesthetic').map(
+        normalizeProductRecord
+      );
+      const hasAnyExistingAestheticProducts =
+        prodResult.status === 'fulfilled' &&
+        prodResult.value.docs.some((d) => (d.data() as Product).categorySlug === 'aesthetic');
+      const hasAnyExistingAestheticPromos =
+        promoAesthResult.status === 'fulfilled' && !promoAesthResult.value.empty;
+      const shouldBootstrapAesthetic =
+        !aestheticSeedDocExists &&
+        !hasAestheticSeedMarker() &&
+        !hasAnyExistingAestheticProducts;
 
       if (alreadySeeded) {
         setLocalSeedMarker();
@@ -870,6 +936,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       } else if (isGoogleAdmin) {
         setLocalSeedMarker();
         setDoc(doc(db, 'settings', 'seed_v1'), { initialized: true }, { merge: true }).catch(() => {});
+      }
+
+      if (hasAnyExistingAestheticProducts || hasAnyExistingAestheticPromos || aestheticSeedDocExists) {
+        setAestheticLocalSeedMarker();
+        if (isGoogleAdmin && !aestheticSeedDocExists) {
+          setDoc(doc(db, 'settings', 'seed_aesthetic_v1'), { initialized: true }, { merge: true }).catch(() => {});
+        }
+      } else if (shouldBootstrapAesthetic && isGoogleAdmin) {
+        setAestheticLocalSeedMarker();
+        setDoc(doc(db, 'settings', 'seed_aesthetic_v1'), { initialized: true }, { merge: true }).catch(() => {});
       }
 
       // 1. PRODUCTS (Respect deletions permanently once seeded)
@@ -886,6 +962,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             loadedCatalog = INITIAL_PRODUCTS.map(normalizeProductRecord);
             setProducts(loadedCatalog);
             safeStorageSet('omexo_products', loadedCatalog);
+          } else if (shouldBootstrapAesthetic) {
+            if (isGoogleAdmin) {
+              Promise.allSettled(
+                aestheticProductsSeed.map((p) => setDoc(doc(db, 'products', p.id), stripUndefined(p)))
+              );
+            }
+            loadedCatalog = aestheticProductsSeed;
+            setProducts(loadedCatalog);
+            safeStorageSet('omexo_products', loadedCatalog);
           } else {
             loadedCatalog = [];
             setProducts([]);
@@ -893,6 +978,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           }
         } else {
           loadedCatalog = prodSnap.docs.map((d) => normalizeProductRecord({ ...(d.data() as Product), id: d.id }));
+          if (shouldBootstrapAesthetic) {
+            const existingIds = new Set(loadedCatalog.map((p) => p.id));
+            const missingAesthetic = aestheticProductsSeed.filter((p) => !existingIds.has(p.id));
+            if (missingAesthetic.length > 0) {
+              if (isGoogleAdmin) {
+                Promise.allSettled(
+                  missingAesthetic.map((p) => setDoc(doc(db, 'products', p.id), stripUndefined(p)))
+                );
+              }
+              loadedCatalog = [...loadedCatalog, ...missingAesthetic];
+            }
+          }
           setProducts(loadedCatalog);
           safeStorageSet('omexo_products', loadedCatalog);
         }
@@ -916,6 +1013,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           }
         } else {
           const rawLoaded = catSnap.docs.map((d) => ({ ...(d.data() as Category), id: d.id }));
+          const aestheticDefaultCat = DEFAULT_CATEGORIES.find((c) => c.slug === 'aesthetic');
+          if (
+            shouldBootstrapAesthetic &&
+            aestheticDefaultCat &&
+            !rawLoaded.some((c) => c.slug === 'aesthetic' || c.id === aestheticDefaultCat.id)
+          ) {
+            if (isGoogleAdmin) {
+              setDoc(doc(db, 'categories', aestheticDefaultCat.id), stripUndefined(aestheticDefaultCat)).catch(() => {});
+            }
+            rawLoaded.push(aestheticDefaultCat);
+          }
           const finalCategories = normalizeCategoryList(rawLoaded);
           setCategories(finalCategories);
           safeStorageSet('omexo_categories', finalCategories);
@@ -940,6 +1048,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           }
         } else {
           const finalBrands = brandSnap.docs.map((d) => ({ ...(d.data() as Brand), id: d.id }));
+          const aestheticBrand = DEFAULT_BRANDS.find((b) => b.name === 'Omexo Aesthetic');
+          if (
+            shouldBootstrapAesthetic &&
+            aestheticBrand &&
+            !finalBrands.some((b) => b.id === aestheticBrand.id || b.name === aestheticBrand.name)
+          ) {
+            if (isGoogleAdmin) {
+              setDoc(doc(db, 'brands', aestheticBrand.id), stripUndefined(aestheticBrand)).catch(() => {});
+            }
+            finalBrands.push(aestheticBrand);
+          }
           setBrands(finalBrands);
           safeStorageSet('omexo_brands', finalBrands);
         }
@@ -967,18 +1086,34 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             safeStorageSet('omexo_banners_v2', []);
           }
         } else {
-          const loadedBanners = bannerSnap.docs.map((d) => {
+          const loadedBanners: OfferBanner[] = bannerSnap.docs.map((d) => {
             const raw = d.data() as OfferBanner;
             const inferredSlug: BrandCategorySlug =
-              raw.siteSlug === 'decor' || raw.siteSlug === 'essentials' || raw.siteSlug === 'lifestyle'
+              raw.siteSlug === 'decor' ||
+              raw.siteSlug === 'essentials' ||
+              raw.siteSlug === 'lifestyle' ||
+              raw.siteSlug === 'aesthetic'
                 ? raw.siteSlug
                 : d.id.startsWith('decor_')
                 ? 'decor'
                 : d.id.startsWith('essentials_')
                 ? 'essentials'
+                : d.id.startsWith('aesthetic_')
+                ? 'aesthetic'
                 : 'lifestyle';
             return { ...raw, id: raw.id || d.id, siteSlug: inferredSlug };
           });
+          const aestheticBanner = DEFAULT_BANNERS.find((b) => b.siteSlug === 'aesthetic');
+          if (
+            shouldBootstrapAesthetic &&
+            aestheticBanner &&
+            !loadedBanners.some((b) => b.siteSlug === 'aesthetic')
+          ) {
+            if (isGoogleAdmin) {
+              setDoc(doc(db, 'banners', aestheticBanner.id || 'banner-aesthetic-default'), stripUndefined(aestheticBanner)).catch(() => {});
+            }
+            loadedBanners.push(aestheticBanner);
+          }
           setAllBanners(loadedBanners);
           safeStorageSet('omexo_banners_v2', loadedBanners);
         }
@@ -1009,10 +1144,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             safeStorageSet('omexo_reviews', []);
           }
         } else {
-          const loadedRevs = revSnap.docs.map((d) => {
+          const loadedRevs: CustomerReview[] = revSnap.docs.map((d) => {
             const raw = { ...(d.data() as CustomerReview), id: d.id };
             return { ...raw, siteSlug: inferReviewSiteSlug(raw, loadedCatalog) };
           });
+          if (shouldBootstrapAesthetic && !loadedRevs.some((r) => r.siteSlug === 'aesthetic')) {
+            const aesRevs = SITE_BRAND_CONFIGS.aesthetic.defaultReviews;
+            if (isGoogleAdmin) {
+              Promise.allSettled(aesRevs.map((r) => setDoc(doc(db, 'reviews', r.id), stripUndefined(r))));
+            }
+            loadedRevs.push(...aesRevs);
+          }
           setAllReviews(loadedRevs);
           safeStorageSet('omexo_reviews', loadedRevs);
         }
@@ -1033,18 +1175,30 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             safeStorageSet('omexo_coupons_v2', []);
           }
         } else {
-          const loadedCoups = coupSnap.docs.map((d) => {
+          const loadedCoups: Coupon[] = coupSnap.docs.map((d) => {
             const raw = { ...(d.data() as Coupon), id: d.id };
             const inferred: BrandCategorySlug =
-              raw.siteSlug === 'decor' || raw.siteSlug === 'essentials' || raw.siteSlug === 'lifestyle'
+              raw.siteSlug === 'decor' ||
+              raw.siteSlug === 'essentials' ||
+              raw.siteSlug === 'lifestyle' ||
+              raw.siteSlug === 'aesthetic'
                 ? raw.siteSlug
                 : raw.code.includes('DECOR')
                 ? 'decor'
                 : raw.code.includes('ESSENTIAL')
                 ? 'essentials'
+                : raw.code.includes('AESTHETIC')
+                ? 'aesthetic'
                 : 'lifestyle';
             return { ...raw, siteSlug: inferred };
           });
+          if (shouldBootstrapAesthetic && !loadedCoups.some((c) => c.siteSlug === 'aesthetic')) {
+            const aesCoups = DEFAULT_COUPONS.filter((c) => c.siteSlug === 'aesthetic');
+            if (isGoogleAdmin) {
+              Promise.allSettled(aesCoups.map((c) => setDoc(doc(db, 'coupons', c.id), stripUndefined(c))));
+            }
+            loadedCoups.push(...aesCoups);
+          }
           setAllCoupons(loadedCoups);
           safeStorageSet('omexo_coupons_v2', loadedCoups);
         }
@@ -1069,18 +1223,30 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             safeStorageSet('omexo_cms_pages_v2', []);
           }
         } else {
-          const loadedCms = cmsSnap.docs.map((d) => {
+          const loadedCms: CMSPage[] = cmsSnap.docs.map((d) => {
             const raw = { ...(d.data() as CMSPage), id: d.id };
             const inferred: BrandCategorySlug =
-              raw.siteSlug === 'decor' || raw.siteSlug === 'essentials' || raw.siteSlug === 'lifestyle'
+              raw.siteSlug === 'decor' ||
+              raw.siteSlug === 'essentials' ||
+              raw.siteSlug === 'lifestyle' ||
+              raw.siteSlug === 'aesthetic'
                 ? raw.siteSlug
                 : raw.id.startsWith('decor_')
                 ? 'decor'
                 : raw.id.startsWith('essentials_')
                 ? 'essentials'
+                : raw.id.startsWith('aesthetic_')
+                ? 'aesthetic'
                 : 'lifestyle';
             return { ...raw, siteSlug: inferred };
           });
+          if (shouldBootstrapAesthetic && !loadedCms.some((p) => p.siteSlug === 'aesthetic')) {
+            const aesPages = SITE_BRAND_CONFIGS.aesthetic.defaultCmsPages;
+            if (isGoogleAdmin) {
+              Promise.allSettled(aesPages.map((page) => setDoc(doc(db, 'cmsPages', page.id), stripUndefined(page))));
+            }
+            loadedCms.push(...aesPages);
+          }
           setAllCmsPages(loadedCms);
           safeStorageSet('omexo_cms_pages_v2', loadedCms);
         }
@@ -1092,14 +1258,22 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         lifestyle: promoLifeResult,
         decor: promoDecorResult,
         essentials: promoEssResult,
+        aesthetic: promoAesthResult,
       };
-      const nextPromosMap: SiteRecord<PromoOffer[]> = { lifestyle: [], decor: [], essentials: [] };
+      const nextPromosMap: SiteRecord<PromoOffer[]> = {
+        lifestyle: [],
+        decor: [],
+        essentials: [],
+        aesthetic: [],
+      };
       for (const slug of BRAND_SITES) {
         const pRes = promoResultsBySlug[slug];
         if (pRes.status === 'fulfilled') {
           const pSnap = pRes.value;
           if (pSnap.empty) {
-            if (!alreadySeeded) {
+            const allowPromoSeed =
+              !alreadySeeded || (slug === 'aesthetic' && shouldBootstrapAesthetic);
+            if (allowPromoSeed) {
               if (isGoogleAdmin) {
                 Promise.allSettled(
                   defaultPromos[slug].map((p) =>
