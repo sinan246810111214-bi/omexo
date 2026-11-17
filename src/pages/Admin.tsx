@@ -3,7 +3,14 @@ import { createPortal } from 'react-dom';
 import { useStore } from '../hooks/useStore';
 import { useToast } from '../components/Toast';
 import { Order, Product, OrderStatus, Category, Brand, OfferBanner, BrandCategorySlug, PromoOffer } from '../types';
-import { auth, googleProvider, signInWithPopup, signOut } from '../lib/firebase';
+import {
+  auth,
+  googleProvider,
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
+  signOut,
+} from '../lib/firebase';
 import { OMEXO_MEDIA } from '../config/media';
 import { escapeHtml, isAuthorizedAdminEmail, sanitizeSafeUrl } from '../lib/security';
 import {
@@ -148,6 +155,7 @@ export const Admin: React.FC<AdminProps> = ({ siteSlug: rawSiteSlug = 'lifestyle
   const [showCredPassword, setShowCredPassword] = useState(false);
   const [isCredSigningIn, setIsCredSigningIn] = useState(false);
   const [credError, setCredError] = useState('');
+  const [googleAuthError, setGoogleAuthError] = useState('');
 
   // Security & Alarm Siren states
   const [isAlarmActive, setIsAlarmActive] = useState(false);
@@ -415,10 +423,40 @@ export const Admin: React.FC<AdminProps> = ({ siteSlug: rawSiteSlug = 'lifestyle
     setAuditLogs(prev => [newLog, ...prev]);
   };
 
+  useEffect(() => {
+    let active = true;
+    getRedirectResult(auth)
+      .then(async (cred) => {
+        if (!active || !cred?.user) return;
+        const email = cred.user.email?.trim().toLowerCase() || '';
+        if (!cred.user.emailVerified || !isAuthorizedAdminEmail(email)) {
+          await signOut(auth);
+          toast('Access Denied. Only omexoofficial@gmail.com is authorized for Google Admin Sign-In.', 'error');
+          setIsAlarmActive(true);
+          startSiren();
+          return;
+        }
+        toast(`Welcome back, ${cred.user.displayName || email}! Command console authorized.`, 'success');
+      })
+      .catch((err: any) => {
+        if (!active || !err) return;
+        if (err?.code === 'auth/unauthorized-domain') {
+          const host = typeof window !== 'undefined' ? window.location.hostname : 'this domain';
+          setGoogleAuthError(
+            `Google Auth is not authorized for "${host}". Add "${host}" in Firebase Console -> Authentication -> Settings -> Authorized domains, or log in below with Username & Password.`
+          );
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   // Auth Submit logic via Firebase Google Sign-In (strictly omexoofficial@gmail.com only)
   const handleGoogleAdminLogin = async () => {
     setIsSigningIn(true);
     setCredError('');
+    setGoogleAuthError('');
     try {
       const cred = await signInWithPopup(auth, googleProvider);
       const email = cred.user.email?.trim().toLowerCase() || '';
@@ -433,9 +471,43 @@ export const Admin: React.FC<AdminProps> = ({ siteSlug: rawSiteSlug = 'lifestyle
       toast(`Welcome back, ${cred.user.displayName || email}! Command console authorized.`, 'success');
       addAuditLog(`Verified Google Auth login for ${email}`, 'Access');
     } catch (err: any) {
-      if (err?.code !== 'auth/popup-closed-by-user') {
-        toast('Google sign-in failed. Please retry.', 'error');
+      const code = err?.code || '';
+      if (code === 'auth/popup-closed-by-user') {
+        return;
       }
+
+      if (code === 'auth/unauthorized-domain') {
+        const host = typeof window !== 'undefined' ? window.location.hostname : 'this domain';
+        const msg = `Google Sign-In is blocked because "${host}" is not listed under Firebase Authorized Domains. Add "${host}" in Firebase Console -> Authentication -> Settings -> Authorized domains, or sign in below using Username & Password.`;
+        setGoogleAuthError(msg);
+        toast(`Add "${host}" to Firebase Authorized Domains or use Username & Password.`, 'error');
+        return;
+      }
+
+      if (
+        code === 'auth/popup-blocked' ||
+        code === 'auth/cancelled-popup-request' ||
+        code === 'auth/operation-not-supported-in-this-environment'
+      ) {
+        const isInIframe = typeof window !== 'undefined' && window.self !== window.top;
+        if (!isInIframe) {
+          try {
+            await signInWithRedirect(auth, googleProvider);
+            return;
+          } catch {
+            // fall through to message below
+          }
+        }
+        const msg =
+          'Google Sign-In popup was blocked by your browser or iframe. Allow popups for this site or sign in below using Username & Password.';
+        setGoogleAuthError(msg);
+        toast(msg, 'error');
+        return;
+      }
+
+      const fallbackMsg = err?.message || 'Google sign-in failed. Please retry or use Username & Password below.';
+      setGoogleAuthError(fallbackMsg);
+      toast(fallbackMsg, 'error');
     } finally {
       setIsSigningIn(false);
     }
@@ -1287,6 +1359,12 @@ export const Admin: React.FC<AdminProps> = ({ siteSlug: rawSiteSlug = 'lifestyle
                     >
                       Sign Out & Switch Google Account
                     </button>
+                  )}
+
+                  {googleAuthError && (
+                    <div role="alert" className="p-3 bg-amber-500/20 border border-amber-300/40 rounded-xl text-[11px] text-amber-100 font-semibold text-left leading-relaxed">
+                      {googleAuthError}
+                    </div>
                   )}
 
                   <div className="flex items-center gap-3 py-1">

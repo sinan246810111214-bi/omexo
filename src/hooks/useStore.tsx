@@ -722,15 +722,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     let cancelled = false;
     const hydrateCredentialSession = async () => {
+      const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const timeoutId = controller ? window.setTimeout(() => controller.abort(), 6000) : null;
       try {
         const storedToken =
           typeof window !== 'undefined' ? window.sessionStorage.getItem(CREDENTIAL_TOKEN_STORAGE_KEY) : null;
         const resp = await fetch('/api/admin/session', {
           method: 'GET',
           credentials: 'include',
+          signal: controller?.signal,
           headers: storedToken ? { Authorization: `Bearer ${storedToken}` } : undefined,
         });
-        if (!resp.ok) {
+        const contentType = resp.headers.get('content-type') || '';
+        if (!resp.ok || !contentType.includes('application/json')) {
           if (!cancelled) setCredentialSession(null);
           return;
         }
@@ -757,6 +761,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       } catch {
         if (!cancelled) setCredentialSession(null);
       } finally {
+        if (timeoutId !== null) window.clearTimeout(timeoutId);
         if (!cancelled) setIsCredentialSessionReady(true);
       }
     };
@@ -778,6 +783,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username, password }),
         });
+        const contentType = resp.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+          return {
+            ok: false,
+            error: 'Authentication server endpoint is unreachable on this deployment. Check /api/admin/login.',
+          };
+        }
         const data = (await resp.json().catch(() => ({}))) as {
           authenticated?: boolean;
           role?: AdminRole;
